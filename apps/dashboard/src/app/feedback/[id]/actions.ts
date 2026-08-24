@@ -1,6 +1,6 @@
 "use server";
 
-import { assertAttended } from "@/lib/attendance/assertAttended";
+import { hasAttended } from "@/server/attendance/queries";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { validateFeedbackInput } from "@/lib/feedback/validateFeedbackInput";
 import { prisma } from "@/lib/prisma";
@@ -17,7 +17,7 @@ export async function submitFeedback(
   const result = validateFeedbackInput(raw);
   if (!result.ok) return { error: result.error };
 
-  if (!(await assertAttended(user.id, result.data.meetingId)))
+  if (!(await hasAttended(user.id, result.data.meetingId)))
     return { error: "You haven't attended this meeting." };
 
   try {

@@ -1,8 +1,9 @@
 import { generateCheckInCode } from "@/lib/attendance/check-in-code";
-import { prisma } from "@/lib/prisma";
 import { CheckInQR } from "./CheckInQR";
 import { requireOfficer } from "@/lib/auth/requireOfficer";
 import { BackLink } from "@/components/BackLink";
+import { findMeetingTitle } from "@/server/meetings/queries";
+import { parseId } from "@/server/validation";
 
 export default async function CheckInDisplayPage({
   params,
@@ -12,15 +13,13 @@ export default async function CheckInDisplayPage({
   await requireOfficer();
   const { meetingId } = await params;
 
-  const parsedMeetingId = parseInt(meetingId);
-  if (isNaN(parsedMeetingId)) {
+  const parsedMeetingId = parseId(meetingId);
+  if (parsedMeetingId === null) {
     return <p className="p-6 text-center">Invalid meeting.</p>;
   }
 
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: parsedMeetingId },
-  });
-  if (!meeting) {
+  const meetingTitle = await findMeetingTitle(parsedMeetingId);
+  if (meetingTitle === null) {
     return <p className="p-6 text-center">Meeting not found.</p>;
   }
 
@@ -31,7 +30,7 @@ export default async function CheckInDisplayPage({
   return (
     <div className="container mx-auto max-w-md p-6 space-y-6">
       <BackLink />
-      <CheckInQR meetingTitle={meeting.title} code={code} path={path} />
+      <CheckInQR meetingTitle={meetingTitle} code={code} path={path} />
     </div>
   );
 }

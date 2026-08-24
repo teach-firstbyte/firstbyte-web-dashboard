@@ -1,191 +1,43 @@
-import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { AccountStatus, MeetingType, TeamMemberStatus } from "@prisma/client";
 import { requireOfficerApi } from "@/lib/auth/requireOfficerApi";
 import { requireUserApi } from "@/lib/auth/requireUserApi";
-import { isOfficer } from "@/lib/auth/roles";
+import { parseJsonBody, toErrorResponse } from "@/server/http";
+import { createMeetingWithRoster } from "@/server/meetings/mutations";
+import { listMeetingsForViewer } from "@/server/meetings/queries";
+import { createMeetingSchema } from "@/server/meetings/schema";
 
 /**
- * Gets all meetings
- * @returns the meetings
+ * Gets the meetings the caller may see.
+ * @returns the meetings, scoped to the caller
  */
 export async function GET(): Promise<NextResponse> {
+  // The auth gate stays at the edge: it is the only thing here that knows what
+  // a 401 is. Who may see which meetings is the service's job.
+  const { user, error } = await requireUserApi();
+  if (error) return error;
+
   try {
-    const { user, error } = await requireUserApi();
-    if (error) return error;
-
-    if (isOfficer(user)) {
-      const meetings = await prisma.meeting.findMany({
-        include: {
-          attendance: {
-            include: {
-              user: true,
-            },
-          },
-          feedback: true,
-        },
-      });
-      return NextResponse.json(meetings, { status: 200 });
-    }
-
-    // APPROVED only: an un-approved join request must not make that team's
-    // meetings visible.
-    const memberships = await prisma.teamMember.findMany({
-      where: { userId: user.id, status: TeamMemberStatus.APPROVED },
-      select: { teamId: true },
-    });
-
-    const teamIds = memberships.map((m) => m.teamId);
-
-    // grace window: keep in-progess meetings visible ˜2 hrs past start
-    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-
-    const meetings = await prisma.meeting.findMany({
-      where: {
-        scheduledAt: { gt: new Date(Date.now() - TWO_HOURS_MS) },
-        OR: [{ teamId: null }, { teamId: { in: teamIds } }],
-      },
-    });
-
+    const meetings = await listMeetingsForViewer(user);
     return NextResponse.json(meetings, { status: 200 });
-  } catch (error) {
-    console.error("GET /api/meetings failed:", error);
-    return NextResponse.json(
-      { error: "Failed to get meetings" },
-      { status: 500 },
-    );
+  } catch (e) {
+    return toErrorResponse(e, "GET /api/meetings", "Failed to get meetings");
   }
 }
 
 /**
- * Creates a new meeting
+ * Creates a new meeting and pre-registers its roster.
  * @param request - The request object
  * @returns The created meeting
  */
 export async function POST(request: Request): Promise<NextResponse> {
+  const { error } = await requireOfficerApi();
+  if (error) return error;
+
   try {
-    const { error } = await requireOfficerApi();
-    if (error) return error;
-
-    // Validate the request body
-    const {
-      title,
-      description,
-      type,
-      teamId,
-      scheduledAt,
-      location,
-      isRequired,
-      maxCapacity,
-    } = await request.json();
-
-    // title, type, and scheduledAt are the required fields on the model
-    if (!title || !type || !scheduledAt) {
-      return NextResponse.json(
-        { error: "title, type, and scheduledAt are required" },
-        { status: 400 },
-      );
-    }
-
-    // Validate type using the Prisma enum
-    const validTypes = Object.values(MeetingType);
-    if (!validTypes.includes(type as MeetingType)) {
-      return NextResponse.json(
-        { error: `Invalid type. Must be one of: ${validTypes.join(", ")}` },
-        { status: 400 },
-      );
-    }
-
-    // scheduledAt must be a valid date
-    const parsedScheduledAt = new Date(scheduledAt);
-    if (isNaN(parsedScheduledAt.getTime())) {
-      return NextResponse.json(
-        { error: "scheduledAt must be a valid date" },
-        { status: 400 },
-      );
-    }
-
-    // teamId and maxCapacity are optional, but must be valid integers if provided
-    let parsedTeamId: number | undefined;
-    if (teamId !== undefined && teamId !== null) {
-      parsedTeamId = parseInt(teamId);
-      if (isNaN(parsedTeamId)) {
-        return NextResponse.json(
-          { error: "teamId must be a valid integer" },
-          { status: 400 },
-        );
-      }
-    }
-
-    let parsedMaxCapacity: number | undefined;
-    if (maxCapacity !== undefined && maxCapacity !== null) {
-      parsedMaxCapacity = parseInt(maxCapacity);
-      if (isNaN(parsedMaxCapacity)) {
-        return NextResponse.json(
-          { error: "maxCapacity must be a valid integer" },
-          { status: 400 },
-        );
-      }
-    }
-
-    // Create the meeting
-    const meeting = await prisma.meeting.create({
-      data: {
-        title,
-        description: description ?? null,
-        type: type as MeetingType,
-        teamId: parsedTeamId ?? null,
-        scheduledAt: parsedScheduledAt,
-        location: location ?? null,
-        isRequired: isRequired ?? false,
-        maxCapacity: parsedMaxCapacity ?? null,
-      },
-    });
-
-    // Determine the expected roster for this meeting.
-    // Team meeting (teamId set) -> that team's members.
-    // General meeting (teamId null) -> all club members.
-    let expectedUserIds: number[];
-
-    if (meeting.teamId != null) {
-      // Approved memberships of approved accounts. A pending request is not a
-      // membership, and a pending account is not a member.
-      const teamMembers = await prisma.teamMember.findMany({
-        where: {
-          teamId: meeting.teamId,
-          status: TeamMemberStatus.APPROVED,
-          user: { status: AccountStatus.APPROVED },
-        },
-        select: { userId: true },
-      });
-      expectedUserIds = teamMembers.map((m) => m.userId);
-    } else {
-      // "All club members" means approved accounts only -- without the filter
-      // this registers everyone still onboarding, waiting on review, or denied.
-      const allUsers = await prisma.user.findMany({
-        where: { status: AccountStatus.APPROVED },
-        select: { id: true },
-      });
-      expectedUserIds = allUsers.map((u) => u.id);
-    }
-
-    if (expectedUserIds.length > 0) {
-      await prisma.attendance.createMany({
-        data: expectedUserIds.map((userId) => ({
-          userId,
-          meetingId: meeting.id,
-          status: "REGISTERED" as const,
-        })),
-        skipDuplicates: true,
-      });
-    }
-
+    const input = await parseJsonBody(request, createMeetingSchema);
+    const meeting = await createMeetingWithRoster(input);
     return NextResponse.json(meeting, { status: 201 });
-  } catch (error) {
-    console.error("POST /api/meetings failed:", error);
-    return NextResponse.json(
-      { error: "Failed to create meeting" },
-      { status: 500 },
-    );
+  } catch (e) {
+    return toErrorResponse(e, "POST /api/meetings", "Failed to create meeting");
   }
 }

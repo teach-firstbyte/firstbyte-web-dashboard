@@ -1,10 +1,10 @@
-import { User } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "./getCurrentUser";
 import { isApproved } from "./accountGate";
+import type { Viewer } from "@/server/viewer";
 
 type UserApiResult =
-  { user: User; error: null } | { user: null; error: NextResponse };
+  { user: Viewer; error: null } | { user: null; error: NextResponse };
 
 export async function requireUserApi(): Promise<UserApiResult> {
   const user = await getCurrentUser();

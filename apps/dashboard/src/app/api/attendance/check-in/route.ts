@@ -1,89 +1,38 @@
-import { verifyCheckInCode } from "@/lib/attendance/check-in-code";
-import { syncUserToDb } from "@/lib/auth/sync-user";
-import { isApproved } from "@/lib/auth/accountGate";
-import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
-import { AttendanceStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { verifyCheckInCode } from "@/lib/attendance/check-in-code";
+import { requireCheckInUser } from "@/lib/auth/requireCheckInUser";
+import { checkInToMeeting } from "@/server/attendance/mutations";
+import { checkInSchema } from "@/server/attendance/schema";
+import { ServiceError } from "@/server/errors";
+import { parseJsonBody, toErrorResponse } from "@/server/http";
 
+/**
+ * Marks the caller present at a meeting, from a scanned QR code.
+ *
+ * The subject is always the caller. There is no userId in the body, and there
+ * must never be one -- that would let anyone mark anyone present.
+ */
 export async function POST(request: Request): Promise<NextResponse> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Not autheticated" }, { status: 401 });
-  }
-
-  const { meetingId, code } = await request.json();
-
-  if (!meetingId || !code) {
-    return NextResponse.json(
-      { error: "meetingId and code are required" },
-      { status: 400 },
-    );
-  }
-
-  const parsedMeetingId = parseInt(meetingId);
-  if (isNaN(parsedMeetingId)) {
-    return NextResponse.json(
-      { error: "meetingId must be a valid integer" },
-      { status: 400 },
-    );
-  }
-
-  if (!verifyCheckInCode(parsedMeetingId, code)) {
-    return NextResponse.json(
-      { error: "Invalid check-in code" },
-      { status: 403 },
-    );
-  }
-
-  await syncUserToDb(user);
-  const dbUser = await prisma.user.findUnique({
-    where: { email: user.email! },
-  });
-  if (!dbUser) {
-    return NextResponse.json(
-      { error: "User record not found" },
-      { status: 404 },
-    );
-  }
-
-  // This route builds its own auth rather than going through requireUserApi, so
-  // it is the one place the account-status gate is not inherited. Without this,
-  // an un-approved account scanning a meeting QR would create an attendance
-  // record.
-  if (!isApproved(dbUser)) {
-    return NextResponse.json(
-      { error: "Account is not approved", status: dbUser.status },
-      { status: 403 },
-    );
-  }
+  const { user, error } = await requireCheckInUser();
+  if (error) return error;
 
   try {
-    const attendance = await prisma.attendance.upsert({
-      where: {
-        userId_meetingId: {
-          userId: dbUser.id,
-          meetingId: parsedMeetingId,
-        },
-      },
-      update: {
-        status: AttendanceStatus.PRESENT,
-        checkedInAt: new Date(),
-      },
-      create: {
-        userId: dbUser.id,
-        meetingId: parsedMeetingId,
-        status: AttendanceStatus.PRESENT,
-        checkedInAt: new Date(),
-      },
-    });
+    const { meetingId, code } = await parseJsonBody(request, checkInSchema);
 
+    // HMAC over the meeting id, so a guessed URL is not a check-in. Checked
+    // here rather than in the service because it is a property of the link the
+    // request arrived on, not of the attendance record.
+    if (!verifyCheckInCode(meetingId, code)) {
+      throw new ServiceError("FORBIDDEN", "Invalid check-in code");
+    }
+
+    const attendance = await checkInToMeeting(user, meetingId);
     return NextResponse.json(attendance, { status: 200 });
-  } catch (error) {
-    console.error("POST /api/attendance/check-in failed:", error);
-    return NextResponse.json({ error: "Failed to check in" }, { status: 500 });
+  } catch (e) {
+    return toErrorResponse(
+      e,
+      "POST /api/attendance/check-in",
+      "Failed to check in",
+    );
   }
 }

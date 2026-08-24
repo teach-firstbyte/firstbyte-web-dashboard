@@ -1,7 +1,8 @@
 import { BackLink } from "@/components/BackLink";
 import { requireOfficer } from "@/lib/auth/requireOfficer";
-import { prisma } from "@/lib/prisma";
 import { FeedbackQR } from "./FeedbackQR";
+import { findMeetingTitle } from "@/server/meetings/queries";
+import { parseId } from "@/server/validation";
 
 export default async function FeedbackDisplayPage({
   params,
@@ -11,15 +12,13 @@ export default async function FeedbackDisplayPage({
   await requireOfficer();
   const { meetingId } = await params;
 
-  const parsedMeetingId = parseInt(meetingId);
-  if (isNaN(parsedMeetingId)) {
+  const parsedMeetingId = parseId(meetingId);
+  if (parsedMeetingId === null) {
     return <p className="p-6 text-center">Invalid meeting.</p>;
   }
 
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: parsedMeetingId },
-  });
-  if (!meeting) {
+  const meetingTitle = await findMeetingTitle(parsedMeetingId);
+  if (meetingTitle === null) {
     return <p className="p-6 text-center">Meeting not found.</p>;
   }
 
@@ -28,7 +27,7 @@ export default async function FeedbackDisplayPage({
   return (
     <div className="container mx-auto max-w-md p-6 space-y-6">
       <BackLink />
-      <FeedbackQR meetingTitle={meeting.title} path={path} />
+      <FeedbackQR meetingTitle={meetingTitle} path={path} />
     </div>
   );
 }

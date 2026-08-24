@@ -78,9 +78,14 @@ export interface Meeting {
   isRequired: boolean;
   maxCapacity: number | null;
   createdAt: Date;
-  team?: {
+  // Nullable, not optional: `include: { team: { select: { name: true } } }`
+  // yields `{ name } | null` for a club-wide meeting, and `| undefined` is not
+  // the same type. Making it optional is what let OfficerDashboard ship a query
+  // with no team include at all, so the Team column rendered "N/A" for every
+  // meeting including team ones.
+  team: {
     name: string;
-  };
+  } | null;
   // The dashboard's Prisma query already selects whole Attendance rows, so the
   // check-in/out timestamps and notes come along for free -- the detail panel's
   // roster reads them from here rather than issuing its own query.

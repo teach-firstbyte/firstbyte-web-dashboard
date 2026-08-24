@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import type { User } from "@prisma/client";
 import { getSession } from "./getSession";
 import { syncUserToDb } from "./sync-user";
 import { isApproved, STATUS_HOME } from "./accountGate";
+import { asViewer, type Viewer } from "@/server/viewer";
 
 /**
  * Signed in, with no status gate. For /onboarding and /pending only -- gating
@@ -13,7 +13,7 @@ import { isApproved, STATUS_HOME } from "./accountGate";
  * returned null here and sent the user to /login, where they still had a valid
  * session, straight back to the same null.
  */
-export async function requireSignedInUser(returnTo?: string): Promise<User> {
+export async function requireSignedInUser(returnTo?: string): Promise<Viewer> {
   const session = await getSession();
 
   if (session.kind === "anonymous") {
@@ -22,9 +22,13 @@ export async function requireSignedInUser(returnTo?: string): Promise<User> {
     );
   }
 
-  return session.kind === "known"
-    ? session.user
-    : await syncUserToDb(session.authUser);
+  // Both branches trace back to an email supabase.auth.getUser() confirmed, in
+  // getSession -- which is what makes asViewer honest here.
+  return asViewer(
+    session.kind === "known"
+      ? session.user
+      : await syncUserToDb(session.authUser),
+  );
 }
 
 /**
@@ -34,7 +38,7 @@ export async function requireSignedInUser(returnTo?: string): Promise<User> {
  * out (the check-in QR flow); everything else can land on "/" and be routed on
  * from there.
  */
-export async function requireApprovedUser(returnTo?: string): Promise<User> {
+export async function requireApprovedUser(returnTo?: string): Promise<Viewer> {
   const user = await requireSignedInUser(returnTo);
 
   if (!isApproved(user)) {

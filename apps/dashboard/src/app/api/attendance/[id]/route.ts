@@ -1,132 +1,56 @@
-import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { AttendanceStatus } from "@prisma/client";
 import { requireOfficerApi } from "@/lib/auth/requireOfficerApi";
+import {
+  deleteAttendance,
+  updateAttendance,
+} from "@/server/attendance/mutations";
+import { getAttendanceById } from "@/server/attendance/queries";
+import { updateAttendanceSchema } from "@/server/attendance/schema";
+import { parseJsonBody, toErrorResponse } from "@/server/http";
+import { requireId } from "@/server/validation";
+
+type RouteContext = { params: Promise<{ id: string }> };
 
 /**
  * Gets a single attendance record by id.
  */
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(request: Request, { params }: RouteContext) {
+  const { error } = await requireOfficerApi();
+  if (error) return error;
+
   try {
-    const { error } = await requireOfficerApi();
-    if (error) return error;
-
     const { id } = await params;
-    const attendanceId = parseInt(id);
-
-    if (isNaN(attendanceId)) {
-      return NextResponse.json(
-        { error: "Invalid attendance ID" },
-        { status: 400 },
-      );
-    }
-
-    const attendance = await prisma.attendance.findUnique({
-      where: { id: attendanceId },
-      include: { user: true, meeting: true },
-    });
-
-    if (!attendance) {
-      return NextResponse.json(
-        { error: "Attendance not found" },
-        { status: 404 },
-      );
-    }
-
+    const attendance = await getAttendanceById(requireId(id, "attendance"));
     return NextResponse.json(attendance, { status: 200 });
-  } catch (error) {
-    console.error("GET /api/attendance/[id] failed:", error);
-    return NextResponse.json(
-      { error: "Failed to get attendance" },
-      { status: 500 },
+  } catch (e) {
+    return toErrorResponse(
+      e,
+      "GET /api/attendance/[id]",
+      "Failed to get attendance",
     );
   }
 }
 
 /**
  * Updates an attendance record's status, check-in/out times, and/or notes.
+ *
+ * Returns the bare row. AttendanceToggle reads `updated.status` off this to
+ * reconcile its optimistic update.
  */
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function PUT(request: Request, { params }: RouteContext) {
+  const { error } = await requireOfficerApi();
+  if (error) return error;
+
   try {
-    const { error } = await requireOfficerApi();
-    if (error) return error;
-
     const { id } = await params;
-    const attendanceId = parseInt(id);
-
-    if (isNaN(attendanceId)) {
-      return NextResponse.json(
-        { error: "Invalid attendance ID" },
-        { status: 400 },
-      );
-    }
-
-    const { status, checkedInAt, checkedOutAt, notes } = await request.json();
-
-    if (
-      status === undefined &&
-      checkedInAt === undefined &&
-      checkedOutAt === undefined &&
-      notes === undefined
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "Provide at least one of: status, checkedInAt, checkedOutAt, notes",
-        },
-        { status: 400 },
-      );
-    }
-
-    // Validate status against the enum when provided
-    if (status !== undefined) {
-      const validStatuses = Object.values(AttendanceStatus);
-      if (!validStatuses.includes(status as AttendanceStatus)) {
-        return NextResponse.json(
-          {
-            error: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
-          },
-          { status: 400 },
-        );
-      }
-    }
-
-    const existing = await prisma.attendance.findUnique({
-      where: { id: attendanceId },
-    });
-    if (!existing) {
-      return NextResponse.json(
-        { error: "Attendance not found" },
-        { status: 404 },
-      );
-    }
-
-    const updated = await prisma.attendance.update({
-      where: { id: attendanceId },
-      data: {
-        ...(status !== undefined ? { status: status as AttendanceStatus } : {}),
-        ...(checkedInAt !== undefined
-          ? { checkedInAt: checkedInAt ? new Date(checkedInAt) : null }
-          : {}),
-        ...(checkedOutAt !== undefined
-          ? { checkedOutAt: checkedOutAt ? new Date(checkedOutAt) : null }
-          : {}),
-        ...(notes !== undefined ? { notes } : {}),
-      },
-    });
-
+    const input = await parseJsonBody(request, updateAttendanceSchema);
+    const updated = await updateAttendance(requireId(id, "attendance"), input);
     return NextResponse.json(updated, { status: 200 });
-  } catch (error) {
-    console.error("PUT /api/attendance/[id] failed:", error);
-    return NextResponse.json(
-      { error: "Failed to update attendance" },
-      { status: 500 },
+  } catch (e) {
+    return toErrorResponse(
+      e,
+      "PUT /api/attendance/[id]",
+      "Failed to update attendance",
     );
   }
 }
@@ -134,45 +58,22 @@ export async function PUT(
 /**
  * Deletes an attendance record by id.
  */
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(request: Request, { params }: RouteContext) {
+  const { error } = await requireOfficerApi();
+  if (error) return error;
+
   try {
-    const { error } = await requireOfficerApi();
-    if (error) return error;
-
     const { id } = await params;
-    const attendanceId = parseInt(id);
-
-    if (isNaN(attendanceId)) {
-      return NextResponse.json(
-        { error: "Invalid attendance ID" },
-        { status: 400 },
-      );
-    }
-
-    const existing = await prisma.attendance.findUnique({
-      where: { id: attendanceId },
-    });
-    if (!existing) {
-      return NextResponse.json(
-        { error: "Attendance not found" },
-        { status: 404 },
-      );
-    }
-
-    await prisma.attendance.delete({ where: { id: attendanceId } });
-
+    const attendance = await deleteAttendance(requireId(id, "attendance"));
     return NextResponse.json(
-      { message: "Attendance deleted successfully", attendance: existing },
+      { message: "Attendance deleted successfully", attendance },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("DELETE /api/attendance/[id] failed:", error);
-    return NextResponse.json(
-      { error: "Failed to delete attendance" },
-      { status: 500 },
+  } catch (e) {
+    return toErrorResponse(
+      e,
+      "DELETE /api/attendance/[id]",
+      "Failed to delete attendance",
     );
   }
 }

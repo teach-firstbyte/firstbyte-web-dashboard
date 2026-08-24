@@ -98,6 +98,10 @@ export async function OfficerDashboard({ user }: { user: PrismaUser }) {
         }),
         prisma.meeting.findMany({
           include: {
+            // Without this the Team column and the detail sheet's Team field
+            // read "N/A" for every meeting, because meeting.team is undefined
+            // rather than absent-because-club-wide.
+            team: { select: { name: true } },
             attendance: {
               include: {
                 user: true,
