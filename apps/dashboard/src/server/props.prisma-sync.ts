@@ -25,11 +25,16 @@ import type {
 } from "./attendance/select";
 import type { MeetingWithRoster } from "./meetings/select";
 import type { VisibleFeedback } from "./feedback/select";
+import type { PendingUserPayload, UserWithTeams } from "./users/select";
+import type { TeamWithMembers } from "./teams/select";
 import type {
   Attendance,
   Feedback,
   MemberAttendanceRow,
   Meeting,
+  PendingUser,
+  Team,
+  User,
 } from "@/types/dashboard";
 
 /**
@@ -49,3 +54,8 @@ export type MemberAttendancePropsInSync = Assert<
   Satisfies<MemberAttendanceRowPayload, MemberAttendanceRow>
 >;
 export type FeedbackPropsInSync = Assert<Satisfies<VisibleFeedback, Feedback>>;
+export type UserPropsInSync = Assert<Satisfies<UserWithTeams, User>>;
+export type PendingUserPropsInSync = Assert<
+  Satisfies<PendingUserPayload, PendingUser>
+>;
+export type TeamPropsInSync = Assert<Satisfies<TeamWithMembers, Team>>;

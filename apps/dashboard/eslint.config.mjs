@@ -33,13 +33,6 @@ const UNMIGRATED_PRISMA_CALLERS = [
   "src/app/onboarding/actions.ts",
   "src/app/pending/page.tsx",
   "src/app/settings/actions.ts",
-  "src/app/api/users/route.ts",
-  "src/app/api/users/\\[id\\]/route.ts",
-  "src/app/api/users/\\[id\\]/status/route.ts",
-  "src/app/api/teams/route.ts",
-  "src/app/api/teams/\\[id\\]/route.ts",
-  "src/app/api/team-members/route.ts",
-  "src/app/api/team-members/\\[id\\]/route.ts",
 ];
 
 const PRISMA_MESSAGE =

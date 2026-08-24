@@ -1,143 +1,65 @@
-import { requireOfficerApi } from "@/lib/auth/requireOfficerApi";
-import { prisma } from "@/lib/prisma";
-import { TeamMemberStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { requireOfficerApi } from "@/lib/auth/requireOfficerApi";
+import { parseJsonBody, toErrorResponse } from "@/server/http";
+import { deleteTeam, updateTeam } from "@/server/teams/mutations";
+import { getTeamWithMembers } from "@/server/teams/queries";
+import { updateTeamSchema } from "@/server/teams/schema";
+import { requireId } from "@/server/validation";
+
+type RouteContext = { params: Promise<{ id: string }> };
 
 /**
- * Gets a single team by id, including its members.
+ * Gets a single team with its approved members.
  */
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(request: Request, { params }: RouteContext) {
+  const { error } = await requireOfficerApi();
+  if (error) return error;
+
   try {
-    const { error } = await requireOfficerApi();
-    if (error) return error;
-
     const { id } = await params;
-    const teamId = parseInt(id);
-
-    if (isNaN(teamId)) {
-      return NextResponse.json({ error: "Invalid team ID" }, { status: 400 });
-    }
-
-    const team = await prisma.team.findUnique({
-      where: { id: teamId },
-      include: {
-        // Approved memberships only -- an un-decided join request is not part
-        // of the team roster.
-        members: {
-          where: { status: TeamMemberStatus.APPROVED },
-          include: { user: true },
-        },
-      },
-    });
-
-    if (!team) {
-      return NextResponse.json({ error: "Team not found" }, { status: 404 });
-    }
-
+    const team = await getTeamWithMembers(requireId(id, "team"));
     return NextResponse.json(team, { status: 200 });
-  } catch (error) {
-    console.error("GET /api/teams/[id] failed:", error);
-    return NextResponse.json({ error: "Failed to get team" }, { status: 500 });
+  } catch (e) {
+    return toErrorResponse(e, "GET /api/teams/[id]", "Failed to get team");
   }
 }
 
 /**
  * Updates a team's name, description, and/or active status.
  */
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function PUT(request: Request, { params }: RouteContext) {
+  const { error } = await requireOfficerApi();
+  if (error) return error;
+
   try {
-    const { error } = await requireOfficerApi();
-    if (error) return error;
-
     const { id } = await params;
-    const teamId = parseInt(id);
-
-    if (isNaN(teamId)) {
-      return NextResponse.json({ error: "Invalid team ID" }, { status: 400 });
-    }
-
-    const { name, description, isActive } = await request.json();
-
-    // Require at least one updatable field
-    if (
-      name === undefined &&
-      description === undefined &&
-      isActive === undefined
-    ) {
-      return NextResponse.json(
-        { error: "Provide at least one of: name, description, isActive" },
-        { status: 400 },
-      );
-    }
-
-    const existingTeam = await prisma.team.findUnique({
-      where: { id: teamId },
-    });
-    if (!existingTeam) {
-      return NextResponse.json({ error: "Team not found" }, { status: 404 });
-    }
-
-    const updatedTeam = await prisma.team.update({
-      where: { id: teamId },
-      data: {
-        ...(name !== undefined ? { name } : {}),
-        ...(description !== undefined ? { description } : {}),
-        ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
-      },
-    });
-
-    return NextResponse.json(updatedTeam, { status: 200 });
-  } catch (error) {
-    console.error("PUT /api/teams/[id] failed:", error);
-    return NextResponse.json(
-      { error: "Failed to update team" },
-      { status: 500 },
-    );
+    const input = await parseJsonBody(request, updateTeamSchema);
+    const updated = await updateTeam(requireId(id, "team"), input);
+    return NextResponse.json(updated, { status: 200 });
+  } catch (e) {
+    return toErrorResponse(e, "PUT /api/teams/[id]", "Failed to update team");
   }
 }
 
 /**
- * Deletes a team by id (its team_member rows cascade).
+ * Deletes a team by id. Its team_member rows cascade.
  */
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(request: Request, { params }: RouteContext) {
+  const { error } = await requireOfficerApi();
+  if (error) return error;
+
   try {
-    const { error } = await requireOfficerApi();
-    if (error) return error;
-
     const { id } = await params;
-    const teamId = parseInt(id);
-
-    if (isNaN(teamId)) {
-      return NextResponse.json({ error: "Invalid team ID" }, { status: 400 });
-    }
-
-    const existingTeam = await prisma.team.findUnique({
-      where: { id: teamId },
-    });
-    if (!existingTeam) {
-      return NextResponse.json({ error: "Team not found" }, { status: 404 });
-    }
-
-    await prisma.team.delete({ where: { id: teamId } });
-
+    const team = await deleteTeam(requireId(id, "team"));
     return NextResponse.json(
-      { message: "Team deleted successfully", team: existingTeam },
+      { message: "Team deleted successfully", team },
       { status: 200 },
     );
-  } catch (error) {
-    console.error("DELETE /api/teams/[id] failed:", error);
-    return NextResponse.json(
-      { error: "Failed to delete team" },
-      { status: 500 },
+  } catch (e) {
+    return toErrorResponse(
+      e,
+      "DELETE /api/teams/[id]",
+      "Failed to delete team",
     );
   }
 }

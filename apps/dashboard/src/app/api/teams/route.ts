@@ -1,66 +1,35 @@
-import { requireOfficerApi } from "@/lib/auth/requireOfficerApi";
-import { prisma } from "@/lib/prisma";
-import { TeamMemberStatus } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { requireOfficerApi } from "@/lib/auth/requireOfficerApi";
+import { parseJsonBody, toErrorResponse } from "@/server/http";
+import { createTeam } from "@/server/teams/mutations";
+import { listTeams } from "@/server/teams/queries";
+import { createTeamSchema } from "@/server/teams/schema";
 
+/**
+ * Gets every team with its approved roster.
+ */
 export async function GET(): Promise<NextResponse> {
-  try {
-    const { error } = await requireOfficerApi();
-    if (error) return error;
+  const { error } = await requireOfficerApi();
+  if (error) return error;
 
-    // A team's roster is its approved memberships. Un-approved join requests
-    // belong to the review queue, not to the team.
-    const teams = await prisma.team.findMany({
-      include: {
-        members: {
-          where: { status: TeamMemberStatus.APPROVED },
-          include: {
-            user: true,
-          },
-        },
-      },
-    });
-    return NextResponse.json(teams, { status: 200 });
-  } catch (error) {
-    console.error("GET /api/teams failed:", error);
-    return NextResponse.json({ error: "Failed to get teams" }, { status: 500 });
+  try {
+    return NextResponse.json(await listTeams(), { status: 200 });
+  } catch (e) {
+    return toErrorResponse(e, "GET /api/teams", "Failed to get teams");
   }
 }
 
 /**
- * Creates a new team
- * @param request - The request object
- * @returns The created team
+ * Creates a new team.
  */
 export async function POST(request: Request): Promise<NextResponse> {
+  const { error } = await requireOfficerApi();
+  if (error) return error;
+
   try {
-    const { error } = await requireOfficerApi();
-    if (error) return error;
-
-    // Validate the request body
-    const { name, description, isActive } = await request.json();
-
-    // name is the only required field on the model
-    if (!name) {
-      return NextResponse.json({ error: "name is required" }, { status: 400 });
-    }
-
-    // Create the team
-    const team = await prisma.team.create({
-      data: {
-        name,
-        description: description ?? null,
-        // isActive defaults to true in the schema; only override when provided
-        ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
-      },
-    });
-
-    return NextResponse.json(team, { status: 201 });
-  } catch (error) {
-    console.error("POST /api/teams failed:", error);
-    return NextResponse.json(
-      { error: "Failed to create team" },
-      { status: 500 },
-    );
+    const input = await parseJsonBody(request, createTeamSchema);
+    return NextResponse.json(await createTeam(input), { status: 201 });
+  } catch (e) {
+    return toErrorResponse(e, "POST /api/teams", "Failed to create team");
   }
 }
