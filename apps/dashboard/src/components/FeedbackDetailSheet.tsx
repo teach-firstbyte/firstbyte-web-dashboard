@@ -29,7 +29,7 @@ export function FeedbackDetailSheet({
         <>
           <DetailSection title="Author">
             {/* Anonymous rows arrive here with author already stripped by
-                redactAnonymous in OfficerDashboard. Branching on isAnonymous
+                listFeedbackForViewer, server-side. Branching on isAnonymous
                 rather than on the (now null) author keeps the panel honest even
                 if the redaction ever changes shape. */}
             {f.isAnonymous ? (

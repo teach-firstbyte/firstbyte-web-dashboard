@@ -1,7 +1,8 @@
 import { BackLink } from "@/components/BackLink";
-import { hasAttended } from "@/server/attendance/queries";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
-import { prisma } from "@/lib/prisma";
+import { hasAttended } from "@/server/attendance/queries";
+import { findMeetingTitle } from "@/server/meetings/queries";
+import { parseId } from "@/server/validation";
 import { notFound } from "next/navigation";
 import { FeedbackForm } from "@/components/FeedbackForm";
 
@@ -11,21 +12,16 @@ export default async function FeedbackPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const meetingId = parseInt(id);
+  const meetingId = parseId(id);
 
-  if (isNaN(meetingId))
+  if (meetingId === null)
     return <p className="p-6 text-center">Invalid meeting.</p>;
 
   const user = await requireApprovedUser(`/feedback/${id}`);
 
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: meetingId },
-  });
+  if ((await findMeetingTitle(meetingId)) === null) notFound();
 
-  if (!meeting) notFound();
-
-  const attended = await hasAttended(user.id, meetingId);
-  if (!attended) {
+  if (!(await hasAttended(user.id, meetingId))) {
     return (
       <p className="p-6 text-center">
         You need to have attended this meeting to leave feedback.
