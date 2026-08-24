@@ -12,8 +12,20 @@ import { ServiceError } from "./errors";
  * .nullish() on the OUTSIDE of the coercion chain, which is what these do.
  */
 
-/** A path or query param that must be a positive integer id. */
-export const idParam = z.coerce.number().int().positive();
+/**
+ * A path, query or body value that must be a positive integer id.
+ *
+ * One message for every way it can fail. Without it a missing field reports
+ * "expected number, received NaN" -- z.coerce runs Number(undefined) first --
+ * which tells a user nothing. formatIssues prefixes the field name, so this
+ * reads as "meetingId: must be a positive whole number".
+ */
+const ID_MESSAGE = "must be a positive whole number";
+
+export const idParam = z.coerce
+  .number({ error: ID_MESSAGE })
+  .int(ID_MESSAGE)
+  .positive(ID_MESSAGE);
 
 /**
  * An id that may be absent or explicitly null, normalized to null either way.

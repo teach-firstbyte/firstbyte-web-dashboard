@@ -18,10 +18,8 @@ import {
   AccountStatus,
   AttendanceStatus,
   TeamMemberStatus,
-  // Aliased: `User` in this file is already the denormalized roster shape from
-  // types/dashboard, which is a different thing from the Prisma row.
-  type User as PrismaUser,
 } from "@prisma/client";
+import type { Viewer } from "@/server/viewer";
 import { OfficerBadge } from "@/components/OfficerBadge";
 import { ApprovalQueue } from "@/components/ApprovalQueue";
 import {
@@ -34,10 +32,10 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
-import { redactAnonymous } from "@/lib/feedback/redactAnonymous";
+import { listFeedbackForViewer } from "@/server/feedback/queries";
 import { SuggestionBoxLink } from "@/components/SuggestionBoxLink";
 
-export async function OfficerDashboard({ user }: { user: PrismaUser }) {
+export async function OfficerDashboard({ user }: { user: Viewer }) {
   const emptyData = {
     users: [] as User[],
     pending: [] as PendingUser[],
@@ -113,12 +111,10 @@ export async function OfficerDashboard({ user }: { user: PrismaUser }) {
           by: ["status"],
           _count: { _all: true },
         }),
-        prisma.feedback.findMany({
-          include: {
-            meeting: true,
-            author: true,
-          },
-        }),
+        // Through the service, so the officer dashboard and the API apply the
+        // same anonymity rule. They used to disagree: this screen blanked every
+        // anonymous row, including the reader's own.
+        listFeedbackForViewer(user),
       ]);
 
     const counts: Record<AttendanceStatus, number> = {
@@ -143,7 +139,7 @@ export async function OfficerDashboard({ user }: { user: PrismaUser }) {
         present: counts.PRESENT,
         absent: counts.ABSENT,
       },
-      feedback: redactAnonymous(feedback),
+      feedback,
     };
   } catch (error) {
     dbUnavailable = true;

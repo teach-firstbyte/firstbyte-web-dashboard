@@ -24,8 +24,8 @@ interface DetailSheetProps<T> {
 /**
  * Shell for the record detail panels: owns the Sheet wiring and renders its body
  * from `record` alone, so a panel can never show data the table didn't hand it.
- * That matters for feedback, where `redactAnonymous` has already stripped the
- * author server-side -- a panel that fetched its own copy would undo that.
+ * That matters for feedback, where listFeedbackForViewer has already stripped
+ * the author server-side -- a panel that fetched its own copy would undo that.
  */
 export function DetailSheet<T>({
   record,

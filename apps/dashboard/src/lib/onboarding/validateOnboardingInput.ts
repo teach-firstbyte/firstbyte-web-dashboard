@@ -17,9 +17,8 @@ const MAX_TEXT = 100;
 
 const GRAD_YEAR_SLACK = 10;
 
-// Takes FormData rather than a plain object (the shape validateFeedbackInput
-// uses) because the team checkboxes are a repeated field and only getAll can
-// read them.
+// Takes FormData rather than a plain object because the team checkboxes are a
+// repeated field and only getAll can read them.
 export function validateOnboardingInput(formData: FormData): ValidateResult {
   const rawTeams = formData.getAll("teams");
   const teamIds: number[] = [];

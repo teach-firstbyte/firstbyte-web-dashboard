@@ -1,11 +1,10 @@
 "use server";
 
-import { hasAttended } from "@/server/attendance/queries";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
-import { validateFeedbackInput } from "@/lib/feedback/validateFeedbackInput";
-import { prisma } from "@/lib/prisma";
-
-type ActionResult = { success?: boolean; error?: string };
+import { type ActionResult, toActionError } from "@/server/errors";
+import { createFeedback } from "@/server/feedback/mutations";
+import { createFeedbackSchema } from "@/server/feedback/schema";
+import { parseOrThrow } from "@/server/http";
 
 export async function submitFeedback(
   prevState: ActionResult,
@@ -13,33 +12,17 @@ export async function submitFeedback(
 ): Promise<ActionResult> {
   const user = await requireApprovedUser();
 
-  const raw = Object.fromEntries(formData);
-  const result = validateFeedbackInput(raw);
-  if (!result.ok) return { error: result.error };
-
-  if (!(await hasAttended(user.id, result.data.meetingId)))
-    return { error: "You haven't attended this meeting." };
-
   try {
-    const existing = await prisma.feedback.findFirst({
-      where: { authorId: user.id, meetingId: result.data.meetingId },
-    });
-    if (existing)
-      return { error: "You've already left feedback for this meeting." };
-
-    await prisma.feedback.create({
-      data: {
-        meetingId: result.data.meetingId,
-        authorId: user.id,
-        rating: result.data.rating,
-        comment: result.data.comment,
-        category: result.data.category,
-        isAnonymous: result.data.isAnonymous,
-      },
-    });
-  } catch {
-    return { error: "Failed to submit feedback" };
+    const input = parseOrThrow(
+      createFeedbackSchema,
+      Object.fromEntries(formData),
+    );
+    await createFeedback(user, input);
+    return { success: true };
+  } catch (e) {
+    // Must catch. Next.js scrubs an uncaught throw crossing the action boundary
+    // to a generic string in production, so "You've already left feedback for
+    // this meeting." would reach the user as "an error occurred".
+    return toActionError(e, "submitFeedback", "Failed to submit feedback");
   }
-
-  return { success: true };
 }
