@@ -7,3 +7,8 @@ prisma/migrations
 # runs format:check before build).
 .next/
 node_modules/
+
+# Supabase writes generated edge-runtime sources here on `supabase start`. Git
+# already ignores the directory, so CI never sees it -- but locally it makes
+# format:check fail on a file nobody wrote.
+supabase/.temp/
