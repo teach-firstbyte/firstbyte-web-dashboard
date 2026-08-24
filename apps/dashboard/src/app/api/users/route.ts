@@ -1,80 +1,35 @@
+import { NextResponse } from "next/server";
 import { requireOfficerApi } from "@/lib/auth/requireOfficerApi";
-import { prisma } from "@/lib/prisma";
-import { TeamMemberStatus } from "@prisma/client";
-import { NextRequest, NextResponse } from "next/server";
+import { parseJsonBody, toErrorResponse } from "@/server/http";
+import { createUser } from "@/server/users/mutations";
+import { listUsers } from "@/server/users/queries";
+import { createUserSchema } from "@/server/users/schema";
 
 /**
- * GET /api/users - Get all users
- * GET /api/users/[id] - Get specific user (handled by [id]/route.ts)
+ * Gets every account, including those still in the review queue.
  */
 export async function GET(): Promise<NextResponse> {
-  try {
-    const { error } = await requireOfficerApi();
-    if (error) return error;
+  const { error } = await requireOfficerApi();
+  if (error) return error;
 
-    // Every user, including those in the review queue -- this is the officer
-    // roster and a denied account must stay reachable to be reversed. Callers
-    // can tell them apart by `status`. Memberships are APPROVED only, so
-    // "teams" means teams they are actually on, not ones they asked about.
-    const users = await prisma.user.findMany({
-      include: {
-        teamMemberships: {
-          where: { status: TeamMemberStatus.APPROVED },
-          include: {
-            team: true,
-          },
-        },
-      },
-    });
-    return NextResponse.json(users, { status: 200 });
-  } catch (error) {
-    console.error("GET /api/users failed:", error);
-    return NextResponse.json({ error: "Failed to get users" }, { status: 500 });
+  try {
+    return NextResponse.json(await listUsers(), { status: 200 });
+  } catch (e) {
+    return toErrorResponse(e, "GET /api/users", "Failed to get users");
   }
 }
 
 /**
- * Creates a new user
- * @param request - The request object
- * @returns The response object
+ * Creates a new user.
  */
-export async function POST(request: NextRequest): Promise<NextResponse> {
+export async function POST(request: Request): Promise<NextResponse> {
+  const { error } = await requireOfficerApi();
+  if (error) return error;
+
   try {
-    const { error } = await requireOfficerApi();
-    if (error) return error;
-
-    // Validate the request body
-    const { email, name } = await request.json();
-
-    // Check if the email and name are provided
-    if (!email || !name) {
-      return NextResponse.json(
-        { error: "Email and name are required" },
-        { status: 400 },
-      );
-    }
-
-    // Check if the user already exists
-    if (await prisma.user.findUnique({ where: { email: email } })) {
-      return NextResponse.json(
-        { error: "User already exists" },
-        { status: 409 },
-      );
-    }
-
-    // Create the user
-    const user = await prisma.user.create({
-      data: { email: email, name: name },
-    });
-
-    // Return the user if successful!
-    return NextResponse.json(user, { status: 201 });
-  } catch (error) {
-    console.error("POST /api/users failed:", error);
-    // Return an error response if failed to create user!
-    return NextResponse.json(
-      { error: "Failed to create user" },
-      { status: 500 },
-    );
+    const input = await parseJsonBody(request, createUserSchema);
+    return NextResponse.json(await createUser(input), { status: 201 });
+  } catch (e) {
+    return toErrorResponse(e, "POST /api/users", "Failed to create user");
   }
 }

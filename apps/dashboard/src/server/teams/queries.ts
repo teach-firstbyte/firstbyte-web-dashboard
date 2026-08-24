@@ -1,5 +1,7 @@
 import { TeamMemberStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { ServiceError } from "@/server/errors";
+import { teamWithMembersArgs, type TeamWithMembers } from "./select";
 
 /**
  * The teams a user actually belongs to.
@@ -17,4 +19,44 @@ export async function listApprovedTeamIds(userId: number): Promise<number[]> {
   });
 
   return memberships.map((m) => m.teamId);
+}
+
+/**
+ * Every team with its approved roster. The officer teams table and the two
+ * client-side team pickers all read this.
+ */
+export function listTeams(): Promise<TeamWithMembers[]> {
+  return prisma.team.findMany({
+    ...teamWithMembersArgs,
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+  });
+}
+
+/** The teams a member may still ask to join. */
+export function listActiveTeams() {
+  return prisma.team.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, description: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+/** One team with its roster. Throws NOT_FOUND. */
+export async function getTeamWithMembers(
+  teamId: number,
+): Promise<TeamWithMembers> {
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    ...teamWithMembersArgs,
+  });
+
+  if (!team) throw new ServiceError("NOT_FOUND", "Team not found");
+  return team;
+}
+
+/** The bare row. Throws NOT_FOUND. */
+export async function getTeamById(teamId: number) {
+  const team = await prisma.team.findUnique({ where: { id: teamId } });
+  if (!team) throw new ServiceError("NOT_FOUND", "Team not found");
+  return team;
 }
