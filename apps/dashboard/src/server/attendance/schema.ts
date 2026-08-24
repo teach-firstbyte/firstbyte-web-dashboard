@@ -3,7 +3,7 @@ import { z } from "zod";
 import { dateField, idParam } from "@/server/validation";
 
 const attendanceStatus = z.enum(AttendanceStatus, {
-  message: `Invalid status. Must be one of: ${Object.values(AttendanceStatus).join(", ")}`,
+  error: `Invalid status. Must be one of: ${Object.values(AttendanceStatus).join(", ")}`,
 });
 
 /**

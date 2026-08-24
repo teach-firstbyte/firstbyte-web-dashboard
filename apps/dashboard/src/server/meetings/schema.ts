@@ -8,11 +8,16 @@ import { dateField, nullableIdParam, nullableText } from "@/server/validation";
  * message is a user-visible change even though no code depends on it.
  */
 const meetingType = z.enum(MeetingType, {
-  message: `Invalid type. Must be one of: ${Object.values(MeetingType).join(", ")}`,
+  error: `Invalid type. Must be one of: ${Object.values(MeetingType).join(", ")}`,
 });
 
+const REQUIRED = "title, type, and scheduledAt are required";
+
 export const createMeetingSchema = z.object({
-  title: z.string().trim().min(1, "title, type, and scheduledAt are required"),
+  // The `error` option covers a missing key; .min covers a present-but-blank
+  // one. Without the first, an omitted title reports zod's default, "expected
+  // string, received undefined", which is not a sentence to show an officer.
+  title: z.string({ error: REQUIRED }).trim().min(1, REQUIRED),
   type: meetingType,
   scheduledAt: dateField,
   description: nullableText,

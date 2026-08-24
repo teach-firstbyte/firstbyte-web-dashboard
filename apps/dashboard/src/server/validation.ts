@@ -24,8 +24,15 @@ export const idParam = z.coerce.number().int().positive();
  */
 export const nullableIdParam = idParam.nullish().transform((v) => v ?? null);
 
-/** Accepts an ISO string or a Date. Rejects anything Date cannot parse. */
-export const dateField = z.coerce.date();
+/**
+ * Accepts an ISO string or a Date. Rejects anything Date cannot parse.
+ *
+ * The message is spelled out because zod's default here is unusually poor:
+ * z.coerce.date() turns "not-a-date" into an Invalid Date object first, so the
+ * default reads "expected date, received Date", which is nonsense to an officer
+ * mistyping a form. MeetingsTable prints `data.error` verbatim.
+ */
+export const dateField = z.coerce.date({ error: "must be a valid date" });
 
 /**
  * Free text that is optional. Trims, and treats "" the same as absent, so a
