@@ -5,10 +5,9 @@ import { SearchInput } from "@/components/SearchInput";
 import { StatusFilter } from "@/components/StatusFilter";
 import { Banner } from "@/components/ui/banner";
 import { requireOfficer } from "@/lib/auth/requireOfficer";
-import { getPagination } from "@/lib/pagination";
-import { prisma } from "@/lib/prisma";
-import { Attendance } from "@/types/dashboard";
-import { AttendanceStatus } from "@prisma/client";
+import { listAttendancePageForOfficer } from "@/server/attendance/queries";
+import type { AttendanceWithContext } from "@/server/attendance/select";
+import { emptyPage, type Page } from "@/server/page";
 import { Suspense } from "react";
 
 const PAGE_SIZE = 25;
@@ -20,79 +19,19 @@ export async function OfficerAttendanceView({
 }) {
   await requireOfficer();
 
-  let attendance: Attendance[] = [];
-  let total = 0;
+  let result: Page<AttendanceWithContext> = emptyPage();
   let dbUnavailable = false;
-  let page = 1;
-  let totalPages = 1;
-  let hasPrev = false;
-  let hasNext = false;
-  let filtersActive = false;
 
   try {
-    const params = await searchParams;
-
-    const rawPageParam = Array.isArray(params.page)
-      ? params.page[0]
-      : params.page;
-    const rawPage = parseInt(rawPageParam ?? "");
-
-    const rawQ = Array.isArray(params.q) ? params.q[0] : params.q;
-    const q = rawQ?.trim() || undefined;
-
-    const rawStatus = Array.isArray(params.status)
-      ? params.status[0]
-      : params.status;
-    const status = Object.values(AttendanceStatus).includes(
-      rawStatus as AttendanceStatus,
-    )
-      ? (rawStatus as AttendanceStatus)
-      : undefined;
-
-    const where = {
-      status: status ?? undefined,
-      OR: q
-        ? [
-            { user: { name: { contains: q, mode: "insensitive" as const } } },
-            { user: { email: { contains: q, mode: "insensitive" as const } } },
-            {
-              meeting: { title: { contains: q, mode: "insensitive" as const } },
-            },
-          ]
-        : undefined,
-    };
-
-    total = await prisma.attendance.count({ where });
-
-    const pagination = getPagination({
-      page: rawPage,
-      pageSize: PAGE_SIZE,
-      total,
-    });
-    page = pagination.page;
-    totalPages = pagination.totalPages;
-    hasPrev = pagination.hasPrev;
-    hasNext = pagination.hasNext;
-    const { skip, take } = pagination;
-
-    attendance = await prisma.attendance.findMany({
-      where,
-      include: { user: true, meeting: true },
-      orderBy: [
-        { checkedInAt: { sort: "desc", nulls: "last" } },
-        { id: "desc" },
-      ],
-      skip,
-      take,
-    });
-
-    filtersActive = Boolean(q || status);
+    result = await listAttendancePageForOfficer(await searchParams, PAGE_SIZE);
   } catch (error) {
+    // Not a ServiceError -- this query throws none. This is the database being
+    // unreachable, and the banner below is the whole reason we catch it.
     dbUnavailable = true;
     console.error("Attendance query failed:", error);
   }
 
-  const emptyMessage = filtersActive
+  const emptyMessage = result.filtersActive
     ? "No records match your filters."
     : "No attendance records yet.";
 
@@ -116,13 +55,13 @@ export async function OfficerAttendanceView({
         </Suspense>
       </div>
       <div className="mt-4">
-        <AttendanceTable attendance={attendance} emptyMessage={emptyMessage} />
+        <AttendanceTable attendance={result.rows} emptyMessage={emptyMessage} />
       </div>
       <PaginationControls
-        page={page}
-        totalPages={totalPages}
-        hasPrev={hasPrev}
-        hasNext={hasNext}
+        page={result.page}
+        totalPages={result.totalPages}
+        hasPrev={result.hasPrev}
+        hasNext={result.hasNext}
       />
     </div>
   );

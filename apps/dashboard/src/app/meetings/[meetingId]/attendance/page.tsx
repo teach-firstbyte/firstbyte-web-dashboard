@@ -1,7 +1,8 @@
-import { prisma } from "@/lib/prisma";
 import { AttendanceToggle } from "./AttendanceToggle";
 import { requireOfficer } from "@/lib/auth/requireOfficer";
 import { BackLink } from "@/components/BackLink";
+import { findMeetingTitle } from "@/server/meetings/queries";
+import { parseId } from "@/server/validation";
 
 export default async function MeetingAttendancePage({
   params,
@@ -11,15 +12,13 @@ export default async function MeetingAttendancePage({
   await requireOfficer();
   const { meetingId } = await params;
 
-  const parsedMeetingId = parseInt(meetingId);
-  if (isNaN(parsedMeetingId)) {
+  const parsedMeetingId = parseId(meetingId);
+  if (parsedMeetingId === null) {
     return <p className="p-6 text-center">Invalid meeting.</p>;
   }
 
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: parsedMeetingId },
-  });
-  if (!meeting) {
+  const meetingTitle = await findMeetingTitle(parsedMeetingId);
+  if (meetingTitle === null) {
     return <p className="p-6 text-center">Meeting not found.</p>;
   }
 
@@ -28,7 +27,7 @@ export default async function MeetingAttendancePage({
       <BackLink />
       <AttendanceToggle
         meetingId={parsedMeetingId}
-        meetingTitle={meeting.title}
+        meetingTitle={meetingTitle}
       />
     </div>
   );

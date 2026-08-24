@@ -1,5 +1,6 @@
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
-import { prisma } from "@/lib/prisma";
+import { findMeetingTitle } from "@/server/meetings/queries";
+import { parseId } from "@/server/validation";
 import { CheckInForm } from "./CheckInForm";
 import { BackLink } from "@/components/BackLink";
 
@@ -19,16 +20,13 @@ export default async function CheckInPage({
   const returnPath = `/check-in/${meetingId}${code ? `?code=${code}` : ""}`;
   await requireApprovedUser(returnPath);
 
-  const parsedMeetingId = parseInt(meetingId);
-  if (isNaN(parsedMeetingId)) {
+  const parsedMeetingId = parseId(meetingId);
+  if (parsedMeetingId === null) {
     return <p className="p-6 text-center">Invalid meeting link.</p>;
   }
 
-  // Server-only: fetch the meeting to show its title
-  const meeting = await prisma.meeting.findUnique({
-    where: { id: parsedMeetingId },
-  });
-  if (!meeting) {
+  const meetingTitle = await findMeetingTitle(parsedMeetingId);
+  if (meetingTitle === null) {
     return <p className="p-6 text-center">Meeting not found.</p>;
   }
 
@@ -38,7 +36,7 @@ export default async function CheckInPage({
       <BackLink />
       <CheckInForm
         meetingId={parsedMeetingId}
-        meetingTitle={meeting.title}
+        meetingTitle={meetingTitle}
         initialCode={code ?? ""}
       />
     </div>

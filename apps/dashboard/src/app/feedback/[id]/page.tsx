@@ -1,5 +1,5 @@
 import { BackLink } from "@/components/BackLink";
-import { assertAttended } from "@/lib/attendance/assertAttended";
+import { hasAttended } from "@/server/attendance/queries";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
@@ -24,7 +24,7 @@ export default async function FeedbackPage({
 
   if (!meeting) notFound();
 
-  const attended = await assertAttended(user.id, meetingId);
+  const attended = await hasAttended(user.id, meetingId);
   if (!attended) {
     return (
       <p className="p-6 text-center">

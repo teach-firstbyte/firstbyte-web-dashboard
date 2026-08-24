@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "./getCurrentUser";
 import { isOfficer } from "./roles";
 import { isApproved } from "./accountGate";
-import { User } from "@prisma/client";
+import type { Viewer } from "@/server/viewer";
 
 type OfficerApiResult =
-  { user: User; error: null } | { user: null; error: NextResponse };
+  { user: Viewer; error: null } | { user: null; error: NextResponse };
 
 export async function requireOfficerApi(): Promise<OfficerApiResult> {
   const user = await getCurrentUser();
