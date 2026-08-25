@@ -204,3 +204,58 @@ export async function hasAttended(
 
   return record?.status === AttendanceStatus.PRESENT;
 }
+
+/** present/absent counts plus the rate they imply, or null when nothing is decided. */
+function summarize(
+  rows: { status: AttendanceStatus; _count: { _all: number } }[],
+) {
+  const counts: Record<AttendanceStatus, number> = {
+    REGISTERED: 0,
+    PRESENT: 0,
+    ABSENT: 0,
+  };
+  for (const row of rows) counts[row.status] = row._count._all;
+
+  const decided = counts.PRESENT + counts.ABSENT;
+  return {
+    rate: decided > 0 ? counts.PRESENT / decided : null,
+    present: counts.PRESENT,
+    absent: counts.ABSENT,
+  };
+}
+
+/** Club-wide attendance figures, for the officer dashboard. */
+export async function getAttendanceStats() {
+  const rows = await prisma.attendance.groupBy({
+    by: ["status"],
+    _count: { _all: true },
+  });
+
+  return summarize(rows);
+}
+
+/**
+ * One member's own attendance figures.
+ *
+ * `notRecorded` counts rows still REGISTERED for a meeting that already
+ * happened -- nobody took attendance. Kept out of the rate on purpose: it is
+ * not the member's absence, so counting it against them would be unfair.
+ */
+export async function getAttendanceStatsForViewer(viewer: Viewer) {
+  const [rows, notRecorded] = await Promise.all([
+    prisma.attendance.groupBy({
+      by: ["status"],
+      where: { userId: viewer.id },
+      _count: { _all: true },
+    }),
+    prisma.attendance.count({
+      where: {
+        userId: viewer.id,
+        status: AttendanceStatus.REGISTERED,
+        meeting: { scheduledAt: { lt: getAttendanceCutoff() } },
+      },
+    }),
+  ]);
+
+  return { ...summarize(rows), notRecorded };
+}

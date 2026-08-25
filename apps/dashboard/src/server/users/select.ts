@@ -24,6 +24,7 @@ export const userWithTeamsArgs = Prisma.validator<Prisma.UserDefaultArgs>()({
         status: true,
         team: { select: { id: true, name: true } },
       },
+      orderBy: { team: { name: "asc" } },
     },
   },
 });
@@ -55,6 +56,9 @@ export const pendingUserArgs = Prisma.validator<Prisma.UserDefaultArgs>()({
         status: true,
         team: { select: { id: true, name: true } },
       },
+      // Ordered so the badges on a queue row do not shuffle between renders.
+      // The old query had none, so the order was whatever Postgres returned.
+      orderBy: { team: { name: "asc" } },
     },
   },
 });

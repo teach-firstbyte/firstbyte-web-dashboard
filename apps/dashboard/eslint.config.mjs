@@ -5,36 +5,6 @@ const compat = new FlatCompat({
   baseDirectory: import.meta.dirname,
 });
 
-/**
- * Files under src/app that still talk to Prisma directly.
- *
- * This list only shrinks. Each data-layer PR deletes its own entries; when it
- * is empty, delete the constant and the `ignores` line with it.
- *
- * Its job is to stop NEW direct calls appearing during a migration that spans
- * several PRs. An all-or-nothing rule could only land in the last PR, which is
- * after it stops being useful.
- *
- * Note this is a different question from the one scripts/assert-no-prisma-client-bundle.mjs
- * answers. That script exists because client-bundle contamination is
- * *transitive*, so no syntactic rule can catch it. This rule claims something
- * purely local -- "this file contains this import" -- and is sound for it.
- *
- * CAUTION: the brackets of a Next.js dynamic segment must be escaped. These are
- * glob patterns, so an unescaped `[id]` is a character class meaning "one
- * character, either i or d" -- it matches src/app/api/users/i/route.ts and
- * never matches the real path. The failure is silent: the entry simply does
- * nothing and the file reports an error you thought you had allowed.
- */
-const UNMIGRATED_PRISMA_CALLERS = [
-  "src/app/OfficerDashboard.tsx",
-  "src/app/MemberDashboard.tsx",
-  "src/app/onboarding/page.tsx",
-  "src/app/onboarding/actions.ts",
-  "src/app/pending/page.tsx",
-  "src/app/settings/actions.ts",
-];
-
 const PRISMA_MESSAGE =
   "Pages, route handlers and server actions read and write through src/server/<domain>/. " +
   "A query written here is a business rule nothing else can reuse -- that is how the " +
@@ -46,9 +16,18 @@ const eslintConfig = [
   }),
 
   // src/app is the edge: auth gates, HTTP shapes, JSX. Not queries.
+  //
+  // There is no allowlist any more -- every page, route handler and server
+  // action now reads and writes through src/server/<domain>/. If you are adding
+  // one back, you are re-creating the problem this replaced.
+  //
+  // This is a different question from the one
+  // scripts/assert-no-prisma-client-bundle.mjs answers. That script exists
+  // because client-bundle contamination is *transitive*, so no syntactic rule
+  // can catch it. This rule claims something purely local -- "this file
+  // contains this import" -- and is sound for it.
   {
     files: ["src/app/**/*.ts", "src/app/**/*.tsx"],
-    ignores: UNMIGRATED_PRISMA_CALLERS,
     rules: {
       "no-restricted-imports": [
         "error",

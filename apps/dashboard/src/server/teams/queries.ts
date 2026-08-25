@@ -60,3 +60,31 @@ export async function getTeamById(teamId: number) {
   if (!team) throw new ServiceError("NOT_FOUND", "Team not found");
   return team;
 }
+
+/**
+ * A member's own approved memberships, with team names for the badges.
+ *
+ * Same APPROVED rule as listApprovedTeamIds; this one carries the name because
+ * the dashboard shows teams rather than filtering by them.
+ */
+export function listApprovedMemberships(userId: number) {
+  return prisma.teamMember.findMany({
+    where: { userId, status: TeamMemberStatus.APPROVED },
+    select: { id: true, team: { select: { name: true } } },
+    orderBy: { team: { name: "asc" } },
+  });
+}
+
+/** Every team request a user has made, in any state. For the pending page. */
+export function listOwnTeamRequests(userId: number) {
+  return prisma.teamMember.findMany({
+    where: { userId },
+    select: {
+      id: true,
+      status: true,
+      teamId: true,
+      team: { select: { name: true } },
+    },
+    orderBy: { team: { name: "asc" } },
+  });
+}

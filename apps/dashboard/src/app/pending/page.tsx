@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AccountStatus, TeamMemberStatus } from "@prisma/client";
 import { requireSignedInUser } from "@/lib/auth/requireApprovedUser";
 import { assertStatusAllowed } from "@/lib/auth/accountGate";
-import { prisma } from "@/lib/prisma";
+import { listOwnTeamRequests } from "@/server/teams/queries";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Banner } from "@/components/ui/banner";
@@ -34,11 +34,7 @@ export default async function PendingPage() {
 
   const denied = user.status === AccountStatus.DENIED;
 
-  const memberships = await prisma.teamMember.findMany({
-    where: { userId: user.id },
-    include: { team: true },
-    orderBy: { team: { name: "asc" } },
-  });
+  const memberships = await listOwnTeamRequests(user.id);
 
   return (
     <div className="container mx-auto max-w-2xl p-6 space-y-6">

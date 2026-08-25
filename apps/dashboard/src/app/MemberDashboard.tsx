@@ -1,7 +1,7 @@
-import { AttendanceStatus, TeamMemberStatus, User } from "@prisma/client";
 import { logOut } from "./login/actions";
 import Image from "next/image";
-import { prisma } from "@/lib/prisma";
+import { getMemberDashboard } from "@/server/dashboard/queries";
+import type { Viewer } from "@/server/viewer";
 import {
   Card,
   CardContent,
@@ -17,59 +17,9 @@ import { MeetingStatusBadge } from "@/components/MeetingStatusBadge";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SuggestionBoxLink } from "@/components/SuggestionBoxLink";
-import { TWO_HOURS_MS } from "@/lib/attendance/cutoff";
 
-export async function MemberDashboard({ user }: { user: User }) {
-  // Gets the users own memberships to display. APPROVED only: a join request
-  // an officer hasn't decided yet is not a membership, and teamIds below feeds
-  // the meeting query -- so an un-approved request would otherwise expose that
-  // team's meetings.
-  const memberships = await prisma.teamMember.findMany({
-    where: { userId: user.id, status: TeamMemberStatus.APPROVED },
-    include: { team: true },
-  });
-  const teamIds = memberships.map((m) => m.teamId);
-
-  const cutoff = new Date(Date.now() - TWO_HOURS_MS);
-
-  const [meetings, attendanceGrouped, notRecorded] = await Promise.all([
-    prisma.meeting.findMany({
-      where: {
-        scheduledAt: { gt: cutoff },
-        OR: [{ teamId: { in: teamIds } }, { teamId: null }],
-      },
-      include: {
-        team: true,
-        attendance: { where: { userId: user.id } },
-      },
-      orderBy: { scheduledAt: "asc" },
-    }),
-    prisma.attendance.groupBy({
-      by: ["status"],
-      where: { userId: user.id },
-      _count: { _all: true },
-    }),
-    prisma.attendance.count({
-      where: {
-        userId: user.id,
-        status: AttendanceStatus.REGISTERED,
-        meeting: { scheduledAt: { lt: cutoff } },
-      },
-    }),
-  ]);
-
-  const counts: Record<AttendanceStatus, number> = {
-    REGISTERED: 0,
-    PRESENT: 0,
-    ABSENT: 0,
-  };
-
-  for (const row of attendanceGrouped) {
-    counts[row.status] = row._count._all;
-  }
-
-  const decided = counts.PRESENT + counts.ABSENT;
-  const rate = decided > 0 ? counts.PRESENT / decided : null;
+export async function MemberDashboard({ user }: { user: Viewer }) {
+  const { memberships, meetings, attendance } = await getMemberDashboard(user);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -128,11 +78,13 @@ export async function MemberDashboard({ user }: { user: User }) {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold">
-            {rate !== null ? `${Math.round(rate * 100)}%` : "-"}
+            {attendance.rate !== null
+              ? `${Math.round(attendance.rate * 100)}%`
+              : "-"}
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            {counts.PRESENT} Present · {counts.ABSENT} Absent · {notRecorded}{" "}
-            Not recorded
+            {attendance.present} Present · {attendance.absent} Absent ·{" "}
+            {attendance.notRecorded} Not recorded
           </p>
           <Link
             href="/attendance"

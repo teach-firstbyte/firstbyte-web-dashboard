@@ -1,4 +1,4 @@
-import { prisma } from "../prisma";
+import { findUserByEmail } from "@/server/users/queries";
 import { createClient } from "../supabase/server";
 import { asViewer, type Viewer } from "@/server/viewer";
 
@@ -18,9 +18,7 @@ export async function getCurrentUser(): Promise<Viewer | null> {
   } = await supabase.auth.getUser();
   if (!authUser?.email) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { email: authUser.email },
-  });
+  const user = await findUserByEmail(authUser.email);
 
   return user ? asViewer(user) : null;
 }

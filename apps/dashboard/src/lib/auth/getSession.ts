@@ -1,6 +1,6 @@
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { User } from "@prisma/client";
-import { prisma } from "../prisma";
+import { findUserByEmail } from "@/server/users/queries";
 import { createClient } from "../supabase/server";
 
 /**
@@ -26,9 +26,7 @@ export async function getSession(): Promise<SessionState> {
 
   if (!authUser?.email) return { kind: "anonymous" };
 
-  const user = await prisma.user.findUnique({
-    where: { email: authUser.email },
-  });
+  const user = await findUserByEmail(authUser.email);
 
   return user
     ? { kind: "known", authUser, user }

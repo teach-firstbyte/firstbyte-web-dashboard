@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { updateNameByEmail } from "@/server/users/mutations";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -25,7 +25,7 @@ export async function updateName(
   if (authError) return { error: authError.message };
 
   try {
-    await prisma.user.update({ where: { email: user.email }, data: { name } });
+    await updateNameByEmail(user.email, name);
   } catch (error) {
     console.error("updateName(prevState, formData) failed:", error);
     return { error: "Failed to update name" };
