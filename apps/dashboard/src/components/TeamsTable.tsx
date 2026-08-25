@@ -19,7 +19,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Modal, ModalButton, ModalHeader } from "@/components/ui/modal";
+import {
+  ControlLabel,
+  Modal,
+  ModalButton,
+  ModalHeader,
+} from "@/components/ui/modal";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Team } from "@/types/dashboard";
 import { TableEmptyState } from "./ui/TableEmptyState";
@@ -48,12 +53,18 @@ function EditTeamModal({ team, onClose }: EditTeamModalProps) {
     <Modal onClose={onClose}>
       <ModalHeader>Edit Team</ModalHeader>
       <form action={formAction} className="flex flex-col space-y-3">
-        <Input name="name" defaultValue={team.name} placeholder="Name" required />
-        <Input
-          name="description"
-          defaultValue={team.description ?? ""}
-          placeholder="Description"
-        />
+        <div>
+          <ControlLabel label="Team name" />
+          <Input name="name" defaultValue={team.name} placeholder="Name" required />
+        </div>
+        <div>
+          <ControlLabel label="Team description" />
+          <Input
+            name="description"
+            defaultValue={team.description ?? ""}
+            placeholder="Description"
+          />
+        </div>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
