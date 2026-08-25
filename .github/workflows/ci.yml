@@ -74,6 +74,11 @@ jobs:
 
       - run: npm run build:dashboard
 
+      # Must follow the build: it reads .next/static/chunks, the files actually
+      # served to browsers. Catches @prisma/client reaching a client bundle
+      # through any number of hops, which a lint rule cannot see.
+      - run: npm run verify:no-prisma-client:dashboard
+
   web:
     needs: changes
     if: needs.changes.outputs.web == 'true'
