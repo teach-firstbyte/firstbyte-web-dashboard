@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/server/db";
 import { hasAttended } from "@/server/attendance/queries";
 import { ServiceError } from "@/server/errors";
 import type { Viewer } from "@/server/viewer";

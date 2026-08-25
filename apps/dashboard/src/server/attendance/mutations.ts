@@ -1,5 +1,5 @@
 import { AttendanceStatus } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/server/db";
 import { ServiceError } from "@/server/errors";
 import type { Viewer } from "@/server/viewer";
 import { getAttendanceById } from "./queries";

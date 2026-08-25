@@ -4,7 +4,7 @@ import {
   Prisma,
   TeamMemberStatus,
 } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/server/db";
 import { ServiceError } from "@/server/errors";
 import { getMeetingById } from "./queries";
 import type { CreateMeetingInput, UpdateMeetingInput } from "./schema";
