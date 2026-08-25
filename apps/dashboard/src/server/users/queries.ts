@@ -1,4 +1,4 @@
-import { AccountStatus } from "@prisma/client";
+import { AccountStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { isOfficer, OFFICER_ROLES } from "@/lib/auth/roles";
 import { ServiceError } from "@/server/errors";
@@ -26,17 +26,34 @@ export function targetIdFor(viewer: Viewer, pathId: number): number {
   return isOfficer(viewer) ? pathId : viewer.id;
 }
 
+/** Columns the Users table may sort by. */
+export const USER_SORT_FIELDS = ["name", "email", "createdAt"] as const;
+export type UserSortField = (typeof USER_SORT_FIELDS)[number];
+export type SortDirection = "asc" | "desc";
+
 /**
  * The officer roster: every account, including those still in the review
  * queue.
  *
  * Not filtered by status on purpose -- a denied account has to stay reachable
  * so the decision can be reversed. Callers tell them apart by `status`.
+ *
+ * `sort`/`dir` pick the column and direction; both default to name ascending.
+ * `sort` is only ever one of USER_SORT_FIELDS, so it is safe to build the
+ * Prisma `orderBy` from it directly.
  */
-export function listUsers(): Promise<UserWithTeams[]> {
+export function listUsers(
+  sort: UserSortField = "name",
+  dir: SortDirection = "asc",
+): Promise<UserWithTeams[]> {
+  const orderBy: Prisma.UserOrderByWithRelationInput[] = [
+    { [sort]: dir },
+    { id: "asc" },
+  ];
+
   return prisma.user.findMany({
     ...userWithTeamsArgs,
-    orderBy: [{ name: "asc" }, { id: "asc" }],
+    orderBy,
   });
 }
 

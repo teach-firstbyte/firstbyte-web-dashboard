@@ -28,8 +28,21 @@ import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
 import { getOfficerDashboard } from "@/server/dashboard/queries";
 import { SuggestionBoxLink } from "@/components/SuggestionBoxLink";
+import { USER_SORT_FIELDS } from "@/server/users/queries";
+import { enumParam } from "@/server/validation";
+import { Suspense } from "react";
 
-export async function OfficerDashboard({ user }: { user: Viewer }) {
+export async function OfficerDashboard({
+  user,
+  searchParams,
+}: {
+  user: Viewer;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const params = (await searchParams) ?? {};
+  const userSort = enumParam(params.sort, USER_SORT_FIELDS);
+  const userSortDir = enumParam(params.dir, ["asc", "desc"] as const);
+
   const emptyData = {
     users: [] as User[],
     pending: [] as PendingUser[],
@@ -49,7 +62,7 @@ export async function OfficerDashboard({ user }: { user: Viewer }) {
   try {
     // One round of parallel queries, inside the service. If this fails, render
     // the dashboard with empty state data and the banner below.
-    data = await getOfficerDashboard(user);
+    data = await getOfficerDashboard(user, userSort, userSortDir);
   } catch (error) {
     dbUnavailable = true;
     console.error(
@@ -112,7 +125,9 @@ export async function OfficerDashboard({ user }: { user: Viewer }) {
         {/* First in the grid: it is the action item, everything below is
             reference data. */}
         <ApprovalQueue users={data.pending} />
-        <UsersTable users={data.users} />
+        <Suspense fallback={null}>
+          <UsersTable users={data.users} />
+        </Suspense>
         <TeamsTable teams={data.teams} />
         <MeetingsTable meetings={data.meetings} />
         <Card>
