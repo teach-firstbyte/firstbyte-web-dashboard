@@ -30,7 +30,7 @@ function Modal({
   return (
     <div
       data-slot="modal-overlay"
-      className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50"
+      className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 whitespace-normal"
       onClick={onClose}
     >
       <div
@@ -234,9 +234,11 @@ function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Modal onClose={onCancel}>
-      <ModalHeader>{title}</ModalHeader>
-      <p className="text-sm text-muted-foreground">{message}</p>
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      <ModalHeader className="break-words">{title}</ModalHeader>
+      <p className="text-sm text-muted-foreground break-words">{message}</p>
+      {error && (
+        <p className="mt-2 text-sm text-destructive break-words">{error}</p>
+      )}
       <div className="flex justify-end space-x-2 pt-4">
         <ModalButton
           variant="cancel"
