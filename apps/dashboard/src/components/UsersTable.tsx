@@ -21,7 +21,6 @@ import React, { useEffect, useState } from "react";
 import {
   Modal,
   ModalHeader,
-  ModalForm,
   ModalButton,
   ModalDropdown,
   ModalCheckboxes,
@@ -41,11 +40,6 @@ interface UsersTableProps {
 }
 
 export function UsersTable({ users }: UsersTableProps) {
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newUser, setNewUser] = useState<Pick<User, "name" | "email">>({
-    name: "",
-    email: "",
-  });
   const [showAssignModal, setShowAssignModal] = useState(false);
   const router = useRouter();
   const assign = useAsyncAction();
@@ -145,21 +139,6 @@ export function UsersTable({ users }: UsersTableProps) {
     setMembershipIdByTeam(idMap);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setNewUser((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("New user (not connected to backend):", newUser);
-
-    // close after submission
-    setShowAddModal(false);
-    // reset form
-    setNewUser({ name: "", email: "" });
-  };
-
   return (
     <Card>
       <CardHeader className="flex flex-col gap-4 md:grid md:gap-1.5 space-y-2">
@@ -170,9 +149,6 @@ export function UsersTable({ users }: UsersTableProps) {
         <div data-slot="card-action" className="flex gap-2">
           <CardButton onClick={() => setShowAssignModal(true)}>
             Assign Teams
-          </CardButton>
-          <CardButton onClick={() => setShowAddModal(true)}>
-            + Add User
           </CardButton>
         </div>
       </CardHeader>
@@ -230,27 +206,6 @@ export function UsersTable({ users }: UsersTableProps) {
           onOpenChange={detail.onOpenChange}
           onCloseAutoFocus={detail.onCloseAutoFocus}
         />
-        {showAddModal && (
-          <Modal onClose={() => setShowAddModal(false)}>
-            <ModalHeader>Add New User</ModalHeader>
-            <ModalForm
-              newUser={newUser}
-              onChange={handleChange}
-              onSubmit={handleSubmit}
-            >
-              <ModalButton
-                variant="cancel"
-                type="button"
-                onClick={() => setShowAddModal(false)}
-              >
-                Cancel
-              </ModalButton>
-              <ModalButton variant="primary" type="submit">
-                Save
-              </ModalButton>
-            </ModalForm>
-          </Modal>
-        )}
         {showAssignModal && (
           <Modal onClose={() => setShowAssignModal(false)}>
             <ModalHeader>Assign User to Teams</ModalHeader>
