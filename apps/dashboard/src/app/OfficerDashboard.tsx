@@ -28,8 +28,19 @@ import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
 import { getOfficerDashboard } from "@/server/dashboard/queries";
 import { SuggestionBoxLink } from "@/components/SuggestionBoxLink";
+import { SearchInput } from "@/components/SearchInput";
+import { searchParam } from "@/server/validation";
+import { Suspense } from "react";
 
-export async function OfficerDashboard({ user }: { user: Viewer }) {
+export async function OfficerDashboard({
+  user,
+  searchParams,
+}: {
+  user: Viewer;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const userSearch = searchParam((await searchParams)?.q);
+
   const emptyData = {
     users: [] as User[],
     pending: [] as PendingUser[],
@@ -49,7 +60,7 @@ export async function OfficerDashboard({ user }: { user: Viewer }) {
   try {
     // One round of parallel queries, inside the service. If this fails, render
     // the dashboard with empty state data and the banner below.
-    data = await getOfficerDashboard(user);
+    data = await getOfficerDashboard(user, userSearch);
   } catch (error) {
     dbUnavailable = true;
     console.error(
@@ -112,7 +123,11 @@ export async function OfficerDashboard({ user }: { user: Viewer }) {
         {/* First in the grid: it is the action item, everything below is
             reference data. */}
         <ApprovalQueue users={data.pending} />
-        <UsersTable users={data.users} />
+        <UsersTable users={data.users}>
+          <Suspense fallback={<div className="h-9" />}>
+            <SearchInput placeholder="Search by name or email..." />
+          </Suspense>
+        </UsersTable>
         <TeamsTable teams={data.teams} />
         <MeetingsTable meetings={data.meetings} />
         <Card>

@@ -19,10 +19,10 @@ import type { Viewer } from "@/server/viewer";
  * No try/catch here. A database failure must reach the page, which catches it
  * to raise its warning banner -- see the header of server/errors.ts.
  */
-export async function getOfficerDashboard(viewer: Viewer) {
+export async function getOfficerDashboard(viewer: Viewer, userSearch?: string) {
   const [users, pending, teams, meetings, attendance, feedback] =
     await Promise.all([
-      listUsers(),
+      listUsers(userSearch),
       listPendingUsers(),
       listTeams(),
       listMeetingsForViewer(viewer),

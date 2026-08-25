@@ -38,9 +38,10 @@ import { isOfficerRole } from "@/lib/auth/roles";
 
 interface UsersTableProps {
   users: User[];
+  children?: React.ReactNode;
 }
 
-export function UsersTable({ users }: UsersTableProps) {
+export function UsersTable({ users, children }: UsersTableProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newUser, setNewUser] = useState<Pick<User, "name" | "email">>({
     name: "",
@@ -177,6 +178,7 @@ export function UsersTable({ users }: UsersTableProps) {
         </div>
       </CardHeader>
       <CardContent>
+        {children && <div className="mb-4">{children}</div>}
         <Table>
           <TableHeader>
             <TableRow>

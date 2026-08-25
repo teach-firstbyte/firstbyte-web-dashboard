@@ -1,4 +1,4 @@
-import { AccountStatus } from "@prisma/client";
+import { AccountStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { isOfficer, OFFICER_ROLES } from "@/lib/auth/roles";
 import { ServiceError } from "@/server/errors";
@@ -32,9 +32,21 @@ export function targetIdFor(viewer: Viewer, pathId: number): number {
  *
  * Not filtered by status on purpose -- a denied account has to stay reachable
  * so the decision can be reversed. Callers tell them apart by `status`.
+ *
+ * `search`, when given, matches a name or email substring, case-insensitive.
  */
-export function listUsers(): Promise<UserWithTeams[]> {
+export function listUsers(search?: string): Promise<UserWithTeams[]> {
+  const where: Prisma.UserWhereInput | undefined = search
+    ? {
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ],
+      }
+    : undefined;
+
   return prisma.user.findMany({
+    where,
     ...userWithTeamsArgs,
     orderBy: [{ name: "asc" }, { id: "asc" }],
   });
