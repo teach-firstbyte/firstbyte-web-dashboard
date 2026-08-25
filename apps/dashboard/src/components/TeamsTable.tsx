@@ -1,5 +1,6 @@
 "use client";
 
+import { useActionState, useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -16,12 +17,80 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  ControlLabel,
+  Modal,
+  ModalButton,
+  ModalHeader,
+} from "@/components/ui/modal";
+import { SubmitButton } from "@/components/SubmitButton";
 import { Team } from "@/types/dashboard";
 import { TableEmptyState } from "./ui/TableEmptyState";
 import { useDetailRow } from "@/hooks/useDetailRow";
 import { TeamDetailSheet } from "./TeamDetailSheet";
 import { OfficerStar } from "./OfficerBadge";
 import { isOfficerRole } from "@/lib/auth/roles";
+import { updateTeamAction } from "@/app/actions/teams";
+
+interface EditTeamModalProps {
+  team: Team;
+  onClose: () => void;
+}
+
+function EditTeamModal({ team, onClose }: EditTeamModalProps) {
+  const [state, formAction] = useActionState(
+    updateTeamAction.bind(null, team.id),
+    {},
+  );
+
+  useEffect(() => {
+    if (state.success) onClose();
+  }, [state.success, onClose]);
+
+  return (
+    <Modal onClose={onClose}>
+      <ModalHeader>Edit Team</ModalHeader>
+      <form action={formAction} className="flex flex-col space-y-3">
+        <div>
+          <ControlLabel label="Team name" />
+          <Input
+            name="name"
+            defaultValue={team.name}
+            placeholder="Name"
+            required
+          />
+        </div>
+        <div>
+          <ControlLabel label="Team description" />
+          <Input
+            name="description"
+            defaultValue={team.description ?? ""}
+            placeholder="Description"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="isActive"
+            defaultChecked={team.isActive}
+          />
+          Active
+        </label>
+        {state.error && (
+          <p className="text-sm text-destructive">{state.error}</p>
+        )}
+        <div className="flex justify-end space-x-2 pt-2">
+          <ModalButton variant="cancel" type="button" onClick={onClose}>
+            Cancel
+          </ModalButton>
+          <SubmitButton>Save</SubmitButton>
+        </div>
+      </form>
+    </Modal>
+  );
+}
 
 interface TeamsTableProps {
   teams: Team[];
@@ -29,6 +98,7 @@ interface TeamsTableProps {
 
 export function TeamsTable({ teams }: TeamsTableProps) {
   const detail = useDetailRow<Team>();
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
   return (
     <Card>
@@ -45,12 +115,13 @@ export function TeamsTable({ teams }: TeamsTableProps) {
               <TableHead>Status</TableHead>
               <TableHead>Members</TableHead>
               <TableHead className="hidden md:table-cell">Created</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
             {teams.length === 0 ? (
               <TableEmptyState
-                colSpan={5}
+                colSpan={6}
                 message="No teams established yet."
               />
             ) : (
@@ -80,6 +151,15 @@ export function TeamsTable({ teams }: TeamsTableProps) {
                   <TableCell className="hidden md:table-cell">
                     {new Date(team.createdAt).toLocaleDateString()}
                   </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditingTeam(team)}
+                    >
+                      Edit
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -90,6 +170,13 @@ export function TeamsTable({ teams }: TeamsTableProps) {
           onOpenChange={detail.onOpenChange}
           onCloseAutoFocus={detail.onCloseAutoFocus}
         />
+        {editingTeam && (
+          <EditTeamModal
+            key={editingTeam.id}
+            team={editingTeam}
+            onClose={() => setEditingTeam(null)}
+          />
+        )}
       </CardContent>
     </Card>
   );
