@@ -1,5 +1,5 @@
 import { AccountStatus, TeamMemberStatus } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/server/db";
 import { ServiceError } from "@/server/errors";
 import type { Viewer } from "@/server/viewer";
 import type { OnboardingInput } from "./schema";

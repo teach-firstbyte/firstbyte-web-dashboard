@@ -4,7 +4,7 @@
  * Anything that can end up in a client bundle -- a "use client" component, or a
  * module one of them imports -- must get its enum values and types from here
  * rather than from @prisma/client. Server code (route handlers, server actions,
- * server components, lib/prisma callers) should keep importing the real enums
+ * server components, server/db callers) should keep importing the real enums
  * from @prisma/client directly.
  *
  * Why the hard line, including on `import type`: a runtime `import { Role } from

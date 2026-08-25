@@ -1,5 +1,5 @@
 import { TeamMemberStatus } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/server/db";
 import { ServiceError } from "@/server/errors";
 import { getUserById } from "@/server/users/queries";
 import { getTeamById } from "@/server/teams/queries";

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/server/db";
 import { getAttendanceCutoff } from "@/lib/attendance/cutoff";
 import { isOfficer } from "@/lib/auth/roles";
 import { ServiceError } from "@/server/errors";

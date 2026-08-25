@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/server/db";
 import { getTeamById } from "./queries";
 import type { CreateTeamInput, UpdateTeamInput } from "./schema";
 
