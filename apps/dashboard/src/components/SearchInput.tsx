@@ -34,8 +34,8 @@ export function SearchInput({
 
       params.set("page", "1");
 
-      router.replace(`${pathname}?${params.toString()}`);
-    }, 300);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }, 100);
 
     return () => clearTimeout(timer);
   }, [value, pathname, router]);
