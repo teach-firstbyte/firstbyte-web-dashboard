@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/modal";
 import { User } from "@/types/dashboard";
 import { withBasePath } from "@/lib/paths";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TableEmptyState } from "./ui/TableEmptyState";
 import { useDetailRow } from "@/hooks/useDetailRow";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
@@ -37,9 +37,52 @@ import { isOfficerRole } from "@/lib/auth/roles";
 
 interface UsersTableProps {
   users: User[];
+  children?: React.ReactNode;
 }
 
-export function UsersTable({ users }: UsersTableProps) {
+/** A `<TableHead>` that toggles `?sort=<field>&dir=asc|desc` on click. */
+function SortableTableHead({
+  field,
+  className,
+  children,
+}: {
+  field: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const activeSort = searchParams.get("sort") ?? "name";
+  const activeDir = searchParams.get("dir") ?? "asc";
+  const isActive = activeSort === field;
+  const nextDir = isActive && activeDir === "asc" ? "desc" : "asc";
+
+  const handleClick = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("sort", field);
+    params.set("dir", nextDir);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={handleClick}
+        className="flex items-center gap-1 hover:underline"
+      >
+        {children}
+        {isActive && (
+          <span aria-hidden="true">{activeDir === "asc" ? "▲" : "▼"}</span>
+        )}
+      </button>
+    </TableHead>
+  );
+}
+
+export function UsersTable({ users, children }: UsersTableProps) {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const router = useRouter();
   const assign = useAsyncAction();
@@ -153,13 +196,19 @@ export function UsersTable({ users }: UsersTableProps) {
         </div>
       </CardHeader>
       <CardContent>
+        {children && <div className="mb-4">{children}</div>}
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
+              <SortableTableHead field="name">Name</SortableTableHead>
+              <SortableTableHead field="email">Email</SortableTableHead>
               <TableHead>Teams</TableHead>
-              <TableHead className="hidden md:table-cell">Joined</TableHead>
+              <SortableTableHead
+                field="createdAt"
+                className="hidden md:table-cell"
+              >
+                Joined
+              </SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
