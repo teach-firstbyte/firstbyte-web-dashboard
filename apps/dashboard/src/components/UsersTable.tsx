@@ -21,14 +21,13 @@ import React, { useEffect, useState } from "react";
 import {
   Modal,
   ModalHeader,
-  ModalForm,
   ModalButton,
   ModalDropdown,
   ModalCheckboxes,
 } from "@/components/ui/modal";
 import { User } from "@/types/dashboard";
 import { withBasePath } from "@/lib/paths";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TableEmptyState } from "./ui/TableEmptyState";
 import { useDetailRow } from "@/hooks/useDetailRow";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
@@ -38,14 +37,52 @@ import { isOfficerRole } from "@/lib/auth/roles";
 
 interface UsersTableProps {
   users: User[];
+  children?: React.ReactNode;
 }
 
-export function UsersTable({ users }: UsersTableProps) {
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newUser, setNewUser] = useState<Pick<User, "name" | "email">>({
-    name: "",
-    email: "",
-  });
+/** A `<TableHead>` that toggles `?sort=<field>&dir=asc|desc` on click. */
+function SortableTableHead({
+  field,
+  className,
+  children,
+}: {
+  field: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const activeSort = searchParams.get("sort") ?? "name";
+  const activeDir = searchParams.get("dir") ?? "asc";
+  const isActive = activeSort === field;
+  const nextDir = isActive && activeDir === "asc" ? "desc" : "asc";
+
+  const handleClick = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("sort", field);
+    params.set("dir", nextDir);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={handleClick}
+        className="flex items-center gap-1 hover:underline"
+      >
+        {children}
+        {isActive && (
+          <span aria-hidden="true">{activeDir === "asc" ? "▲" : "▼"}</span>
+        )}
+      </button>
+    </TableHead>
+  );
+}
+
+export function UsersTable({ users, children }: UsersTableProps) {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const router = useRouter();
   const assign = useAsyncAction();
@@ -145,21 +182,6 @@ export function UsersTable({ users }: UsersTableProps) {
     setMembershipIdByTeam(idMap);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setNewUser((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("New user (not connected to backend):", newUser);
-
-    // close after submission
-    setShowAddModal(false);
-    // reset form
-    setNewUser({ name: "", email: "" });
-  };
-
   return (
     <Card>
       <CardHeader className="flex flex-col gap-4 md:grid md:gap-1.5 space-y-2">
@@ -171,19 +193,22 @@ export function UsersTable({ users }: UsersTableProps) {
           <CardButton onClick={() => setShowAssignModal(true)}>
             Assign Teams
           </CardButton>
-          <CardButton onClick={() => setShowAddModal(true)}>
-            + Add User
-          </CardButton>
         </div>
       </CardHeader>
       <CardContent>
+        {children && <div className="mb-4">{children}</div>}
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
+              <SortableTableHead field="name">Name</SortableTableHead>
+              <SortableTableHead field="email">Email</SortableTableHead>
               <TableHead>Teams</TableHead>
-              <TableHead className="hidden md:table-cell">Joined</TableHead>
+              <SortableTableHead
+                field="createdAt"
+                className="hidden md:table-cell"
+              >
+                Joined
+              </SortableTableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -230,27 +255,6 @@ export function UsersTable({ users }: UsersTableProps) {
           onOpenChange={detail.onOpenChange}
           onCloseAutoFocus={detail.onCloseAutoFocus}
         />
-        {showAddModal && (
-          <Modal onClose={() => setShowAddModal(false)}>
-            <ModalHeader>Add New User</ModalHeader>
-            <ModalForm
-              newUser={newUser}
-              onChange={handleChange}
-              onSubmit={handleSubmit}
-            >
-              <ModalButton
-                variant="cancel"
-                type="button"
-                onClick={() => setShowAddModal(false)}
-              >
-                Cancel
-              </ModalButton>
-              <ModalButton variant="primary" type="submit">
-                Save
-              </ModalButton>
-            </ModalForm>
-          </Modal>
-        )}
         {showAssignModal && (
           <Modal onClose={() => setShowAssignModal(false)}>
             <ModalHeader>Assign User to Teams</ModalHeader>

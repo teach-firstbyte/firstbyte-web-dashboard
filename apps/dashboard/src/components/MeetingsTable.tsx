@@ -24,6 +24,7 @@ import Link from "next/link";
 import React, { useActionState, useEffect, useState } from "react";
 import {
   ControlLabel,
+  ConfirmDialog,
   Modal,
   ModalHeader,
   ModalButton,
@@ -37,10 +38,53 @@ import { MeetingStatusBadge } from "./MeetingStatusBadge";
 import { useDetailRow } from "@/hooks/useDetailRow";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { MeetingDetailSheet } from "./MeetingDetailSheet";
-import { updateMeetingAction } from "@/app/actions/meetings";
+import {
+  deleteMeetingAction,
+  updateMeetingAction,
+} from "@/app/actions/meetings";
 
 interface MeetingsTableProps {
   meetings: Meeting[];
+}
+
+interface DeleteMeetingButtonProps {
+  meeting: Meeting;
+}
+
+function DeleteMeetingButton({ meeting }: DeleteMeetingButtonProps) {
+  const [confirming, setConfirming] = useState(false);
+  const deleteAction = useAsyncAction();
+
+  const handleConfirm = () => {
+    deleteAction.run(async () => {
+      const result = await deleteMeetingAction(meeting.id);
+      if (result.error) throw new Error(result.error);
+      setConfirming(false);
+    });
+  };
+
+  return (
+    <>
+      <Button
+        variant="destructive"
+        size="sm"
+        onClick={() => setConfirming(true)}
+      >
+        Delete
+      </Button>
+      {confirming && (
+        <ConfirmDialog
+          title="Delete meeting?"
+          message={`Delete "${meeting.title}"? This also removes its attendance and feedback records.`}
+          confirmLabel="Delete"
+          pending={deleteAction.pending}
+          error={deleteAction.error}
+          onConfirm={handleConfirm}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
+    </>
+  );
 }
 
 // Mirrors the MeetingType enum in prisma/schema.prisma. The POST /api/meetings
@@ -386,6 +430,7 @@ export function MeetingsTable({ meetings }: MeetingsTableProps) {
                       >
                         Edit
                       </Button>
+                      <DeleteMeetingButton meeting={meeting} />
                     </div>
                   </TableCell>
                 </TableRow>
