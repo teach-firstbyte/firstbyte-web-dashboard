@@ -63,7 +63,7 @@ function SortableTableHead({
     const params = new URLSearchParams(searchParams.toString());
     params.set("sort", field);
     params.set("dir", nextDir);
-    router.replace(`${pathname}?${params.toString()}`);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
   return (
