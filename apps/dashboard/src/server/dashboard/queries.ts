@@ -26,12 +26,13 @@ import type { Viewer } from "@/server/viewer";
  */
 export async function getOfficerDashboard(
   viewer: Viewer,
+  userSearch?: string,
   userSort?: UserSortField,
   userSortDir?: SortDirection,
 ) {
   const [users, pending, teams, meetings, attendance, feedback] =
     await Promise.all([
-      listUsers(userSort, userSortDir),
+      listUsers(userSearch, userSort, userSortDir),
       listPendingUsers(),
       listTeams(),
       listMeetingsForViewer(viewer),
