@@ -55,7 +55,12 @@ function EditTeamModal({ team, onClose }: EditTeamModalProps) {
       <form action={formAction} className="flex flex-col space-y-3">
         <div>
           <ControlLabel label="Team name" />
-          <Input name="name" defaultValue={team.name} placeholder="Name" required />
+          <Input
+            name="name"
+            defaultValue={team.name}
+            placeholder="Name"
+            required
+          />
         </div>
         <div>
           <ControlLabel label="Team description" />
