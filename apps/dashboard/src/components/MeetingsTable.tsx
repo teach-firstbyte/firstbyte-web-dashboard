@@ -17,16 +17,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useActionState, useEffect, useState } from "react";
 import {
   Modal,
   ModalHeader,
   ModalButton,
   ModalDropdown,
 } from "@/components/ui/modal";
+import { SubmitButton } from "@/components/SubmitButton";
 import { Meeting } from "@/types/dashboard";
 import { withBasePath } from "@/lib/paths";
 import { TableEmptyState } from "./ui/TableEmptyState";
@@ -34,6 +36,7 @@ import { MeetingStatusBadge } from "./MeetingStatusBadge";
 import { useDetailRow } from "@/hooks/useDetailRow";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { MeetingDetailSheet } from "./MeetingDetailSheet";
+import { updateMeetingAction } from "@/app/actions/meetings";
 
 interface MeetingsTableProps {
   meetings: Meeting[];
@@ -72,6 +75,125 @@ const emptyMeeting: NewMeeting = {
   maxCapacity: "",
 };
 
+/** `Date` -> the value a `<input type="datetime-local">` expects, in local time. */
+function toDatetimeLocalValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+interface EditMeetingModalProps {
+  meeting: Meeting;
+  onClose: () => void;
+}
+
+function EditMeetingModal({ meeting, onClose }: EditMeetingModalProps) {
+  const [state, formAction] = useActionState(
+    updateMeetingAction.bind(null, meeting.id),
+    {},
+  );
+  const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
+  const [teamsLoading, setTeamsLoading] = useState(false);
+  const [teamId, setTeamId] = useState(
+    meeting.teamId ? String(meeting.teamId) : "none",
+  );
+  const [type, setType] = useState(meeting.type);
+
+  useEffect(() => {
+    setTeamsLoading(true);
+    fetch(withBasePath("/api/teams"))
+      .then((res) => res.json())
+      .then((data) => setTeams(data))
+      .catch(() => setTeams([]))
+      .finally(() => setTeamsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (state.success) onClose();
+  }, [state.success, onClose]);
+
+  return (
+    <Modal onClose={onClose}>
+      <ModalHeader>Edit Meeting</ModalHeader>
+      <form action={formAction} className="flex flex-col space-y-3">
+        <Input
+          type="text"
+          name="title"
+          defaultValue={meeting.title}
+          placeholder="Title"
+          required
+        />
+        <ModalDropdown
+          label="Type"
+          name="type"
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          required
+          options={MEETING_TYPES.map((t) => ({
+            value: t,
+            label: t.replace(/_/g, " "),
+          }))}
+        />
+        <ModalDropdown
+          label="Team (optional)"
+          name="teamId"
+          loading={teamsLoading}
+          value={teamId}
+          onChange={(e) => setTeamId(e.target.value)}
+          options={[
+            { value: "none", label: "General - all members" },
+            ...teams.map((t) => ({ value: String(t.id), label: t.name })),
+          ]}
+        />
+        <label className="block text-sm font-medium">Scheduled at</label>
+        <Input
+          type="datetime-local"
+          name="scheduledAt"
+          defaultValue={toDatetimeLocalValue(new Date(meeting.scheduledAt))}
+          required
+        />
+        <textarea
+          name="description"
+          defaultValue={meeting.description ?? ""}
+          placeholder="Description (optional)"
+          className="min-h-16 w-full min-w-0 resize-y rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+        />
+        <Input
+          type="text"
+          name="location"
+          defaultValue={meeting.location ?? ""}
+          placeholder="Location (optional)"
+        />
+        <Input
+          type="number"
+          name="maxCapacity"
+          defaultValue={meeting.maxCapacity ?? ""}
+          placeholder="Max capacity (optional)"
+          min={0}
+        />
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="isRequired"
+            defaultChecked={meeting.isRequired}
+          />
+          Required
+        </label>
+
+        {state.error && (
+          <p className="text-sm text-destructive">{state.error}</p>
+        )}
+
+        <div className="flex justify-end space-x-2 pt-2">
+          <ModalButton variant="cancel" type="button" onClick={onClose}>
+            Cancel
+          </ModalButton>
+          <SubmitButton>Save</SubmitButton>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export function MeetingsTable({ meetings }: MeetingsTableProps) {
   const router = useRouter();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -81,6 +203,7 @@ export function MeetingsTable({ meetings }: MeetingsTableProps) {
   const [teamsError, setTeamsError] = useState<string | null>(null);
   const detail = useDetailRow<Meeting>();
   const save = useAsyncAction();
+  const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
 
   useEffect(() => {
     if (!showAddModal) return;
@@ -241,6 +364,13 @@ export function MeetingsTable({ meetings }: MeetingsTableProps) {
                       >
                         Feedback QR Code
                       </Link>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingMeeting(meeting)}
+                      >
+                        Edit
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -253,6 +383,13 @@ export function MeetingsTable({ meetings }: MeetingsTableProps) {
           onOpenChange={detail.onOpenChange}
           onCloseAutoFocus={detail.onCloseAutoFocus}
         />
+        {editingMeeting && (
+          <EditMeetingModal
+            key={editingMeeting.id}
+            meeting={editingMeeting}
+            onClose={() => setEditingMeeting(null)}
+          />
+        )}
         {showAddModal && (
           <Modal onClose={closeModal}>
             <ModalHeader>Add New Meeting</ModalHeader>

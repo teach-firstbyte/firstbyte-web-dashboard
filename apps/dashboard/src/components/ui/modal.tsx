@@ -129,6 +129,7 @@ function ControlLabel({
 
 interface ModalDropdownProps {
   label?: string;
+  name?: string;
   value: string | number | null;
   options: Array<{ value: string | number; label: string }>;
   onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
@@ -140,6 +141,7 @@ interface ModalDropdownProps {
 
 function ModalDropdown({
   label,
+  name,
   value,
   options,
   onChange,
@@ -152,6 +154,7 @@ function ModalDropdown({
     <div className={cn("flex flex-col gap-1", className)}>
       {label && <ControlLabel label={label} loading={loading} />}
       <select
+        name={name}
         className={nativeControl}
         value={value ?? ""}
         onChange={onChange}
