@@ -208,6 +208,57 @@ function ModalCheckboxes({
   );
 }
 
+interface ConfirmDialogProps {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  pending?: boolean;
+  error?: string | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+/**
+ * A yes/no prompt for a destructive action. No app-wide dialog primitive
+ * existed before this -- it's a thin wrapper over the same Modal/ModalHeader
+ * every other officer-dashboard popup already uses.
+ */
+function ConfirmDialog({
+  title,
+  message,
+  confirmLabel = "Confirm",
+  pending,
+  error,
+  onConfirm,
+  onCancel,
+}: ConfirmDialogProps) {
+  return (
+    <Modal onClose={onCancel}>
+      <ModalHeader>{title}</ModalHeader>
+      <p className="text-sm text-muted-foreground">{message}</p>
+      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      <div className="flex justify-end space-x-2 pt-4">
+        <ModalButton
+          variant="cancel"
+          type="button"
+          disabled={pending}
+          onClick={onCancel}
+        >
+          Cancel
+        </ModalButton>
+        <Button
+          variant="destructive"
+          size="sm"
+          disabled={pending}
+          onClick={onConfirm}
+        >
+          {pending ? "Deleting…" : confirmLabel}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 export {
   Modal,
   ModalHeader,
@@ -215,4 +266,5 @@ export {
   ModalButton,
   ModalDropdown,
   ModalCheckboxes,
+  ConfirmDialog,
 };

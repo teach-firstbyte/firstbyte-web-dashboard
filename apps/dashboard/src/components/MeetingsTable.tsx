@@ -17,11 +17,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import {
+  ConfirmDialog,
   Modal,
   ModalHeader,
   ModalButton,
@@ -34,9 +36,50 @@ import { MeetingStatusBadge } from "./MeetingStatusBadge";
 import { useDetailRow } from "@/hooks/useDetailRow";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { MeetingDetailSheet } from "./MeetingDetailSheet";
+import { deleteMeetingAction } from "@/app/actions/meetings";
 
 interface MeetingsTableProps {
   meetings: Meeting[];
+}
+
+interface DeleteMeetingButtonProps {
+  meeting: Meeting;
+}
+
+function DeleteMeetingButton({ meeting }: DeleteMeetingButtonProps) {
+  const [confirming, setConfirming] = useState(false);
+  const deleteAction = useAsyncAction();
+
+  const handleConfirm = () => {
+    deleteAction.run(async () => {
+      const result = await deleteMeetingAction(meeting.id);
+      if (result.error) throw new Error(result.error);
+      setConfirming(false);
+    });
+  };
+
+  return (
+    <>
+      <Button
+        variant="destructive"
+        size="sm"
+        onClick={() => setConfirming(true)}
+      >
+        Delete
+      </Button>
+      {confirming && (
+        <ConfirmDialog
+          title="Delete meeting?"
+          message={`Delete "${meeting.title}"? This also removes its attendance and feedback records.`}
+          confirmLabel="Delete"
+          pending={deleteAction.pending}
+          error={deleteAction.error}
+          onConfirm={handleConfirm}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
+    </>
+  );
 }
 
 // Mirrors the MeetingType enum in prisma/schema.prisma. The POST /api/meetings
@@ -241,6 +284,7 @@ export function MeetingsTable({ meetings }: MeetingsTableProps) {
                       >
                         Feedback QR Code
                       </Link>
+                      <DeleteMeetingButton meeting={meeting} />
                     </div>
                   </TableCell>
                 </TableRow>
