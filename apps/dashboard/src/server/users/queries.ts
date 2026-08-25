@@ -26,6 +26,11 @@ export function targetIdFor(viewer: Viewer, pathId: number): number {
   return isOfficer(viewer) ? pathId : viewer.id;
 }
 
+/** Columns the Users table may sort by. */
+export const USER_SORT_FIELDS = ["name", "email", "createdAt"] as const;
+export type UserSortField = (typeof USER_SORT_FIELDS)[number];
+export type SortDirection = "asc" | "desc";
+
 /**
  * The officer roster: every account, including those still in the review
  * queue.
@@ -34,8 +39,15 @@ export function targetIdFor(viewer: Viewer, pathId: number): number {
  * so the decision can be reversed. Callers tell them apart by `status`.
  *
  * `search`, when given, matches a name or email substring, case-insensitive.
+ * `sort`/`dir` pick the column and direction; both default to name ascending.
+ * `sort` is only ever one of USER_SORT_FIELDS, so it is safe to build the
+ * Prisma `orderBy` from it directly.
  */
-export function listUsers(search?: string): Promise<UserWithTeams[]> {
+export function listUsers(
+  search?: string,
+  sort: UserSortField = "name",
+  dir: SortDirection = "asc",
+): Promise<UserWithTeams[]> {
   const where: Prisma.UserWhereInput | undefined = search
     ? {
         OR: [
@@ -45,10 +57,15 @@ export function listUsers(search?: string): Promise<UserWithTeams[]> {
       }
     : undefined;
 
+  const orderBy: Prisma.UserOrderByWithRelationInput[] = [
+    { [sort]: dir },
+    { id: "asc" },
+  ];
+
   return prisma.user.findMany({
     where,
     ...userWithTeamsArgs,
-    orderBy: [{ name: "asc" }, { id: "asc" }],
+    orderBy,
   });
 }
 

@@ -28,8 +28,9 @@ import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
 import { getOfficerDashboard } from "@/server/dashboard/queries";
 import { SuggestionBoxLink } from "@/components/SuggestionBoxLink";
+import { USER_SORT_FIELDS } from "@/server/users/queries";
+import { enumParam, searchParam } from "@/server/validation";
 import { SearchInput } from "@/components/SearchInput";
-import { searchParam } from "@/server/validation";
 import { Suspense } from "react";
 
 export async function OfficerDashboard({
@@ -39,7 +40,10 @@ export async function OfficerDashboard({
   user: Viewer;
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const userSearch = searchParam((await searchParams)?.q);
+  const params = (await searchParams) ?? {};
+  const userSearch = searchParam(params.q);
+  const userSort = enumParam(params.sort, USER_SORT_FIELDS);
+  const userSortDir = enumParam(params.dir, ["asc", "desc"] as const);
 
   const emptyData = {
     users: [] as User[],
@@ -60,7 +64,7 @@ export async function OfficerDashboard({
   try {
     // One round of parallel queries, inside the service. If this fails, render
     // the dashboard with empty state data and the banner below.
-    data = await getOfficerDashboard(user, userSearch);
+    data = await getOfficerDashboard(user, userSearch, userSort, userSortDir);
   } catch (error) {
     dbUnavailable = true;
     console.error(
@@ -123,11 +127,11 @@ export async function OfficerDashboard({
         {/* First in the grid: it is the action item, everything below is
             reference data. */}
         <ApprovalQueue users={data.pending} />
-        <UsersTable users={data.users}>
-          <Suspense fallback={<div className="h-9" />}>
+        <Suspense fallback={null}>
+          <UsersTable users={data.users}>
             <SearchInput placeholder="Search by name or email..." />
-          </Suspense>
-        </UsersTable>
+          </UsersTable>
+        </Suspense>
         <TeamsTable teams={data.teams} />
         <MeetingsTable meetings={data.meetings} />
         <Card>
