@@ -107,3 +107,30 @@ export async function setAccountStatus(
     },
   });
 }
+
+/**
+ * Creates the row for a Supabase account on first sign-in, or returns the
+ * existing one.
+ *
+ * upsert rather than find-then-create: two parallel requests for a brand-new
+ * OAuth user both miss the lookup and race into create, and the loser fails the
+ * email unique constraint with P2002.
+ */
+export function upsertUserByEmail(email: string, name: string | null) {
+  return prisma.user.upsert({
+    where: { email },
+    update: {},
+    // role defaults to NORTHEASTERN_STUDENT, status to ONBOARDING
+    create: { email, name },
+  });
+}
+
+/**
+ * Renames the account behind a Supabase-verified email.
+ *
+ * Keyed by email rather than id because the settings action knows the session,
+ * not the row.
+ */
+export function updateNameByEmail(email: string, name: string) {
+  return prisma.user.update({ where: { email }, data: { name } });
+}

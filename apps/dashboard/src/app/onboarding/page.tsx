@@ -1,7 +1,7 @@
 import { AccountStatus } from "@prisma/client";
 import { requireSignedInUser } from "@/lib/auth/requireApprovedUser";
 import { assertStatusAllowed } from "@/lib/auth/accountGate";
-import { prisma } from "@/lib/prisma";
+import { listActiveTeams, listOwnTeamRequests } from "@/server/teams/queries";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Banner } from "@/components/ui/banner";
@@ -25,18 +25,11 @@ export default async function OnboardingPage() {
 
   const isEditing = user.status === AccountStatus.PENDING;
 
-  // Read teams through Prisma, never fetch("/api/teams") -- that route is
-  // officer-gated and would 403 the exact user who needs it.
+  // Read teams through the data layer, never fetch("/api/teams") -- that route
+  // is officer-gated and would 403 the exact user who needs it.
   const [teams, requests] = await Promise.all([
-    prisma.team.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, description: true },
-    }),
-    prisma.teamMember.findMany({
-      where: { userId: user.id },
-      select: { teamId: true, status: true },
-    }),
+    listActiveTeams(),
+    listOwnTeamRequests(user.id),
   ]);
 
   return (

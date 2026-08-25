@@ -85,3 +85,15 @@ export async function isLastApprovedOfficer(userId: number): Promise<boolean> {
 
   return remaining === 0;
 }
+
+/**
+ * The account for a Supabase-verified email, or null.
+ *
+ * Supabase auth.users and Prisma public.users are joined by email only -- there
+ * is no FK and no supabase_uid column -- so "has a session" and "has a row" are
+ * genuinely independent states. Callers in lib/auth/ tell them apart; this
+ * function only answers the second half.
+ */
+export function findUserByEmail(email: string) {
+  return prisma.user.findUnique({ where: { email } });
+}

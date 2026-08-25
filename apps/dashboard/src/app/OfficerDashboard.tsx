@@ -3,7 +3,6 @@ import { UsersTable } from "@/components/UsersTable";
 import { TeamsTable } from "@/components/TeamsTable";
 import { MeetingsTable } from "@/components/MeetingsTable";
 import { FeedbackTable } from "@/components/FeedbackTable";
-import { prisma } from "@/lib/prisma";
 import type {
   Feedback,
   Meeting,
@@ -14,11 +13,6 @@ import type {
 import { logOut } from "./login/actions";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import {
-  AccountStatus,
-  AttendanceStatus,
-  TeamMemberStatus,
-} from "@prisma/client";
 import type { Viewer } from "@/server/viewer";
 import { OfficerBadge } from "@/components/OfficerBadge";
 import { ApprovalQueue } from "@/components/ApprovalQueue";
@@ -32,7 +26,7 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
-import { listFeedbackForViewer } from "@/server/feedback/queries";
+import { getOfficerDashboard } from "@/server/dashboard/queries";
 import { SuggestionBoxLink } from "@/components/SuggestionBoxLink";
 
 export async function OfficerDashboard({ user }: { user: Viewer }) {
@@ -53,94 +47,9 @@ export async function OfficerDashboard({ user }: { user: Viewer }) {
   let dbUnavailable = false;
 
   try {
-    // Fetch all data from Prisma. If this fails, render the dashboard with empty state data.
-    const [users, pending, teams, meetings, attendanceGrouped, feedback] =
-      await Promise.all([
-        prisma.user.findMany({
-          // The roster is approved members only. Without this, accounts still
-          // in onboarding or waiting on review show up as if they were members.
-          where: { status: AccountStatus.APPROVED },
-          include: {
-            teamMemberships: {
-              where: { status: TeamMemberStatus.APPROVED },
-              include: {
-                team: true,
-              },
-            },
-          },
-        }),
-        // The review queue keys off account status, never off the existence of
-        // pending TeamMember rows -- a half-finished onboarding writes those
-        // rows but never reaches PENDING, and must stay invisible here.
-        prisma.user.findMany({
-          where: {
-            status: { in: [AccountStatus.PENDING, AccountStatus.DENIED] },
-          },
-          include: {
-            teamMemberships: {
-              include: {
-                team: true,
-              },
-            },
-          },
-          orderBy: { submittedAt: "asc" },
-        }),
-        prisma.team.findMany({
-          include: {
-            members: {
-              include: {
-                user: true,
-              },
-            },
-          },
-        }),
-        prisma.meeting.findMany({
-          include: {
-            // Without this the Team column and the detail sheet's Team field
-            // read "N/A" for every meeting, because meeting.team is undefined
-            // rather than absent-because-club-wide.
-            team: { select: { name: true } },
-            attendance: {
-              include: {
-                user: true,
-              },
-            },
-          },
-        }),
-        prisma.attendance.groupBy({
-          by: ["status"],
-          _count: { _all: true },
-        }),
-        // Through the service, so the officer dashboard and the API apply the
-        // same anonymity rule. They used to disagree: this screen blanked every
-        // anonymous row, including the reader's own.
-        listFeedbackForViewer(user),
-      ]);
-
-    const counts: Record<AttendanceStatus, number> = {
-      REGISTERED: 0,
-      PRESENT: 0,
-      ABSENT: 0,
-    };
-
-    for (const row of attendanceGrouped) {
-      counts[row.status] = row._count._all;
-    }
-    const decided = counts.PRESENT + counts.ABSENT;
-    const rate = decided > 0 ? counts.PRESENT / decided : null;
-
-    data = {
-      users,
-      pending,
-      teams,
-      meetings,
-      attendance: {
-        rate: rate,
-        present: counts.PRESENT,
-        absent: counts.ABSENT,
-      },
-      feedback,
-    };
+    // One round of parallel queries, inside the service. If this fails, render
+    // the dashboard with empty state data and the banner below.
+    data = await getOfficerDashboard(user);
   } catch (error) {
     dbUnavailable = true;
     console.error(

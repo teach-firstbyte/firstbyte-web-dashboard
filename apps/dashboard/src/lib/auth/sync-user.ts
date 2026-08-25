@@ -1,17 +1,15 @@
-import { prisma } from "@/lib/prisma";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { upsertUserByEmail } from "@/server/users/mutations";
 
-// upsert rather than find-then-create: two parallel requests for a brand-new
-// OAuth user both miss the lookup and race into create, and the loser fails the
-// email unique constraint with P2002.
+/**
+ * Creates the Prisma row for a Supabase account that does not have one yet.
+ *
+ * The email is non-null by the time this is called -- every caller reaches it
+ * through a session whose email Supabase confirmed.
+ */
 export async function syncUserToDb(supabaseUser: SupabaseUser) {
-  return prisma.user.upsert({
-    where: { email: supabaseUser.email! },
-    update: {},
-    create: {
-      email: supabaseUser.email!,
-      name: supabaseUser.user_metadata?.full_name ?? null,
-      // role defaults to NORTHEASTERN_STUDENT, status to ONBOARDING
-    },
-  });
+  return upsertUserByEmail(
+    supabaseUser.email!,
+    supabaseUser.user_metadata?.full_name ?? null,
+  );
 }
