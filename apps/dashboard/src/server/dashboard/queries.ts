@@ -5,7 +5,12 @@ import {
 import { listFeedbackForViewer } from "@/server/feedback/queries";
 import { listMeetingsForViewer } from "@/server/meetings/queries";
 import { listApprovedMemberships, listTeams } from "@/server/teams/queries";
-import { listPendingUsers, listUsers } from "@/server/users/queries";
+import {
+  listPendingUsers,
+  listUsers,
+  type SortDirection,
+  type UserSortField,
+} from "@/server/users/queries";
 import type { Viewer } from "@/server/viewer";
 
 /**
@@ -19,10 +24,15 @@ import type { Viewer } from "@/server/viewer";
  * No try/catch here. A database failure must reach the page, which catches it
  * to raise its warning banner -- see the header of server/errors.ts.
  */
-export async function getOfficerDashboard(viewer: Viewer) {
+export async function getOfficerDashboard(
+  viewer: Viewer,
+  userSearch?: string,
+  userSort?: UserSortField,
+  userSortDir?: SortDirection,
+) {
   const [users, pending, teams, meetings, attendance, feedback] =
     await Promise.all([
-      listUsers(),
+      listUsers(userSearch, userSort, userSortDir),
       listPendingUsers(),
       listTeams(),
       listMeetingsForViewer(viewer),

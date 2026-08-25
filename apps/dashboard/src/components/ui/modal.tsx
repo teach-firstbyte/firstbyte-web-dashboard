@@ -269,4 +269,5 @@ export {
   ModalDropdown,
   ModalCheckboxes,
   ConfirmDialog,
+  ControlLabel,
 };
