@@ -4,7 +4,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 
-export function SearchInput() {
+export function SearchInput({
+  placeholder = "Search by name, email, or meeting...",
+}: {
+  placeholder?: string;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -38,7 +42,7 @@ export function SearchInput() {
 
   return (
     <Input
-      placeholder="Search by name, email, or meeting..."
+      placeholder={placeholder}
       value={value}
       onChange={(e) => setValue(e.target.value)}
     />
