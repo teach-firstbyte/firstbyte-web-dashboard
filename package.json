@@ -11,6 +11,7 @@
     "build": "npm run build -w @firstbyte/web && npm run build -w @firstbyte/dashboard",
     "build:web": "npm run build -w @firstbyte/web",
     "build:dashboard": "npm run build -w @firstbyte/dashboard",
+    "verify:no-prisma-client:dashboard": "npm run verify:no-prisma-client -w @firstbyte/dashboard",
     "lint:dashboard": "npm run lint -w @firstbyte/dashboard",
     "typecheck:dashboard": "npm run typecheck -w @firstbyte/dashboard",
     "format:check:dashboard": "npm run format:check -w @firstbyte/dashboard",
