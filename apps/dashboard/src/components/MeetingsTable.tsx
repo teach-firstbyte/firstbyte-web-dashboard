@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import React, { useActionState, useEffect, useState } from "react";
 import {
+  ControlLabel,
   Modal,
   ModalHeader,
   ModalButton,
@@ -115,13 +116,16 @@ function EditMeetingModal({ meeting, onClose }: EditMeetingModalProps) {
     <Modal onClose={onClose}>
       <ModalHeader>Edit Meeting</ModalHeader>
       <form action={formAction} className="flex flex-col space-y-3">
-        <Input
-          type="text"
-          name="title"
-          defaultValue={meeting.title}
-          placeholder="Title"
-          required
-        />
+        <div>
+          <ControlLabel label="Title" />
+          <Input
+            type="text"
+            name="title"
+            defaultValue={meeting.title}
+            placeholder="Title"
+            required
+          />
+        </div>
         <ModalDropdown
           label="Type"
           name="type"
@@ -144,32 +148,43 @@ function EditMeetingModal({ meeting, onClose }: EditMeetingModalProps) {
             ...teams.map((t) => ({ value: String(t.id), label: t.name })),
           ]}
         />
-        <label className="block text-sm font-medium">Scheduled at</label>
-        <Input
-          type="datetime-local"
-          name="scheduledAt"
-          defaultValue={toDatetimeLocalValue(new Date(meeting.scheduledAt))}
-          required
-        />
-        <textarea
-          name="description"
-          defaultValue={meeting.description ?? ""}
-          placeholder="Description (optional)"
-          className="min-h-16 w-full min-w-0 resize-y rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
-        />
-        <Input
-          type="text"
-          name="location"
-          defaultValue={meeting.location ?? ""}
-          placeholder="Location (optional)"
-        />
-        <Input
-          type="number"
-          name="maxCapacity"
-          defaultValue={meeting.maxCapacity ?? ""}
-          placeholder="Max capacity (optional)"
-          min={0}
-        />
+        <div>
+          <ControlLabel label="Scheduled at" />
+          <Input
+            type="datetime-local"
+            name="scheduledAt"
+            defaultValue={toDatetimeLocalValue(new Date(meeting.scheduledAt))}
+            required
+          />
+        </div>
+        <div>
+          <ControlLabel label="Description" />
+          <textarea
+            name="description"
+            defaultValue={meeting.description ?? ""}
+            placeholder="Description (optional)"
+            className="min-h-16 w-full min-w-0 resize-y rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+          />
+        </div>
+        <div>
+          <ControlLabel label="Location" />
+          <Input
+            type="text"
+            name="location"
+            defaultValue={meeting.location ?? ""}
+            placeholder="Location (optional)"
+          />
+        </div>
+        <div>
+          <ControlLabel label="Max capacity" />
+          <Input
+            type="number"
+            name="maxCapacity"
+            defaultValue={meeting.maxCapacity ?? ""}
+            placeholder="Max capacity (optional)"
+            min={0}
+          />
+        </div>
         <label className="flex items-center gap-2">
           <input
             type="checkbox"

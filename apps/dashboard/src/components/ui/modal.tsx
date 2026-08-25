@@ -218,4 +218,5 @@ export {
   ModalButton,
   ModalDropdown,
   ModalCheckboxes,
+  ControlLabel,
 };
