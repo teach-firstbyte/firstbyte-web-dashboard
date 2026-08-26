@@ -8,6 +8,13 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { withBasePath } from "@/lib/paths";
+import type { Metadata } from "next";
+
+// This URL carries a single-use token. Keep it out of indexes and out of any
+// crawler's follow set.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 const COPY: Record<
   string,
@@ -75,15 +82,23 @@ export default async function ConfirmPage({
     );
   }
 
-  const params = new URLSearchParams({ token_hash, type });
-  if (next) params.set("next", next);
-  // withBasePath is required here because this is a raw <a>, not next/link.
-  // basePath is applied by the Next router, so <Link> gets it automatically and a
-  // plain anchor gets nothing. The <a> is deliberate: /auth/callback is a route
-  // handler, and <Link>'s client-side navigation cannot hand off to one.
-  const confirmHref = withBasePath(`/auth/callback?${params.toString()}`);
   const copy = COPY[type] ?? FALLBACK;
 
+  // A FORM, not a link, and this is load-bearing.
+  //
+  // Being inert on load only protects against a scanner that fetches the URL
+  // from the email. Northeastern's mail security does more than that: it renders
+  // this page and follows the links on it, which is exactly how a signup was
+  // confirmed 82 seconds before the email arrived in the inbox. An <a> here is
+  // indistinguishable to a crawler from any other link.
+  //
+  // Scanners do not submit forms, so the token now needs a real click. There is
+  // no JavaScript involved -- this is a plain HTML POST to a route handler, so
+  // it still works with scripting disabled.
+  //
+  // withBasePath is required because this is a raw <form action>, not next/link:
+  // basePath is applied by the Next router, and the browser's own form
+  // submission never goes near it.
   return (
     <div className="container mx-auto flex min-h-screen max-w-sm flex-col justify-center p-6">
       <Card>
@@ -92,9 +107,14 @@ export default async function ConfirmPage({
           <CardDescription>{copy.description}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild className="w-full">
-            <a href={confirmHref}>{copy.action}</a>
-          </Button>
+          <form method="post" action={withBasePath("/auth/callback")}>
+            <input type="hidden" name="token_hash" value={token_hash} />
+            <input type="hidden" name="type" value={type} />
+            {next && <input type="hidden" name="next" value={next} />}
+            <Button type="submit" className="w-full">
+              {copy.action}
+            </Button>
+          </form>
         </CardContent>
       </Card>
     </div>
