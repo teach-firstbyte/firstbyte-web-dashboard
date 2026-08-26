@@ -97,6 +97,34 @@ const nextConfig = {
   async rewrites() {
     const origin = dashboardOrigin();
     return [
+      /**
+       * Client-side navigations inside the dashboard zone fetch RSC payloads,
+       * and the router asks for them at `<path>.rsc`. For the zone ROOT that is
+       * "/dashboard.rsc", which matches NEITHER rule below: "/dashboard" is an
+       * exact match, and "/dashboard/:path*" needs a "/" after "dashboard".
+       *
+       * With no match the request falls through to this app, which has no
+       * /dashboard route, so it 404s. The dashboard's router treats a failed
+       * RSC fetch as "this URL is not mine" and hands the navigation to the
+       * browser instead -- a full page load. That is why searching or sorting
+       * the Users table on the dashboard HOME jumped back to the top while the
+       * same controls on /dashboard/attendance kept their scroll position:
+       * nested routes match the ":path*" rule and never lost their RSC fetch.
+       *
+       * `scroll: false` on the router.replace() calls cannot help here; a full
+       * page load is not a router navigation at all.
+       *
+       * The destination is the root route's payload path. Next serves the App
+       * Router root as "index.rsc", so with the zone's basePath it is
+       * "/dashboard/index.rsc" -- NOT "/dashboard.rsc".
+       *
+       * Must stay first: rewrites are matched in order, and "/dashboard/:path*"
+       * would otherwise be reached only after this exact match fails.
+       */
+      {
+        source: "/dashboard.rsc",
+        destination: `${origin}/dashboard/index.rsc`,
+      },
       {
         source: "/dashboard",
         destination: `${origin}/dashboard`,
