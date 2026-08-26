@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
-import { NameForm } from "./NameForm";
+import { ProfileForm } from "./ProfileForm";
 import { PasswordForm } from "./PasswordForm";
 import { BackLink } from "@/components/BackLink";
 
@@ -15,7 +15,15 @@ export default async function UserSettingsPage() {
           <CardTitle>Profile</CardTitle>
         </CardHeader>
         <CardContent>
-          <NameForm currentName={user.name} />
+          <ProfileForm
+            defaults={{
+              name: user.name,
+              preferredName: user.preferredName,
+              pronouns: user.pronouns,
+              gradYear: user.gradYear,
+              major: user.major,
+            }}
+          />
         </CardContent>
       </Card>
       <Card>

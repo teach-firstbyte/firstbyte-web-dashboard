@@ -4,7 +4,11 @@ import { isOfficer } from "@/lib/auth/roles";
 import { ServiceError } from "@/server/errors";
 import type { Viewer } from "@/server/viewer";
 import { getUserById, isLastApprovedOfficer } from "./queries";
-import type { CreateUserInput, UpdateUserInput } from "./schema";
+import type {
+  CreateUserInput,
+  UpdateProfileInput,
+  UpdateUserInput,
+} from "./schema";
 
 /**
  * The email column is unique. Checking first turns a P2002 into a sentence the
@@ -126,11 +130,12 @@ export function upsertUserByEmail(email: string, name: string | null) {
 }
 
 /**
- * Renames the account behind a Supabase-verified email.
+ * Updates the account behind a Supabase-verified email with the fields the
+ * user edits on their own Settings page.
  *
  * Keyed by email rather than id because the settings action knows the session,
  * not the row.
  */
-export function updateNameByEmail(email: string, name: string) {
-  return prisma.user.update({ where: { email }, data: { name } });
+export function updateProfileByEmail(email: string, input: UpdateProfileInput) {
+  return prisma.user.update({ where: { email }, data: input });
 }

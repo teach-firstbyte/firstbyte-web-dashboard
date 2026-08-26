@@ -1,5 +1,6 @@
 import { AccountStatus } from "@prisma/client";
 import { z } from "zod";
+import { boundedText, gradYear } from "@/server/onboarding/schema";
 import { nullableText } from "@/server/validation";
 
 /**
@@ -32,6 +33,24 @@ export const updateUserSchema = z
   );
 
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+
+/**
+ * The Settings page's own profile fields. Reuses onboarding's bounds
+ * (100-char cap, grad year within 10 years of now) so the two forms can never
+ * silently drift apart on what counts as valid.
+ */
+export const updateProfileSchema = z.object({
+  name: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim() : v),
+    z.string().min(1, "Name cannot be empty"),
+  ),
+  preferredName: boundedText("preferred name"),
+  pronouns: boundedText("pronouns"),
+  gradYear,
+  major: boundedText("major"),
+});
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
 export const accountStatusSchema = z.object({
   status: z.enum(AccountStatus, {
