@@ -315,12 +315,14 @@
     },
     {
       "name": "Hector Batista",
-      "role": "Software Website Lead",
+      "role": "Website Lead",
       "image": "/teamMemberPhotos/Hector Batista.jpg",
       "bio": "Hi, I'm Hector, a third year CS & Business Admin major and the Software Website Lead. I joined FirstByte because I love teaching others as I find it enhances my own skills as a mentor and a learner! In my free time I love to explore the city, hang out with friends, and try new restaurants.",
       "linkedin": "https://www.linkedin.com/in/hectorbatistajr",
+      "github": "https://github.com/hecbatista",
       "years": ["2025", "2026"],
       "previousRoles": [
+        { "role": "Software Events Team Member", "year": "2025" },
         { "role": "Software Website Team Member", "year": "2025" }
       ]
     },
