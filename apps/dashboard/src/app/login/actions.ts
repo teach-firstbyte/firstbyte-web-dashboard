@@ -4,6 +4,21 @@ import { createClient } from "@/lib/supabase/server";
 import { syncUserToDb } from "@/lib/auth/sync-user";
 import { redirect } from "next/navigation";
 import { safeInternalPath } from "@/lib/paths";
+import type { AuthError } from "@supabase/supabase-js";
+
+/**
+ * Whether a failed sign-in was rejected for an unconfirmed email.
+ *
+ * `code` is the supported signal and is checked first. The message test is a
+ * fallback for older GoTrue responses that carry no code -- getting this wrong
+ * only costs the nicer redirect below, never access.
+ */
+function isUnconfirmedEmail(error: AuthError): boolean {
+  return (
+    error.code === "email_not_confirmed" ||
+    error.message.toLowerCase().includes("email not confirmed")
+  );
+}
 
 export async function signUp(formData: FormData) {
   const email = formData.get("email") as string;
@@ -51,6 +66,19 @@ export async function logIn(formData: FormData) {
   });
 
   if (error) {
+    // An unconfirmed account is not a failed login, it is an unfinished signup,
+    // and "Email not confirmed" on the login form is a dead end -- the one thing
+    // that would help is another link, and there is no way to ask for one from
+    // here. Send them to the page that can, prefilled.
+    //
+    // This is a common landing spot rather than an edge case: mail security that
+    // opens links before delivery can spend a confirmation link before its
+    // recipient ever sees it, so members reach this having done nothing wrong.
+    if (isUnconfirmedEmail(error)) {
+      const params = new URLSearchParams({ email, unconfirmed: "1" });
+      redirect(`/check-email?${params.toString()}`);
+    }
+
     // Preserve the destination so a typo'd password does not cost the deep link.
     const params = new URLSearchParams({ error: error.message });
     if (returnTo) params.set("redirect", returnTo);

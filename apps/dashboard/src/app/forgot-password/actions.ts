@@ -43,8 +43,17 @@ export async function requestPasswordReset(formData: FormData) {
   await supabase.auth.resetPasswordForEmail(email, {
     // Absolute, and prefixed with the zone's base path: this URL lands in the
     // user's inbox and is opened against the public domain, where a bare
-    // /auth/callback would 404.
-    redirectTo: `${origin}${withBasePath("/auth/callback?next=/reset-password")}`,
+    // /auth/confirm would 404.
+    //
+    // Points at /auth/confirm, NOT /auth/callback. Recovery used to send people
+    // straight to the route that spends the token, which made reset strictly
+    // worse than signup: signup at least had an inert landing page in front of
+    // it, so a scanner had to follow a link to do damage, whereas one plain
+    // fetch of this URL killed the reset. Mail security that opens links before
+    // delivery therefore broke password reset outright for Northeastern
+    // addresses. The interstitial now covers both flows, and the token is only
+    // spent by the POST it submits.
+    redirectTo: `${origin}${withBasePath("/auth/confirm?next=/reset-password")}`,
   });
 
   redirect("/forgot-password?sent=1");
