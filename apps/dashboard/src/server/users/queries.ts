@@ -32,11 +32,11 @@ export type UserSortField = (typeof USER_SORT_FIELDS)[number];
 export type SortDirection = "asc" | "desc";
 
 /**
- * The officer roster: every account, including those still in the review
- * queue.
+ * The officer roster: approved accounts only.
  *
- * Not filtered by status on purpose -- a denied account has to stay reachable
- * so the decision can be reversed. Callers tell them apart by `status`.
+ * Accounts still in the review queue (ONBOARDING/PENDING) or DENIED are
+ * handled by the separate approval queue (listPendingUsers) and shouldn't
+ * show up here until an officer approves them.
  *
  * `search`, when given, matches a name or email substring, case-insensitive.
  * `sort`/`dir` pick the column and direction; both default to name ascending.
@@ -48,14 +48,17 @@ export function listUsers(
   sort: UserSortField = "name",
   dir: SortDirection = "asc",
 ): Promise<UserWithTeams[]> {
-  const where: Prisma.UserWhereInput | undefined = search
-    ? {
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { email: { contains: search, mode: "insensitive" } },
-        ],
-      }
-    : undefined;
+  const where: Prisma.UserWhereInput = {
+    status: AccountStatus.APPROVED,
+    ...(search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { email: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
 
   const orderBy: Prisma.UserOrderByWithRelationInput[] = [
     { [sort]: dir },
