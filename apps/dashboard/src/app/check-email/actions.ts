@@ -19,7 +19,7 @@ import { redirect } from "next/navigation";
  * GoTrue silently fall back to site_url and send a subtly different link than
  * the one that already works.
  */
-export async function resendConfirmation(email: string, _formData: FormData) {
+export async function resendConfirmation(email: string) {
   const supabase = await createClient();
   const { error } = await supabase.auth.resend({ type: "signup", email });
 
