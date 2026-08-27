@@ -54,7 +54,10 @@ export const pendingUserArgs = Prisma.validator<Prisma.UserDefaultArgs>()({
       select: {
         id: true,
         status: true,
-        team: { select: { id: true, name: true } },
+        // joinPolicy drives whether the approval sheet offers Approve/Reject
+        // for this row: a NORTHEASTERN_ADMIN cannot decide an invite-only
+        // request, so showing them the buttons would only produce a 403.
+        team: { select: { id: true, name: true, joinPolicy: true } },
       },
       // Ordered so the badges on a queue row do not shuffle between renders.
       // The old query had none, so the order was whatever Postgres returned.
