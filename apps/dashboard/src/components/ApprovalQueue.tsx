@@ -22,7 +22,14 @@ import { AccountStatusBadge } from "./AccountStatusBadge";
 import { ApprovalDetailSheet } from "./ApprovalDetailSheet";
 import type { PendingUser } from "@/types/dashboard";
 
-export function ApprovalQueue({ users }: { users: PendingUser[] }) {
+export function ApprovalQueue({
+  users,
+  canManageRestricted,
+}: {
+  users: PendingUser[];
+  /** Whether the viewer may decide requests for invite-only teams. */
+  canManageRestricted: boolean;
+}) {
   const detail = useDetailRow<PendingUser>();
 
   // useDetailRow holds the row object it was opened with. Once the server data
@@ -114,6 +121,7 @@ export function ApprovalQueue({ users }: { users: PendingUser[] }) {
         </Table>
         <ApprovalDetailSheet
           user={selected}
+          canManageRestricted={canManageRestricted}
           onOpenChange={detail.onOpenChange}
           onCloseAutoFocus={detail.onCloseAutoFocus}
         />

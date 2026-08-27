@@ -34,9 +34,15 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { UserDetailSheet } from "./UserDetailSheet";
 import { OfficerBadge } from "./OfficerBadge";
 import { isOfficerRole } from "@/lib/auth/roles";
+import { isInviteOnly } from "@/lib/auth/teamPolicy";
 
 interface UsersTableProps {
   users: User[];
+  /**
+   * Whether the viewer may assign invite-only teams. A plain boolean rather than
+   * the viewer's role, so this component never needs the Role enum.
+   */
+  canManageRestricted: boolean;
   children?: React.ReactNode;
 }
 
@@ -82,7 +88,11 @@ function SortableTableHead({
   );
 }
 
-export function UsersTable({ users, children }: UsersTableProps) {
+export function UsersTable({
+  users,
+  canManageRestricted,
+  children,
+}: UsersTableProps) {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const router = useRouter();
   const assign = useAsyncAction();
@@ -91,7 +101,9 @@ export function UsersTable({ users, children }: UsersTableProps) {
   // doesn't touch either, so the table keeps whatever the officer had set up.
   const detail = useDetailRow<User>();
 
-  const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
+  const [teams, setTeams] = useState<
+    { id: number; name: string; joinPolicy: string }[]
+  >([]);
   const [teamsLoading, setTeamsLoading] = useState(false);
 
   useEffect(() => {
@@ -128,8 +140,27 @@ export function UsersTable({ users, children }: UsersTableProps) {
     // No re-entry guard needed here -- useAsyncAction.run ignores a call while one
     // is already in flight, including a second click in the same tick.
 
-    const added = selectedTeams.filter((id) => !originalTeamIds.includes(id));
-    const removed = originalTeamIds.filter((id) => !selectedTeams.includes(id));
+    // Both sides filtered by what this officer may actually touch.
+    //
+    // `removed` is the load-bearing one. originalTeamIds comes from the user's
+    // real memberships, so it contains invite-only teams even though they are
+    // not rendered as checkboxes -- which means "not in selectedTeams" is true
+    // for them on every single save. Without this filter, opening the modal on
+    // an e-board member and changing anything else would fire a DELETE for
+    // their e-board membership; the server now refuses that, so the visible
+    // symptom would be a correct save reporting failure.
+    const manageable = new Set(
+      teams
+        .filter((t) => canManageRestricted || !isInviteOnly(t.joinPolicy))
+        .map((t) => t.id),
+    );
+
+    const added = selectedTeams.filter(
+      (id) => !originalTeamIds.includes(id) && manageable.has(id),
+    );
+    const removed = originalTeamIds.filter(
+      (id) => !selectedTeams.includes(id) && manageable.has(id),
+    );
 
     assign.run(async () => {
       const addCalls = added.map((teamId) =>
@@ -272,7 +303,16 @@ export function UsersTable({ users, children }: UsersTableProps) {
               <ModalCheckboxes
                 label="Assign to Teams"
                 loading={teamsLoading}
-                options={teams.map((t) => ({ value: t.id, label: t.name }))}
+                options={teams
+                  .filter(
+                    (t) => canManageRestricted || !isInviteOnly(t.joinPolicy),
+                  )
+                  .map((t) => ({
+                    value: t.id,
+                    label: isInviteOnly(t.joinPolicy)
+                      ? `${t.name} (invite only)`
+                      : t.name,
+                  }))}
                 selected={selectedTeams}
                 onToggle={toggleTeam}
                 disabled={!selectedUserId || teamsLoading || assign.pending}

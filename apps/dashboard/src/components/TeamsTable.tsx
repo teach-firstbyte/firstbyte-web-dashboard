@@ -32,14 +32,21 @@ import { useDetailRow } from "@/hooks/useDetailRow";
 import { TeamDetailSheet } from "./TeamDetailSheet";
 import { OfficerStar } from "./OfficerBadge";
 import { isOfficerRole } from "@/lib/auth/roles";
+import { isInviteOnly } from "@/lib/auth/teamPolicy";
+import { TEAM_JOIN_POLICY } from "@/lib/enums";
 import { updateTeamAction } from "@/app/actions/teams";
 
 interface EditTeamModalProps {
   team: Team;
+  canManageRestricted: boolean;
   onClose: () => void;
 }
 
-function EditTeamModal({ team, onClose }: EditTeamModalProps) {
+function EditTeamModal({
+  team,
+  canManageRestricted,
+  onClose,
+}: EditTeamModalProps) {
   const [state, formAction] = useActionState(
     updateTeamAction.bind(null, team.id),
     {},
@@ -78,6 +85,27 @@ function EditTeamModal({ team, onClose }: EditTeamModalProps) {
           />
           Active
         </label>
+        {/* Super admins only, and the server enforces the same rule -- rendering
+            this for a regular officer would just produce a 403 on save. The
+            action reads the field only when it is present, so its absence here
+            leaves the team's policy alone rather than sending a null. */}
+        {canManageRestricted && (
+          <div>
+            <ControlLabel label="Who can join" />
+            <select
+              name="joinPolicy"
+              defaultValue={team.joinPolicy}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value={TEAM_JOIN_POLICY.OPEN}>
+                Open — anyone can request this team during onboarding
+              </option>
+              <option value={TEAM_JOIN_POLICY.INVITE_ONLY}>
+                Invite only — assigned by a super admin
+              </option>
+            </select>
+          </div>
+        )}
         {state.error && (
           <p className="text-sm text-destructive">{state.error}</p>
         )}
@@ -94,9 +122,11 @@ function EditTeamModal({ team, onClose }: EditTeamModalProps) {
 
 interface TeamsTableProps {
   teams: Team[];
+  /** Whether the viewer may edit invite-only teams. */
+  canManageRestricted: boolean;
 }
 
-export function TeamsTable({ teams }: TeamsTableProps) {
+export function TeamsTable({ teams, canManageRestricted }: TeamsTableProps) {
   const detail = useDetailRow<Team>();
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
@@ -130,9 +160,17 @@ export function TeamsTable({ teams }: TeamsTableProps) {
                   <TableCell>{team.name}</TableCell>
                   <TableCell>{team.description || "N/A"}</TableCell>
                   <TableCell>
-                    <Badge variant={team.isActive ? "default" : "secondary"}>
-                      {team.isActive ? "Active" : "Inactive"}
-                    </Badge>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant={team.isActive ? "default" : "secondary"}>
+                        {team.isActive ? "Active" : "Inactive"}
+                      </Badge>
+                      {/* Shown so an officer can tell at a glance why this team
+                          is absent from the onboarding form, rather than
+                          reporting it as a bug. */}
+                      {isInviteOnly(team.joinPolicy) && (
+                        <Badge variant="outline">Invite only</Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
@@ -152,9 +190,20 @@ export function TeamsTable({ teams }: TeamsTableProps) {
                     {new Date(team.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
+                    {/* Disabled rather than hidden: the column stays aligned and
+                        the title says why. The server refuses this edit anyway,
+                        and a form that always fails is worse than no form. */}
                     <Button
                       variant="outline"
                       size="sm"
+                      disabled={
+                        isInviteOnly(team.joinPolicy) && !canManageRestricted
+                      }
+                      title={
+                        isInviteOnly(team.joinPolicy) && !canManageRestricted
+                          ? "Only a super admin can edit an invite-only team."
+                          : undefined
+                      }
                       onClick={() => setEditingTeam(team)}
                     >
                       Edit
@@ -174,6 +223,7 @@ export function TeamsTable({ teams }: TeamsTableProps) {
           <EditTeamModal
             key={editingTeam.id}
             team={editingTeam}
+            canManageRestricted={canManageRestricted}
             onClose={() => setEditingTeam(null)}
           />
         )}
