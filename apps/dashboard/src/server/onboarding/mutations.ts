@@ -1,6 +1,11 @@
-import { AccountStatus, TeamMemberStatus } from "@prisma/client";
+import {
+  AccountStatus,
+  TeamJoinPolicy,
+  TeamMemberStatus,
+} from "@prisma/client";
 import { prisma } from "@/server/db";
 import { ServiceError } from "@/server/errors";
+import { JOINABLE_TEAM_WHERE } from "@/server/teams/select";
 import type { Viewer } from "@/server/viewer";
 import type { OnboardingInput } from "./schema";
 
@@ -53,11 +58,16 @@ export async function saveOnboarding(
     );
   }
 
-  // The checkbox values are client input: confirm every id is a real, ACTIVE
-  // team before any of them becomes a membership row. A retired team must not
-  // be joinable just because someone kept an old page open.
+  // The checkbox values are client input: confirm every id is a real, JOINABLE
+  // team before any of them becomes a membership row. A retired team must not be
+  // joinable just because someone kept an old page open, and neither must an
+  // invite-only one just because the id was typed into the request by hand.
+  //
+  // JOINABLE_TEAM_WHERE is shared with listActiveTeams -- the query that decides
+  // what this form shows -- so what is offered and what is accepted cannot
+  // diverge.
   const validTeams = await prisma.team.findMany({
-    where: { id: { in: input.teamIds }, isActive: true },
+    where: { id: { in: input.teamIds }, ...JOINABLE_TEAM_WHERE },
     select: { id: true },
   });
 
@@ -82,11 +92,18 @@ export async function saveOnboarding(
 
     // Drop de-selected teams, but only rows still PENDING. An APPROVED or
     // REJECTED row is an officer's decision and is not the user's to undo.
+    //
+    // Scoped to OPEN teams as well, because "de-selected" is inferred from
+    // absence: an invite-only team can never appear in validIds, so without this
+    // clause every save here would silently delete a PENDING invite-only row.
+    // Harmless while onboarding is the only thing that creates them -- and a
+    // data-loss bug the first time an officer creates one as a pending invite.
     await tx.teamMember.deleteMany({
       where: {
         userId: viewer.id,
         status: TeamMemberStatus.PENDING,
         teamId: { notIn: validIds },
+        team: { joinPolicy: TeamJoinPolicy.OPEN },
       },
     });
 

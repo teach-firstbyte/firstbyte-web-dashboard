@@ -1,3 +1,4 @@
+import { TeamJoinPolicy } from "@prisma/client";
 import { z } from "zod";
 import { nullableText } from "@/server/validation";
 
@@ -16,12 +17,20 @@ export const createTeamSchema = z.object({
 
 export type CreateTeamInput = z.infer<typeof createTeamSchema>;
 
+// joinPolicy is here but NOT on createTeamSchema. A new team is OPEN by the
+// database default; restricting one is a deliberate follow-up edit, which keeps
+// createTeam free of any authorization argument.
 export const updateTeamSchema = z
-  .object({ name, description: nullableText, isActive: z.boolean() })
+  .object({
+    name,
+    description: nullableText,
+    isActive: z.boolean(),
+    joinPolicy: z.enum(TeamJoinPolicy),
+  })
   .partial()
   .refine(
     (v) => Object.keys(v).length > 0,
-    "Provide at least one of: name, description, isActive",
+    "Provide at least one of: name, description, isActive, joinPolicy",
   );
 
 export type UpdateTeamInput = z.infer<typeof updateTeamSchema>;

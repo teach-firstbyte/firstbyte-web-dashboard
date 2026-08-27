@@ -25,16 +25,16 @@ export async function GET(request: Request, { params }: RouteContext) {
 }
 
 /**
- * Updates a team's name, description, and/or active status.
+ * Updates a team's name, description, active status, and/or join policy.
  */
 export async function PUT(request: Request, { params }: RouteContext) {
-  const { error } = await requireOfficerApi();
+  const { user: officer, error } = await requireOfficerApi();
   if (error) return error;
 
   try {
     const { id } = await params;
     const input = await parseJsonBody(request, updateTeamSchema);
-    const updated = await updateTeam(requireId(id, "team"), input);
+    const updated = await updateTeam(officer, requireId(id, "team"), input);
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
     return toErrorResponse(e, "PUT /api/teams/[id]", "Failed to update team");
@@ -45,12 +45,12 @@ export async function PUT(request: Request, { params }: RouteContext) {
  * Deletes a team by id. Its team_member rows cascade.
  */
 export async function DELETE(request: Request, { params }: RouteContext) {
-  const { error } = await requireOfficerApi();
+  const { user: officer, error } = await requireOfficerApi();
   if (error) return error;
 
   try {
     const { id } = await params;
-    const team = await deleteTeam(requireId(id, "team"));
+    const team = await deleteTeam(officer, requireId(id, "team"));
     return NextResponse.json(
       { message: "Team deleted successfully", team },
       { status: 200 },

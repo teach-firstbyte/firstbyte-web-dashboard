@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { ServiceError } from "@/server/errors";
 import { getUserById } from "@/server/users/queries";
 import { getTeamById } from "@/server/teams/queries";
+import { assertCanManageTeamMembership } from "@/server/teams/policy";
 import type { Viewer } from "@/server/viewer";
 import { findMembership, getTeamMemberById } from "./queries";
 import type { AssignTeamMemberInput, UpdateTeamMemberInput } from "./schema";
@@ -29,7 +30,11 @@ export async function assignTeamMember(
   // Checked up front so a bad id is a sentence rather than a foreign-key error
   // surfacing as "Failed to create team member".
   await getUserById(input.userId);
-  await getTeamById(input.teamId);
+  const team = await getTeamById(input.teamId);
+
+  // Before the CONFLICT check below, not after: a non-super-admin must not be
+  // able to learn who is already on an invite-only team by reading a 409.
+  assertCanManageTeamMembership(officer, team);
 
   const existing = await findMembership(input.userId, input.teamId);
 
@@ -74,7 +79,13 @@ export async function updateTeamMember(
   teamMemberId: number,
   input: UpdateTeamMemberInput,
 ) {
-  await getTeamMemberById(teamMemberId);
+  const member = await getTeamMemberById(teamMemberId);
+
+  // Gated whichever field is being written. Promoting someone to LEAD of the
+  // e-board is an authority change as much as adding them to it is, and
+  // splitting the rule ("status restricted, role not") would double it for no
+  // benefit.
+  assertCanManageTeamMembership(officer, member.team);
 
   const decided =
     input.status !== undefined && input.status !== TeamMemberStatus.PENDING;
@@ -94,9 +105,18 @@ export async function updateTeamMember(
   });
 }
 
-/** Removes a membership outright. Throws NOT_FOUND. */
-export async function deleteTeamMember(teamMemberId: number) {
+/**
+ * Removes a membership outright. Throws NOT_FOUND.
+ *
+ * Takes the officer purely to authorize the removal, which is why the signature
+ * changed: this is the path the Assign Teams modal fires on an unchecked box, so
+ * leaving it open would let any officer take the president off the e-board --
+ * and would turn hiding the checkbox in the UI into a way to lose data rather
+ * than a way to prevent it.
+ */
+export async function deleteTeamMember(officer: Viewer, teamMemberId: number) {
   const member = await getTeamMemberById(teamMemberId);
+  assertCanManageTeamMembership(officer, member.team);
   await prisma.teamMember.delete({ where: { id: teamMemberId } });
   return member;
 }
