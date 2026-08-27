@@ -25,15 +25,30 @@ ALTER TABLE "public"."teams"
 -- back cleanly instead of half-applying it.
 -- ---------------------------------------------------------------------------
 DO $$
-DECLARE restricted INT;
+DECLARE
+  restricted  INT;
+  total_teams INT;
 BEGIN
   UPDATE "public"."teams" SET "join_policy" = 'INVITE_ONLY'
    WHERE upper(btrim("name")) = 'EBOARD';
-
   GET DIAGNOSTICS restricted = ROW_COUNT;
+
   IF restricted = 0 THEN
-    RAISE EXCEPTION
-      'No team named EBOARD found. Create it, or fix the name match in this migration, then re-run.';
+    SELECT count(*) INTO total_teams FROM "public"."teams";
+
+    -- No teams at all means a fresh database -- a new environment, or the shadow
+    -- database Prisma builds to check for drift -- so there is nothing to
+    -- restrict and this is not an error. Raising unconditionally here would make
+    -- `prisma migrate dev` impossible for everyone, since it replays every
+    -- migration against an empty shadow database.
+    --
+    -- Teams present but none named EBOARD is the case worth failing on: that is
+    -- a populated database where the name did not match, and letting it pass
+    -- would ship the feature with EBOARD still joinable and no error anywhere.
+    IF total_teams > 0 THEN
+      RAISE EXCEPTION
+        'Teams exist but none is named EBOARD. Fix the name in the teams table, or the match in this migration, then re-run.';
+    END IF;
   END IF;
 END $$;
 
