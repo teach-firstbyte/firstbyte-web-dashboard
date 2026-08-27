@@ -17,12 +17,17 @@ ALTER TABLE "public"."teams"
 -- migration that creates it. Doing it in a follow-up snippet would leave a
 -- window where the code is live and EBOARD is still joinable by anyone.
 --
--- teams.name is NOT unique, so this matches case- and whitespace-insensitively
--- and may legitimately hit more than one row -- restricting all of them is the
--- safe direction. ZERO rows is the dangerous direction: it would ship the whole
--- feature with EBOARD still OPEN and no error anywhere. So it raises, and
--- because Prisma wraps this file in a transaction the raise rolls the migration
--- back cleanly instead of half-applying it.
+-- teams.name is NOT unique and is free text a human typed, so the match is
+-- normalized: case folded and stripped of everything that is not a letter or
+-- digit. That is deliberately loose, because the name in the wild is "E-Board"
+-- and the plausible variants ("EBOARD", "E Board", "eboard", "E.Board") all
+-- differ only in punctuation and case. It may legitimately hit more than one
+-- row; restricting all of them is the safe direction.
+--
+-- ZERO rows is the dangerous direction: it would ship the whole feature with the
+-- team still OPEN and no error anywhere. So it raises, and because Prisma wraps
+-- this file in a transaction the raise rolls the migration back cleanly instead
+-- of half-applying it.
 -- ---------------------------------------------------------------------------
 DO $$
 DECLARE
@@ -30,7 +35,7 @@ DECLARE
   total_teams INT;
 BEGIN
   UPDATE "public"."teams" SET "join_policy" = 'INVITE_ONLY'
-   WHERE upper(btrim("name")) = 'EBOARD';
+   WHERE upper(regexp_replace("name", '[^A-Za-z0-9]', '', 'g')) = 'EBOARD';
   GET DIAGNOSTICS restricted = ROW_COUNT;
 
   IF restricted = 0 THEN
@@ -47,7 +52,7 @@ BEGIN
     -- would ship the feature with EBOARD still joinable and no error anywhere.
     IF total_teams > 0 THEN
       RAISE EXCEPTION
-        'Teams exist but none is named EBOARD. Fix the name in the teams table, or the match in this migration, then re-run.';
+        'Teams exist but none matched the e-board name. Fix the name in the teams table, or the match in this migration, then re-run.';
     END IF;
   END IF;
 END $$;

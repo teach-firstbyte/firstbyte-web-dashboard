@@ -24,7 +24,7 @@ VALUES
   -- The team this whole change exists for. Inserted as INVITE_ONLY directly,
   -- because on a fresh local database the migration runs before any team rows
   -- exist, so its UPDATE has nothing to match.
-  ('EBOARD', 'Executive board. Assigned by a super admin.', true, 'INVITE_ONLY')
+  ('E-Board', 'Executive board. Assigned by a super admin.', true, 'INVITE_ONLY')
 ON CONFLICT DO NOTHING;
 
 SELECT id, name, join_policy FROM "public"."teams" ORDER BY id;
