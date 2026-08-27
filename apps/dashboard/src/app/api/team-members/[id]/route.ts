@@ -60,12 +60,15 @@ export async function PATCH(request: Request, { params }: RouteContext) {
  * Removes a membership outright.
  */
 export async function DELETE(request: Request, { params }: RouteContext) {
-  const { error } = await requireOfficerApi();
+  const { user: officer, error } = await requireOfficerApi();
   if (error) return error;
 
   try {
     const { id } = await params;
-    const teamMember = await deleteTeamMember(requireId(id, "team member"));
+    const teamMember = await deleteTeamMember(
+      officer,
+      requireId(id, "team member"),
+    );
     return NextResponse.json(
       { message: "Team member deleted successfully", teamMember },
       { status: 200 },

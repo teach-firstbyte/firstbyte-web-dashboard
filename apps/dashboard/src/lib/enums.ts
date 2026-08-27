@@ -53,3 +53,12 @@ export const TEAM_MEMBER_STATUS = {
 
 export type TeamMemberStatusValue =
   (typeof TEAM_MEMBER_STATUS)[keyof typeof TEAM_MEMBER_STATUS];
+
+/** Mirrors `enum TeamJoinPolicy`. */
+export const TEAM_JOIN_POLICY = {
+  OPEN: "OPEN",
+  INVITE_ONLY: "INVITE_ONLY",
+} as const;
+
+export type TeamJoinPolicyValue =
+  (typeof TEAM_JOIN_POLICY)[keyof typeof TEAM_JOIN_POLICY];

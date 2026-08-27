@@ -24,3 +24,21 @@ export function isOfficer(user: { role: RoleValue }) {
 export function isOfficerRole(role: string): boolean {
   return (OFFICER_ROLES as string[]).includes(role);
 }
+
+/**
+ * The narrower tier inside {@link isOfficer}: president, vice president, and
+ * website lead.
+ *
+ * Nothing distinguished SUPER_ADMIN from NORTHEASTERN_ADMIN before this -- both
+ * were just "officer" -- so this is the first place the two diverge. It exists
+ * for invite-only teams (see lib/auth/teamPolicy.ts), where "any officer" is
+ * too wide a door.
+ */
+export function isSuperAdmin(user: { role: RoleValue }) {
+  return user.role === ROLE.SUPER_ADMIN;
+}
+
+/** {@link isSuperAdmin} keyed on a plain string, for the same reason as {@link isOfficerRole}. */
+export function isSuperAdminRole(role: string): boolean {
+  return role === ROLE.SUPER_ADMIN;
+}

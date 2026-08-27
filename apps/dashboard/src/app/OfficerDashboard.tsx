@@ -27,6 +27,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
 import { getOfficerDashboard } from "@/server/dashboard/queries";
+import { isSuperAdmin } from "@/lib/auth/roles";
 import { SuggestionBoxLink } from "@/components/SuggestionBoxLink";
 import { USER_SORT_FIELDS } from "@/server/users/queries";
 import { enumParam, searchParam } from "@/server/validation";
@@ -60,6 +61,11 @@ export async function OfficerDashboard({
 
   let data = emptyData;
   let dbUnavailable = false;
+
+  // Computed once here rather than in each table: the officer tier splits into
+  // "any officer" and "super admin only" for invite-only teams, and the tables
+  // are client components that must not import @prisma/client to ask.
+  const canManageRestricted = isSuperAdmin(user);
 
   try {
     // One round of parallel queries, inside the service. If this fails, render
@@ -126,13 +132,22 @@ export async function OfficerDashboard({
       <div className="grid gap-6 [*&>*]:min-w-0">
         {/* First in the grid: it is the action item, everything below is
             reference data. */}
-        <ApprovalQueue users={data.pending} />
+        <ApprovalQueue
+          users={data.pending}
+          canManageRestricted={canManageRestricted}
+        />
         <Suspense fallback={null}>
-          <UsersTable users={data.users}>
+          <UsersTable
+            users={data.users}
+            canManageRestricted={canManageRestricted}
+          >
             <SearchInput placeholder="Search by name or email..." />
           </UsersTable>
         </Suspense>
-        <TeamsTable teams={data.teams} />
+        <TeamsTable
+          teams={data.teams}
+          canManageRestricted={canManageRestricted}
+        />
         <MeetingsTable meetings={data.meetings} />
         <Card>
           <CardHeader>
