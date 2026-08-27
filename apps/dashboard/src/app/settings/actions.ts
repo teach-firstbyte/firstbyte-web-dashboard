@@ -1,34 +1,39 @@
 "use server";
 
-import { updateNameByEmail } from "@/server/users/mutations";
-import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { type ActionResult, toActionError } from "@/server/errors";
+import { parseOrThrow } from "@/server/http";
+import { updateProfileByEmail } from "@/server/users/mutations";
+import { updateProfileSchema } from "@/server/users/schema";
 
-type ActionResult = { success?: boolean; error?: string };
-
-export async function updateName(
+export async function updateProfile(
   prevState: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const name = ((formData.get("name") as string) ?? "").trim();
-  if (!name) return { error: "Name cannot be empty" };
-
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user?.email) return { error: "Not authenticated" };
 
-  const { error: authError } = await supabase.auth.updateUser({
-    data: { full_name: name },
-  });
-  if (authError) return { error: authError.message };
-
   try {
-    await updateNameByEmail(user.email, name);
-  } catch (error) {
-    console.error("updateName(prevState, formData) failed:", error);
-    return { error: "Failed to update name" };
+    const input = parseOrThrow(updateProfileSchema, {
+      name: formData.get("name"),
+      preferredName: formData.get("preferredName"),
+      pronouns: formData.get("pronouns"),
+      gradYear: formData.get("gradYear"),
+      major: formData.get("major"),
+    });
+
+    const { error: authError } = await supabase.auth.updateUser({
+      data: { full_name: input.name },
+    });
+    if (authError) return { error: authError.message };
+
+    await updateProfileByEmail(user.email, input);
+  } catch (e) {
+    return toActionError(e, "updateProfile", "Failed to update profile");
   }
 
   revalidatePath("/settings");

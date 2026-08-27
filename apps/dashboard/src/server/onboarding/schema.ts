@@ -11,7 +11,7 @@ const blankToNull = (v: unknown) =>
   v === "" || v === undefined || v === null ? null : v;
 
 /** Trimmed, capped, and blank-means-absent. */
-const boundedText = (label: string) =>
+export const boundedText = (label: string) =>
   z.preprocess(
     (v) => {
       const trimmed = typeof v === "string" ? v.trim() : v;
@@ -25,7 +25,7 @@ const boundedText = (label: string) =>
 
 const thisYear = new Date().getFullYear();
 
-const gradYear = z.preprocess(
+export const gradYear = z.preprocess(
   blankToNull,
   z.coerce
     .number({ error: "Enter a graduation year close to this one." })
