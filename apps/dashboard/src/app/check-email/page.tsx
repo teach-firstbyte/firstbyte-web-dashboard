@@ -7,7 +7,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Banner } from "@/components/ui/banner";
-import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/SubmitButton";
 import { resendConfirmation } from "./actions";
 
@@ -71,27 +70,23 @@ export default async function CheckEmailPage({
               : "Click the link in that email to activate your account. If you don't see it, check your spam folder."}
           </p>
 
-          <form className="space-y-3">
-            {/* Prefilled from the URL when we know it, but still editable and
-                submitted as a real field: this page is reachable without an
-                ?email= (a bookmark, a shared link), and a resend button that
-                cannot say who to resend to is useless. */}
-            <Input
-              name="email"
-              type="email"
-              placeholder="Email"
-              defaultValue={email ?? ""}
-              required
-            />
-            <SubmitButton
-              formAction={resendConfirmation}
-              variant="outline"
-              className="w-full"
-              pendingLabel="Sending…"
-            >
-              Resend confirmation email
-            </SubmitButton>
-          </form>
+          {email ? (
+            <form>
+              <SubmitButton
+                formAction={resendConfirmation.bind(null, email)}
+                variant="outline"
+                className="w-full"
+                pendingLabel="Sending…"
+              >
+                Resend confirmation email
+              </SubmitButton>
+            </form>
+          ) : (
+            <p>
+              We don&apos;t know which email to resend to. Please sign up or log
+              in again.
+            </p>
+          )}
 
           <BackLink href="/login" label="Back to Login" />
         </CardContent>
