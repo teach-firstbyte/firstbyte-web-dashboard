@@ -83,8 +83,8 @@ export default async function CheckEmailPage({
             </form>
           ) : (
             <p>
-              We don&apos;t know which email to resend to. Please sign up or
-              log in again.
+              We don&apos;t know which email to resend to. Please sign up or log
+              in again.
             </p>
           )}
 
