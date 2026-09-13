@@ -306,8 +306,9 @@
     {
       "name": "Chayil Mauristhene",
       "role": "Software Events Lead",
-      "image": "/teamMemberPhotos/default-pfp.jpg",
-      "bio": "I don't have a bio yet!",
+      "image": "/teamMemberPhotos/Chayil Mauristhene.jpeg",
+      "bio": "Hi! My name is Chayil Mauristhene, and I’m a fourth-year Computer Science student. I joined FirstByte because I wanted to give back to a community that helps students discover and explore technology, especially since opportunities like these were what first sparked my own interest in CS. This year, I’m excited to serve as a Software Events Co-Lead and create engaging opportunities for students to learn new skills, connect with others, and discover different areas of technology.",
+      "linkedin": "www.linkedin.com/in/chayil-mauristhene",
       "years": ["2025", "2026"],
       "previousRoles": [
         { "role": "Software Events Team Member", "year": "2025" }

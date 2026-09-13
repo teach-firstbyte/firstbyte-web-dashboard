@@ -246,6 +246,7 @@ function TeamMemberCard({
                 <AvatarImage
                   src={member.image}
                   alt={member.name}
+                  loading={index === 0 ? "eager" : "lazy"}
                   className="object-cover transition-transform duration-500 group-hover:scale-110 h-full w-full"
                 />
               ) : (

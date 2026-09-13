@@ -76,6 +76,7 @@ export function Footer() {
                 alt="FirstByte Logo"
                 width={28}
                 height={28}
+                className="w-7 h-7"
               />
               <h3 className="font-bold text-xl">FirstByte</h3>
             </div>
