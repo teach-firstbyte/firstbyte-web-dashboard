@@ -60,6 +60,12 @@ model Team {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  // How someone gets on this team. OPEN teams are what onboarding offers;
+  // INVITE_ONLY teams (EBOARD) are hidden from that form and writable only by a
+  // SUPER_ADMIN. The rule lives here rather than as a check on `name` so that
+  // renaming the row cannot silently re-open it -- see server/teams/policy.ts.
+  joinPolicy TeamJoinPolicy @default(OPEN) @map("join_policy")
+
   //relationships
   members  TeamMember[]
   meetings Meeting[]
@@ -162,6 +168,13 @@ enum TeamRole {
   MEMBER
 
   @@map("team_role")
+}
+
+enum TeamJoinPolicy {
+  OPEN
+  INVITE_ONLY
+
+  @@map("team_join_policy")
 }
 
 enum MeetingType {

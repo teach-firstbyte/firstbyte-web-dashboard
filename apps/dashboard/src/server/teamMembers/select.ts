@@ -15,7 +15,10 @@ export const teamMemberWithContextArgs =
       // the row is still PENDING.
       joinedAt: true,
       user: { select: { name: true, email: true } },
-      team: { select: { name: true } },
+      // joinPolicy, not just name: updateTeamMember and deleteTeamMember
+      // authorize against it, and selecting it here means neither needs a
+      // second query to find out whether the team is invite-only.
+      team: { select: { name: true, joinPolicy: true } },
     },
   });
 

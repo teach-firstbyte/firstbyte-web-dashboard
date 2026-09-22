@@ -1,7 +1,11 @@
 import { TeamMemberStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { ServiceError } from "@/server/errors";
-import { teamWithMembersArgs, type TeamWithMembers } from "./select";
+import {
+  JOINABLE_TEAM_WHERE,
+  teamWithMembersArgs,
+  type TeamWithMembers,
+} from "./select";
 
 /**
  * The teams a user actually belongs to.
@@ -24,6 +28,12 @@ export async function listApprovedTeamIds(userId: number): Promise<number[]> {
 /**
  * Every team with its approved roster. The officer teams table and the two
  * client-side team pickers all read this.
+ *
+ * Deliberately NOT filtered by joinPolicy, unlike listActiveTeams below. All
+ * three consumers still need invite-only teams: the teams table renders their
+ * roster, the assign modal offers them to a super admin, and MeetingsTable uses
+ * this for the meeting Team dropdown -- filtering here would make eboard
+ * meetings uncreatable, which is the opposite of the point.
  */
 export function listTeams(): Promise<TeamWithMembers[]> {
   return prisma.team.findMany({
@@ -32,10 +42,16 @@ export function listTeams(): Promise<TeamWithMembers[]> {
   });
 }
 
-/** The teams a member may still ask to join. */
+/**
+ * The teams a member may still ask to join.
+ *
+ * The filter is JOINABLE_TEAM_WHERE rather than an inline clause because
+ * saveOnboarding validates submissions against the same fragment. See the note
+ * on it in ./select.
+ */
 export function listActiveTeams() {
   return prisma.team.findMany({
-    where: { isActive: true },
+    where: JOINABLE_TEAM_WHERE,
     select: { id: true, name: true, description: true },
     orderBy: { name: "asc" },
   });

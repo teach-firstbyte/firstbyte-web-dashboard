@@ -13,10 +13,16 @@
  * If a build fails here, prisma/schema.prisma changed and lib/enums.ts has not
  * caught up. Fix lib/enums.ts; do not weaken the assertion.
  */
-import type { AttendanceStatus, Role, TeamMemberStatus } from "@prisma/client";
+import type {
+  AttendanceStatus,
+  Role,
+  TeamJoinPolicy,
+  TeamMemberStatus,
+} from "@prisma/client";
 import type {
   AttendanceStatusValue,
   RoleValue,
+  TeamJoinPolicyValue,
   TeamMemberStatusValue,
 } from "./enums";
 
@@ -38,4 +44,7 @@ export type AttendanceStatusInSync = Assert<
 >;
 export type TeamMemberStatusInSync = Assert<
   Exact<TeamMemberStatusValue, TeamMemberStatus>
+>;
+export type TeamJoinPolicyInSync = Assert<
+  Exact<TeamJoinPolicyValue, TeamJoinPolicy>
 >;

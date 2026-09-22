@@ -15,9 +15,12 @@ import { withBasePath } from "@/lib/paths";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { AccountStatusBadge, TeamRequestBadge } from "./AccountStatusBadge";
 import type { PendingUser } from "@/types/dashboard";
+import { isInviteOnly } from "@/lib/auth/teamPolicy";
 
 interface ApprovalDetailSheetProps {
   user: PendingUser | null;
+  /** Whether the viewer may decide requests for invite-only teams. */
+  canManageRestricted: boolean;
   onOpenChange: (open: boolean) => void;
   onCloseAutoFocus: (event: Event) => void;
 }
@@ -36,6 +39,7 @@ async function patch(url: string, body: unknown) {
 
 export function ApprovalDetailSheet({
   user,
+  canManageRestricted,
   onOpenChange,
   onCloseAutoFocus,
 }: ApprovalDetailSheetProps) {
@@ -179,28 +183,38 @@ export function ApprovalDetailSheet({
                           </span>
                           <TeamRequestBadge status={status} />
                         </span>
-                        <span className="flex gap-2">
-                          {status !== "APPROVED" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={action.isPendingKey(m.id)}
-                              onClick={() => decideTeam(m.id, "APPROVED")}
-                            >
-                              Approve
-                            </Button>
-                          )}
-                          {status !== "REJECTED" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={action.isPendingKey(m.id)}
-                              onClick={() => decideTeam(m.id, "REJECTED")}
-                            >
-                              Reject
-                            </Button>
-                          )}
-                        </span>
+                        {/* Only a super admin can decide an invite-only
+                            request, so for anyone else these buttons would 403
+                            with no way forward. Say who to ask instead. */}
+                        {isInviteOnly(m.team.joinPolicy) &&
+                        !canManageRestricted ? (
+                          <span className="text-xs text-muted-foreground">
+                            Managed by a super admin
+                          </span>
+                        ) : (
+                          <span className="flex gap-2">
+                            {status !== "APPROVED" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={action.isPendingKey(m.id)}
+                                onClick={() => decideTeam(m.id, "APPROVED")}
+                              >
+                                Approve
+                              </Button>
+                            )}
+                            {status !== "REJECTED" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={action.isPendingKey(m.id)}
+                                onClick={() => decideTeam(m.id, "REJECTED")}
+                              >
+                                Reject
+                              </Button>
+                            )}
+                          </span>
+                        )}
                       </li>
                     );
                   })}

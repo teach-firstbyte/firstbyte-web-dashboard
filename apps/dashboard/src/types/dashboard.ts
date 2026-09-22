@@ -40,6 +40,9 @@ export interface PendingUser {
     team: {
       id: number;
       name: string;
+      // The TeamJoinPolicy. Decides whether this row gets Approve/Reject
+      // buttons, since only a super admin can decide an invite-only request.
+      joinPolicy: string;
     };
   }>;
 }
@@ -49,6 +52,9 @@ export interface Team {
   name: string;
   description: string | null;
   isActive: boolean;
+  // The TeamJoinPolicy: OPEN teams are what onboarding offers, INVITE_ONLY
+  // teams are handed out by a super admin.
+  joinPolicy: string;
   createdAt: Date;
   updatedAt: Date;
   members: Array<{

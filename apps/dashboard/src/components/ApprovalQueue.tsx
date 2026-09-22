@@ -25,6 +25,7 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { withBasePath } from "@/lib/paths";
 import { AccountStatusBadge } from "./AccountStatusBadge";
 import { ApprovalDetailSheet } from "./ApprovalDetailSheet";
+import { isInviteOnly } from "@/lib/auth/teamPolicy";
 import type { PendingUser } from "@/types/dashboard";
 
 async function patchBulkStatus(userIds: number[], status: string) {
@@ -43,7 +44,14 @@ async function patchBulkStatus(userIds: number[], status: string) {
   };
 }
 
-export function ApprovalQueue({ users }: { users: PendingUser[] }) {
+export function ApprovalQueue({
+  users,
+  canManageRestricted,
+}: {
+  users: PendingUser[];
+  /** Whether the viewer may decide requests for invite-only teams. */
+  canManageRestricted: boolean;
+}) {
   const router = useRouter();
   const detail = useDetailRow<PendingUser>();
   const bulk = useAsyncAction();
@@ -82,6 +90,19 @@ export function ApprovalQueue({ users }: { users: PendingUser[] }) {
   };
 
   const allSelected = users.length > 0 && selectedIds.size === users.length;
+
+  // Only a super admin can decide an invite-only request (see
+  // ApprovalDetailSheet), and approvePendingMemberships enforces that on the
+  // server by leaving those specific requests PENDING. Told here too, so a
+  // regular officer isn't left assuming a bulk approval reached every team it
+  // shows.
+  const selectionHasRestrictedRequest =
+    !canManageRestricted &&
+    users.some(
+      (u) =>
+        selectedIds.has(u.id) &&
+        u.teamMemberships.some((m) => isInviteOnly(m.team.joinPolicy)),
+    );
 
   const decideSelected = (status: "APPROVED" | "DENIED") => {
     const ids = Array.from(selectedIds);
@@ -139,6 +160,8 @@ export function ApprovalQueue({ users }: { users: PendingUser[] }) {
             </div>
             <p className="text-sm text-muted-foreground">
               Approving also approves each account&apos;s requested teams.
+              {selectionHasRestrictedRequest &&
+                " Invite-only team requests are left pending for a super admin to decide."}
             </p>
           </div>
         )}
@@ -225,6 +248,7 @@ export function ApprovalQueue({ users }: { users: PendingUser[] }) {
         </Table>
         <ApprovalDetailSheet
           user={selected}
+          canManageRestricted={canManageRestricted}
           onOpenChange={detail.onOpenChange}
           onCloseAutoFocus={detail.onCloseAutoFocus}
         />

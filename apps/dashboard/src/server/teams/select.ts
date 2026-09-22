@@ -1,4 +1,4 @@
-import { Prisma, TeamMemberStatus } from "@prisma/client";
+import { Prisma, TeamJoinPolicy, TeamMemberStatus } from "@prisma/client";
 
 /**
  * A team with its roster.
@@ -17,6 +17,7 @@ export const teamWithMembersArgs = Prisma.validator<Prisma.TeamDefaultArgs>()({
     name: true,
     description: true,
     isActive: true,
+    joinPolicy: true,
     createdAt: true,
     updatedAt: true,
     members: {
@@ -31,3 +32,17 @@ export const teamWithMembersArgs = Prisma.validator<Prisma.TeamDefaultArgs>()({
 });
 
 export type TeamWithMembers = Prisma.TeamGetPayload<typeof teamWithMembersArgs>;
+
+/**
+ * "A team a member may ask to join."
+ *
+ * Read by listActiveTeams (what the onboarding form SHOWS) and by
+ * saveOnboarding (what that form is allowed to SUBMIT). Those two are a pair,
+ * which is why the clause is here and not written out twice: if they ever
+ * disagree, either a team renders as a checkbox that cannot be submitted, or a
+ * team hidden from the form is joinable by anyone who crafts the POST.
+ */
+export const JOINABLE_TEAM_WHERE = Prisma.validator<Prisma.TeamWhereInput>()({
+  isActive: true,
+  joinPolicy: TeamJoinPolicy.OPEN,
+});
