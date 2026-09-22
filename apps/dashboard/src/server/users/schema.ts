@@ -57,3 +57,14 @@ export const accountStatusSchema = z.object({
     error: `Invalid status. Must be one of: ${Object.values(AccountStatus).join(", ")}`,
   }),
 });
+
+export const bulkAccountStatusSchema = z.object({
+  userIds: z
+    .array(z.number().int().positive())
+    .min(1, "Select at least one account"),
+  status: z.enum(AccountStatus, {
+    error: `Invalid status. Must be one of: ${Object.values(AccountStatus).join(", ")}`,
+  }),
+});
+
+export type BulkAccountStatusInput = z.infer<typeof bulkAccountStatusSchema>;

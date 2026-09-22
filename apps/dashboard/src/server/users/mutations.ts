@@ -3,6 +3,7 @@ import { prisma } from "@/server/db";
 import { isOfficer } from "@/lib/auth/roles";
 import { ServiceError } from "@/server/errors";
 import type { Viewer } from "@/server/viewer";
+import { approvePendingMemberships } from "@/server/teamMembers/mutations";
 import { getUserById, isLastApprovedOfficer } from "./queries";
 import type {
   CreateUserInput,
@@ -110,6 +111,58 @@ export async function setAccountStatus(
       decidedById: decided ? officer.id : null,
     },
   });
+}
+
+/**
+ * Decides several accounts at once, e.g. an officer checking off a batch of
+ * known-good signups in the pending queue instead of opening each one.
+ *
+ * Reuses setAccountStatus per id rather than a single bulk update, so the
+ * self-decision and last-officer guards apply to every target without being
+ * duplicated here. Runs each decision independently (Promise.allSettled, not
+ * a transaction) so one bad id -- someone else just denied it, or it's the
+ * officer's own account -- doesn't roll back the rest of the batch; the
+ * caller gets back exactly which ids succeeded and why any others failed.
+ *
+ * Approving also approves that user's pending team requests. The single-row
+ * decision sheet leaves that as a separate click because it shows every
+ * request and lets an officer accept some teams and reject others -- but a
+ * bulk approval has no per-row moment to do that, and leaving every request
+ * stuck in the queue after the account is already in would just move the
+ * manual work rather than remove it.
+ */
+export async function setAccountStatusBulk(
+  officer: Viewer,
+  targetUserIds: number[],
+  status: AccountStatus,
+) {
+  const results = await Promise.allSettled(
+    targetUserIds.map(async (id) => {
+      const updated = await setAccountStatus(officer, id, status);
+      if (status === AccountStatus.APPROVED) {
+        await approvePendingMemberships(officer, id);
+      }
+      return updated;
+    }),
+  );
+
+  const updated: number[] = [];
+  const failed: { id: number; error: string }[] = [];
+
+  results.forEach((result, i) => {
+    const id = targetUserIds[i];
+    if (result.status === "fulfilled") {
+      updated.push(id);
+    } else {
+      const message =
+        result.reason instanceof ServiceError
+          ? result.reason.message
+          : "Failed to update account status";
+      failed.push({ id, error: message });
+    }
+  });
+
+  return { updated, failed };
 }
 
 /**

@@ -94,6 +94,30 @@ export async function updateTeamMember(
   });
 }
 
+/**
+ * Approves every pending team request for a user in one write.
+ *
+ * Exists for bulk account approval: checking off several signups and
+ * approving them at once has no per-row moment to decide each team request,
+ * so approving the account approves what they asked for too rather than
+ * leaving every request stuck in the queue. Memberships already decided
+ * (approved or rejected) are left untouched -- this only fills the gap a bulk
+ * approval would otherwise leave, it does not re-open settled requests.
+ */
+export async function approvePendingMemberships(
+  officer: Viewer,
+  userId: number,
+) {
+  return prisma.teamMember.updateMany({
+    where: { userId, status: TeamMemberStatus.PENDING },
+    data: {
+      status: TeamMemberStatus.APPROVED,
+      decidedAt: new Date(),
+      decidedById: officer.id,
+    },
+  });
+}
+
 /** Removes a membership outright. Throws NOT_FOUND. */
 export async function deleteTeamMember(teamMemberId: number) {
   const member = await getTeamMemberById(teamMemberId);

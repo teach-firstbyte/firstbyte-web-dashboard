@@ -1,5 +1,7 @@
 "use client";
 
+import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -16,14 +18,43 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { TableEmptyState } from "./ui/TableEmptyState";
 import { useDetailRow } from "@/hooks/useDetailRow";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
+import { withBasePath } from "@/lib/paths";
 import { AccountStatusBadge } from "./AccountStatusBadge";
 import { ApprovalDetailSheet } from "./ApprovalDetailSheet";
 import type { PendingUser } from "@/types/dashboard";
 
+async function patchBulkStatus(userIds: number[], status: string) {
+  const res = await fetch(withBasePath("/api/users/status/bulk"), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userIds, status }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error ?? "That change could not be saved.");
+  }
+  return (await res.json()) as {
+    updated: number[];
+    failed: { id: number; error: string }[];
+  };
+}
+
 export function ApprovalQueue({ users }: { users: PendingUser[] }) {
+  const router = useRouter();
   const detail = useDetailRow<PendingUser>();
+  const bulk = useAsyncAction();
+
+  // Selection is by id, not by row object, for the same reason the detail
+  // panel re-resolves by id below: a refresh replaces every row's object
+  // identity, and holding onto stale objects would silently drop the
+  // selection out from under the checkboxes on the next render.
+  const [selectedIds, setSelectedIds] = React.useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
 
   // useDetailRow holds the row object it was opened with. Once the server data
   // is refetched, `users` is a fresh array of fresh objects and that held
@@ -36,6 +67,36 @@ export function ApprovalQueue({ users }: { users: PendingUser[] }) {
     : null;
 
   const waiting = users.filter((u) => u.status === "PENDING").length;
+
+  const toggleRow = (id: number, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleAll = (checked: boolean) => {
+    setSelectedIds(checked ? new Set(users.map((u) => u.id)) : new Set());
+  };
+
+  const allSelected = users.length > 0 && selectedIds.size === users.length;
+
+  const decideSelected = (status: "APPROVED" | "DENIED") => {
+    const ids = Array.from(selectedIds);
+    bulk.run(async () => {
+      const result = await patchBulkStatus(ids, status);
+      if (result.failed.length > 0) {
+        throw new Error(
+          `${result.failed.length} of ${ids.length} accounts could not be updated: ` +
+            result.failed.map((f) => f.error).join("; "),
+        );
+      }
+      setSelectedIds(new Set());
+      router.refresh();
+    });
+  };
 
   return (
     <Card>
@@ -50,13 +111,55 @@ export function ApprovalQueue({ users }: { users: PendingUser[] }) {
         </CardTitle>
         <CardDescription>
           New accounts waiting on an officer. Open a row to see what they
-          submitted and decide their team requests.
+          submitted and decide their team requests, or check off several to
+          approve or deny at once.
         </CardDescription>
+        {selectedIds.size > 0 && (
+          <div className="flex flex-col gap-1 pt-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {selectedIds.size} selected
+              </span>
+              <Button
+                size="sm"
+                variant="brand"
+                disabled={bulk.pending}
+                onClick={() => decideSelected("APPROVED")}
+              >
+                Approve selected
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={bulk.pending}
+                onClick={() => decideSelected("DENIED")}
+              >
+                Deny selected
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Approving also approves each account&apos;s requested teams.
+            </p>
+          </div>
+        )}
+        {bulk.error && (
+          <p className="text-sm text-destructive">{bulk.error}</p>
+        )}
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-8">
+                {users.length > 0 && (
+                  <input
+                    type="checkbox"
+                    aria-label="Select all pending approvals"
+                    checked={allSelected}
+                    onChange={(e) => toggleAll(e.target.checked)}
+                  />
+                )}
+              </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Requested teams</TableHead>
@@ -67,12 +170,20 @@ export function ApprovalQueue({ users }: { users: PendingUser[] }) {
           <TableBody>
             {users.length === 0 ? (
               <TableEmptyState
-                colSpan={5}
+                colSpan={6}
                 message="No accounts waiting for review."
               />
             ) : (
               users.map((user) => (
                 <TableRow key={user.id} {...detail.getRowProps(user)}>
+                  <TableCell>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${user.preferredName ?? user.name ?? user.email}`}
+                      checked={selectedIds.has(user.id)}
+                      onChange={(e) => toggleRow(user.id, e.target.checked)}
+                    />
+                  </TableCell>
                   <TableCell>
                     {user.preferredName ?? user.name ?? "N/A"}
                   </TableCell>
