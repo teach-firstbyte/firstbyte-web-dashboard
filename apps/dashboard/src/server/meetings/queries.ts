@@ -1,3 +1,4 @@
+import { AccountStatus, TeamMemberStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { getAttendanceCutoff } from "@/lib/attendance/cutoff";
 import { isOfficer } from "@/lib/auth/roles";
@@ -10,6 +11,52 @@ import {
   type MeetingDetail,
   type MeetingWithRoster,
 } from "./select";
+
+/**
+ * Accepts either the ambient client or a `$transaction` callback's client:
+ * createMeetingWithRoster reads the roster inside the same transaction that
+ * creates the meeting, everyone else reads it standalone. Only the two model
+ * delegates this actually calls are named, so either client satisfies it.
+ */
+type RosterClient = Pick<typeof prisma, "user" | "teamMember">;
+
+/**
+ * Who a meeting applies to.
+ *   team meeting (teamId set)  -> approved memberships of approved accounts
+ *   club meeting (teamId null) -> every approved account
+ *
+ * Both filters matter. A pending join request is not a membership, and a
+ * pending account is not a member -- without the account filter, a club
+ * meeting would apply to everyone still onboarding, waiting on review, or
+ * already denied.
+ *
+ * This is also the eligibility rule for the manual attendance roster: a
+ * member who is approved (or joins the relevant team) after the meeting was
+ * created is still expected to show up here, not just whoever the roster was
+ * pre-seeded with at creation time.
+ */
+export async function expectedRoster(
+  client: RosterClient,
+  teamId: number | null,
+): Promise<number[]> {
+  if (teamId === null) {
+    const users = await client.user.findMany({
+      where: { status: AccountStatus.APPROVED },
+      select: { id: true },
+    });
+    return users.map((u) => u.id);
+  }
+
+  const members = await client.teamMember.findMany({
+    where: {
+      teamId,
+      status: TeamMemberStatus.APPROVED,
+      user: { status: AccountStatus.APPROVED },
+    },
+    select: { userId: true },
+  });
+  return members.map((m) => m.userId);
+}
 
 /**
  * The meetings a viewer may see, with the roster they may see.
