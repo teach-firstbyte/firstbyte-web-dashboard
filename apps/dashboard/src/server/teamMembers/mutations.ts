@@ -1,6 +1,7 @@
-import { TeamMemberStatus } from "@prisma/client";
+import { TeamJoinPolicy, TeamMemberStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { ServiceError } from "@/server/errors";
+import { isSuperAdmin } from "@/lib/auth/roles";
 import { getUserById } from "@/server/users/queries";
 import { getTeamById } from "@/server/teams/queries";
 import { assertCanManageTeamMembership } from "@/server/teams/policy";
@@ -101,6 +102,43 @@ export async function updateTeamMember(
             decidedById: decided ? officer.id : null,
           }
         : {}),
+    },
+  });
+}
+
+/**
+ * Approves every pending team request for a user in one write.
+ *
+ * Exists for bulk account approval: checking off several signups and
+ * approving them at once has no per-row moment to decide each team request,
+ * so approving the account approves what they asked for too rather than
+ * leaving every request stuck in the queue. Memberships already decided
+ * (approved or rejected) are left untouched -- this only fills the gap a bulk
+ * approval would otherwise leave, it does not re-open settled requests.
+ *
+ * Invite-only requests are excluded unless the officer is a super admin, the
+ * same rule assertCanManageTeamMembership enforces one row at a time -- a
+ * bulk approval must not become a back door onto the e-board for an officer
+ * who could not add that person to it directly. Those requests are simply
+ * left PENDING rather than erroring, since the account approval this rides
+ * along with should still go through.
+ */
+export async function approvePendingMemberships(
+  officer: Viewer,
+  userId: number,
+) {
+  return prisma.teamMember.updateMany({
+    where: {
+      userId,
+      status: TeamMemberStatus.PENDING,
+      ...(isSuperAdmin(officer)
+        ? {}
+        : { team: { joinPolicy: TeamJoinPolicy.OPEN } }),
+    },
+    data: {
+      status: TeamMemberStatus.APPROVED,
+      decidedAt: new Date(),
+      decidedById: officer.id,
     },
   });
 }
