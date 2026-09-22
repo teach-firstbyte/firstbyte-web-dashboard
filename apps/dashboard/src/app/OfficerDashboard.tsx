@@ -29,6 +29,7 @@ import { Banner } from "@/components/ui/banner";
 import { getOfficerDashboard } from "@/server/dashboard/queries";
 import { isSuperAdmin } from "@/lib/auth/roles";
 import { SuggestionBoxLink } from "@/components/SuggestionBoxLink";
+import { ViewModeToggle } from "@/components/ViewModeToggle";
 import { USER_SORT_FIELDS } from "@/server/users/queries";
 import { enumParam, searchParam } from "@/server/validation";
 import { SearchInput } from "@/components/SearchInput";
@@ -104,6 +105,7 @@ export async function OfficerDashboard({
       </div>
       <div className="flex items-center gap-2">
         <ThemeToggle />
+        <ViewModeToggle />
         <Button
           asChild
           variant="outline"

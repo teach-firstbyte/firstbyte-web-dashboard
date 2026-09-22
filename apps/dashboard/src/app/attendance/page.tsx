@@ -1,5 +1,5 @@
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
-import { isOfficer } from "@/lib/auth/roles";
+import { getViewMode } from "@/lib/auth/viewMode";
 import { OfficerAttendanceView } from "./OfficerAttendanceView";
 import { MemberAttendanceView } from "./MemberAttendanceView";
 
@@ -9,8 +9,9 @@ export default async function AttendancePage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const user = await requireApprovedUser("/attendance");
+  const view = await getViewMode(user);
 
-  if (isOfficer(user)) {
+  if (view === "officer") {
     return <OfficerAttendanceView searchParams={searchParams} />;
   }
 
