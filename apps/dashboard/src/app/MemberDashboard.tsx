@@ -17,12 +17,19 @@ import { MeetingStatusBadge } from "@/components/MeetingStatusBadge";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SuggestionBoxLink } from "@/components/SuggestionBoxLink";
+import { MemberPreviewBanner } from "@/components/ViewModeToggle";
+import { isOfficer } from "@/lib/auth/roles";
 
 export async function MemberDashboard({ user }: { user: Viewer }) {
   const { memberships, meetings, attendance } = await getMemberDashboard(user);
+  // An officer reaching the member view can only have got here by asking for
+  // it -- getViewMode returns "member" for an officer only when the cookie is
+  // set. So the role is the preview flag, and there is no prop to keep in sync.
+  const previewing = isOfficer(user);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      {previewing && <MemberPreviewBanner />}
       <Image
         src="/FirstByteBitex4.png"
         alt="FirstByte"

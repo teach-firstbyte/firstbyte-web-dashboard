@@ -3,6 +3,8 @@ import { MemberAttendanceTable } from "@/components/MemberAttendanceTable";
 import { MemberStatusFilter } from "@/components/MemberStatusFilter";
 import { PaginationControls } from "@/components/PaginationControls";
 import { Banner } from "@/components/ui/banner";
+import { MemberPreviewBanner } from "@/components/ViewModeToggle";
+import { isOfficer } from "@/lib/auth/roles";
 import { listAttendancePageForMember } from "@/server/attendance/queries";
 import { emptyPage, type Page } from "@/server/page";
 import type { Viewer } from "@/server/viewer";
@@ -40,6 +42,13 @@ export async function MemberAttendanceView({
 
   return (
     <div className="container mx-auto p-6">
+      {/* Same derivation as MemberDashboard: only an officer who asked for the
+          member view can be an officer rendering this component. */}
+      {isOfficer(user) && (
+        <div className="mb-4">
+          <MemberPreviewBanner />
+        </div>
+      )}
       {dbUnavailable && (
         <Banner variant="warning" className="mb-4">
           Could not load your attendance right now. Showing an empty view until
