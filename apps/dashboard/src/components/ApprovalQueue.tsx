@@ -165,9 +165,7 @@ export function ApprovalQueue({
             </p>
           </div>
         )}
-        {bulk.error && (
-          <p className="text-sm text-destructive">{bulk.error}</p>
-        )}
+        {bulk.error && <p className="text-sm text-destructive">{bulk.error}</p>}
       </CardHeader>
       <CardContent>
         <Table>
