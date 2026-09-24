@@ -11,19 +11,33 @@ const EMPTY_PLACEHOLDER = "—";
 
 function DetailSection({
   title,
+  action,
   className,
   children,
   ...props
-}: React.ComponentProps<"section"> & { title: string }) {
+}: React.ComponentProps<"section"> & {
+  title: string;
+  /**
+   * Optional control aligned to the end of the heading row, for a section that
+   * owns an action on its own contents -- the team panel's CSV export.
+   *
+   * Omitting it leaves the heading exactly where it was: a flex row with one
+   * child, which `justify-between` puts at the start.
+   */
+  action?: React.ReactNode;
+}) {
   return (
     <section
       data-slot="detail-section"
       className={cn("space-y-3", className)}
       {...props}
     >
-      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-        {title}
-      </h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          {title}
+        </h3>
+        {action}
+      </div>
       {children}
     </section>
   );
