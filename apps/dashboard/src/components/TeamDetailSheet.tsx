@@ -12,6 +12,7 @@ import { formatDateTime } from "@/lib/format";
 import type { Team } from "@/types/dashboard";
 import { OfficerBadge } from "./OfficerBadge";
 import { isOfficerRole } from "@/lib/auth/roles";
+import { ExportTeamMembersButton } from "./ExportTeamMembersButton";
 
 interface TeamDetailSheetProps {
   team: Team | null;
@@ -58,7 +59,10 @@ export function TeamDetailSheet({
             </DetailGrid>
           </DetailSection>
 
-          <DetailSection title={`Members (${t.members.length})`}>
+          <DetailSection
+            title={`Members (${t.members.length})`}
+            action={<ExportTeamMembersButton team={t} />}
+          >
             {t.members.length === 0 ? (
               <DetailEmpty>No members on this team yet.</DetailEmpty>
             ) : (
