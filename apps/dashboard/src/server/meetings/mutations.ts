@@ -1,46 +1,8 @@
-import {
-  AccountStatus,
-  AttendanceStatus,
-  Prisma,
-  TeamMemberStatus,
-} from "@prisma/client";
+import { AttendanceStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { ServiceError } from "@/server/errors";
-import { getMeetingById } from "./queries";
+import { expectedRoster, getMeetingById } from "./queries";
 import type { CreateMeetingInput, UpdateMeetingInput } from "./schema";
-
-/**
- * Who a meeting applies to.
- *   team meeting (teamId set)  -> approved memberships of approved accounts
- *   club meeting (teamId null) -> every approved account
- *
- * Both filters matter. A pending join request is not a membership, and a
- * pending account is not a member -- without the account filter, creating a
- * club meeting registers everyone still onboarding, waiting on review, or
- * already denied.
- */
-async function expectedRoster(
-  tx: Prisma.TransactionClient,
-  teamId: number | null,
-): Promise<number[]> {
-  if (teamId === null) {
-    const users = await tx.user.findMany({
-      where: { status: AccountStatus.APPROVED },
-      select: { id: true },
-    });
-    return users.map((u) => u.id);
-  }
-
-  const members = await tx.teamMember.findMany({
-    where: {
-      teamId,
-      status: TeamMemberStatus.APPROVED,
-      user: { status: AccountStatus.APPROVED },
-    },
-    select: { userId: true },
-  });
-  return members.map((m) => m.userId);
-}
 
 /**
  * Creates a meeting and pre-registers the roster it implies.

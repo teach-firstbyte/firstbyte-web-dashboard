@@ -127,6 +127,24 @@ export interface Attendance {
   };
 }
 
+/**
+ * One row of the manual attendance roster for a meeting: every eligible
+ * member, merged with whatever Attendance row they already have.
+ *
+ * `attendanceId` is null for a member who has never had a status set for this
+ * meeting -- there is no row to PUT yet, so the caller must create one on the
+ * first status change instead.
+ */
+export interface AttendanceRosterRow {
+  attendanceId: number | null;
+  userId: number;
+  status: string;
+  user: {
+    name: string | null;
+    email: string;
+  };
+}
+
 export interface Feedback {
   id: number;
   meetingId: number;

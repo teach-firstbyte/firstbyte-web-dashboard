@@ -10,6 +10,7 @@ import { isOfficer } from "@/lib/auth/roles";
 import { getPagination } from "@/lib/pagination";
 import { ServiceError } from "@/server/errors";
 import { listFeedbackMeetingIds } from "@/server/feedback/queries";
+import { expectedRoster, getMeetingById } from "@/server/meetings/queries";
 import type { Page } from "@/server/page";
 import { enumParam, pageParam, searchParam } from "@/server/validation";
 import type { Viewer } from "@/server/viewer";
@@ -172,6 +173,51 @@ export async function listAttendancePageForMember(
     hasNext: pagination.hasNext,
     filtersActive: Boolean(filter),
   };
+}
+
+/**
+ * Every member eligible for a meeting's roster, merged with whatever
+ * Attendance row they already have. Officer-only; gated at the route.
+ *
+ * The meeting's own `attendance` relation only holds rows that exist, which
+ * used to be the entire roster on the manual attendance page -- a member who
+ * became APPROVED, or joined the meeting's team, after the meeting was
+ * created had no row and was invisible to mark. This instead starts from
+ * `expectedRoster`, the same eligibility rule meeting creation seeds rows
+ * with, and fills in a row for anyone eligible who doesn't have one yet.
+ *
+ * Rows without an existing Attendance record get `attendanceId: null` and
+ * default to REGISTERED, matching what meeting creation would have written
+ * for them -- the caller creates the real row on the first status change,
+ * not before.
+ */
+export async function listAttendanceRosterForMeeting(meetingId: number) {
+  const meeting = await getMeetingById(meetingId);
+  const userIds = await expectedRoster(prisma, meeting.teamId);
+
+  const [users, attendance] = await Promise.all([
+    prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, email: true },
+      orderBy: [{ name: "asc" }, { email: "asc" }],
+    }),
+    prisma.attendance.findMany({
+      where: { meetingId, userId: { in: userIds } },
+      select: { id: true, userId: true, status: true },
+    }),
+  ]);
+
+  const byUserId = new Map(attendance.map((a) => [a.userId, a]));
+
+  return users.map((user) => {
+    const existing = byUserId.get(user.id);
+    return {
+      attendanceId: existing?.id ?? null,
+      userId: user.id,
+      status: existing?.status ?? AttendanceStatus.REGISTERED,
+      user: { name: user.name, email: user.email },
+    };
+  });
 }
 
 /** One attendance row with its user and meeting. Throws NOT_FOUND. */

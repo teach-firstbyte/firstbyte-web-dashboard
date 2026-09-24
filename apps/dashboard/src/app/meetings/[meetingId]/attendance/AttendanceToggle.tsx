@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { Attendance } from "@/types/dashboard";
+import { AttendanceRosterRow } from "@/types/dashboard";
 import { withBasePath } from "@/lib/paths";
 import { useEffect, useRef, useState } from "react";
 
@@ -34,7 +34,7 @@ export function AttendanceToggle({
   meetingId,
   meetingTitle,
 }: AttendanceToggleProps) {
-  const [records, setRecords] = useState<Attendance[]>([]);
+  const [records, setRecords] = useState<AttendanceRosterRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   // Separate from saveErrors: this one gates the whole card's early return, so
   // routing a failed save through it would blank the roster.
@@ -42,9 +42,9 @@ export function AttendanceToggle({
   const [saveErrors, setSaveErrors] = useState<Record<number, string>>({});
   const [savingCount, setSavingCount] = useState(0);
 
-  // Per-row request counter. Rows stay clickable, so tapping Present then Absent
-  // on one person leaves two requests racing; whichever the server answers first
-  // would otherwise win. Only the newest request for a row may write state.
+  // Keyed by userId, not attendanceId: a member eligible for this meeting but
+  // never marked has no attendance row yet, so userId is the only id every
+  // row is guaranteed to have.
   const seqRef = useRef(new Map<number, number>());
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export function AttendanceToggle({
       setLoadError(null);
       try {
         const res = await fetch(
-          withBasePath(`/api/attendance?meetingId=${meetingId}`),
+          withBasePath(`/api/meetings/${meetingId}/roster`),
         );
         if (!res.ok) throw new Error(`Request failed: ${res.status}`);
         setRecords(await res.json());
@@ -66,48 +66,58 @@ export function AttendanceToggle({
     load();
   }, [meetingId]);
 
-  async function updateStatus(recordId: number, status: string) {
-    const record = records.find((r) => r.id === recordId);
+  async function updateStatus(userId: number, status: string) {
+    const record = records.find((r) => r.userId === userId);
     // Re-tapping the status someone already has is a no-op, not a write.
     if (!record || record.status === status) return;
     const previousStatus = record.status;
     const who = record.user.name || record.user.email;
 
-    const seq = (seqRef.current.get(recordId) ?? 0) + 1;
-    seqRef.current.set(recordId, seq);
-    const isStale = () => seqRef.current.get(recordId) !== seq;
+    const seq = (seqRef.current.get(userId) ?? 0) + 1;
+    seqRef.current.set(userId, seq);
+    const isStale = () => seqRef.current.get(userId) !== seq;
 
-    const setStatus = (next: string) =>
+    const setRecord = (patch: Partial<AttendanceRosterRow>) =>
       setRecords((prev) =>
-        prev.map((r) => (r.id === recordId ? { ...r, status: next } : r)),
+        prev.map((r) => (r.userId === userId ? { ...r, ...patch } : r)),
       );
 
-    setStatus(status);
+    setRecord({ status });
     setSavingCount((n) => n + 1);
 
     try {
-      const res = await fetch(withBasePath(`/api/attendance/${recordId}`), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+      // No attendance row yet -- this member became eligible after the
+      // meeting was created, or is being marked for the first time. Create
+      // one instead of PUTting a row id that doesn't exist.
+      const res = record.attendanceId
+        ? await fetch(withBasePath(`/api/attendance/${record.attendanceId}`), {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status }),
+          })
+        : await fetch(withBasePath("/api/attendance"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId, meetingId, status }),
+          });
       if (!res.ok) throw new Error("Save failed");
       const updated = await res.json();
       if (isStale()) return;
-      // Trust the server's value over ours in case it normalised anything.
-      setStatus(updated.status);
+      // Trust the server's values over ours in case it normalised anything,
+      // and so a freshly-created row picks up its new attendanceId.
+      setRecord({ attendanceId: updated.id, status: updated.status });
       setSaveErrors((prev) => {
-        if (!(recordId in prev)) return prev;
+        if (!(userId in prev)) return prev;
         const next = { ...prev };
-        delete next[recordId];
+        delete next[userId];
         return next;
       });
     } catch {
       if (isStale()) return;
-      setStatus(previousStatus);
+      setRecord({ status: previousStatus });
       setSaveErrors((prev) => ({
         ...prev,
-        [recordId]: `Could not save ${who} — change reverted.`,
+        [userId]: `Could not save ${who} — change reverted.`,
       }));
     } finally {
       setSavingCount((n) => n - 1);
@@ -143,12 +153,12 @@ export function AttendanceToggle({
       <CardContent>
         {records.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No attendees yet for this meeting.
+            No eligible members for this meeting.
           </p>
         ) : (
           records.map((record) => (
             <div
-              key={record.id}
+              key={record.userId}
               className="flex items-center justify-between border-b py-2"
             >
               <div>
@@ -163,7 +173,7 @@ export function AttendanceToggle({
                     key={s}
                     size="sm"
                     variant={record.status === s ? "default" : "outline"}
-                    onClick={() => updateStatus(record.id, s)}
+                    onClick={() => updateStatus(record.userId, s)}
                   >
                     {s.charAt(0) + s.slice(1).toLowerCase()}
                   </Button>
