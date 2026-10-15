@@ -1,4 +1,9 @@
-import { AttendanceStatus, Prisma } from "@prisma/client";
+import {
+  AccountStatus,
+  AttendanceStatus,
+  Prisma,
+  TeamMemberStatus,
+} from "@prisma/client";
 import { prisma } from "@/server/db";
 import { getAttendanceCutoff } from "@/lib/attendance/cutoff";
 import {
@@ -258,4 +263,100 @@ export async function getAttendanceStatsForViewer(viewer: Viewer) {
   ]);
 
   return { ...summarize(rows), notRecorded };
+}
+
+/**
+ * Approved members marked ABSENT at `threshold` or more of the last `lookback`
+ * required meetings that have finished. For the "missed meetings" list on the
+ * officer home.
+ *
+ * Only explicit ABSENT rows count. A row still REGISTERED means nobody took
+ * attendance, and counting that against someone would be unfair -- the same
+ * reasoning as `notRecorded` in getAttendanceStatsForViewer.
+ */
+export async function listMembersMissingMeetings(lookback = 3, threshold = 2) {
+  const recent = await prisma.meeting.findMany({
+    where: { isRequired: true, scheduledAt: { lt: getAttendanceCutoff() } },
+    orderBy: [{ scheduledAt: "desc" }, { id: "desc" }],
+    take: lookback,
+    select: { id: true },
+  });
+  if (recent.length === 0) return [];
+
+  const groups = await prisma.attendance.groupBy({
+    by: ["userId"],
+    where: {
+      meetingId: { in: recent.map((m) => m.id) },
+      status: AttendanceStatus.ABSENT,
+    },
+    _count: { _all: true },
+    having: { userId: { _count: { gte: threshold } } },
+  });
+  if (groups.length === 0) return [];
+
+  const missedByUser = new Map(groups.map((g) => [g.userId, g._count._all]));
+  const users = await prisma.user.findMany({
+    where: {
+      id: { in: [...missedByUser.keys()] },
+      status: AccountStatus.APPROVED,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      teamMemberships: {
+        where: { status: TeamMemberStatus.APPROVED },
+        select: { team: { select: { name: true } } },
+        orderBy: { team: { name: "asc" } },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return users.map((u) => ({
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    teams: u.teamMemberships.map((m) => m.team.name),
+    missed: missedByUser.get(u.id) ?? 0,
+    outOf: recent.length,
+  }));
+}
+
+/**
+ * A member's own finished meetings, most recent last, with whether they've
+ * left feedback on each. Drives the "Your attendance" squares and the "Rate
+ * past meetings" list on the member home.
+ */
+export async function listRecentAttendanceForViewer(viewer: Viewer, take = 8) {
+  const rows = await prisma.attendance.findMany({
+    where: {
+      userId: viewer.id,
+      meeting: { scheduledAt: { lt: getAttendanceCutoff() } },
+    },
+    select: {
+      id: true,
+      meetingId: true,
+      status: true,
+      meeting: { select: { title: true, scheduledAt: true } },
+    },
+    orderBy: [{ meeting: { scheduledAt: "desc" } }, { id: "desc" }],
+    take,
+  });
+
+  const rated = await listFeedbackMeetingIds(
+    viewer.id,
+    rows
+      .filter((r) => r.status === AttendanceStatus.PRESENT)
+      .map((r) => r.meetingId),
+  );
+
+  return rows.reverse().map((r) => ({
+    id: r.id,
+    meetingId: r.meetingId,
+    status: r.status,
+    title: r.meeting.title,
+    scheduledAt: r.meeting.scheduledAt,
+    hasFeedback: rated.has(r.meetingId),
+  }));
 }

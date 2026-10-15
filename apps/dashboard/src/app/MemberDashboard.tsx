@@ -1,180 +1,273 @@
-import { logOut } from "./login/actions";
-import Image from "next/image";
+import Link from "next/link";
+import { CircleCheck } from "lucide-react";
+
+import { AttendanceSquares } from "@/components/attendance/AttendanceSquares";
+import { CheckInDialog } from "@/components/attendance/CheckInDialog";
+import { PersonAvatar } from "@/components/common/PersonAvatar";
+import {
+  EmptyState,
+  PageHeader,
+  RowList,
+  Section,
+} from "@/components/common/Section";
+import { RateMeetingButton } from "@/components/feedback/RateMeetingButton";
+import { AppShell } from "@/components/layout/AppShell";
+import { LivePill, MeetingRow } from "@/components/meetings/MeetingRow";
+import { Banner } from "@/components/ui/banner";
+import { Button } from "@/components/ui/button";
+import { getViewMode } from "@/lib/auth/viewMode";
+import {
+  formatLongDateTime,
+  formatRelative,
+  formatShortDate,
+  formatTime,
+} from "@/lib/format";
+import { pickCurrentMeeting, upcomingMeetings } from "@/lib/meetings";
 import { getMemberDashboard } from "@/server/dashboard/queries";
 import type { Viewer } from "@/server/viewer";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { MeetingStatusBadge } from "@/components/MeetingStatusBadge";
-import { SubmitButton } from "@/components/SubmitButton";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { SuggestionBoxLink } from "@/components/SuggestionBoxLink";
-import { MemberPreviewBanner } from "@/components/ViewModeToggle";
-import { isOfficer } from "@/lib/auth/roles";
 
+type Data = Awaited<ReturnType<typeof getMemberDashboard>>;
+
+const EMPTY: Data = {
+  memberships: [],
+  meetings: [],
+  attendance: { rate: null, present: 0, absent: 0, notRecorded: 0 },
+  recent: [],
+};
+
+/** Feedback is asked for meetings in the last two weeks only. */
+const RATE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+
+/**
+ * The member home: check in to what's happening now, see what's next, rate
+ * the meetings you went to, and see how your attendance looks.
+ *
+ * Officers previewing the member view see their own real member data here,
+ * because getMemberDashboard is scoped to the viewer.
+ */
 export async function MemberDashboard({ user }: { user: Viewer }) {
-  const { memberships, meetings, attendance } = await getMemberDashboard(user);
-  // An officer reaching the member view can only have got here by asking for
-  // it -- getViewMode returns "member" for an officer only when the cookie is
-  // set. So the role is the preview flag, and there is no prop to keep in sync.
-  const previewing = isOfficer(user);
+  let data = EMPTY;
+  let dbUnavailable = false;
+  try {
+    data = await getMemberDashboard(user);
+  } catch (error) {
+    dbUnavailable = true;
+    console.error("Member dashboard query failed:", error);
+  }
+  const mode = await getViewMode(user);
+
+  const { memberships, meetings, recent } = data;
+  const now = Date.now();
+  const current = pickCurrentMeeting(meetings, now);
+  // A member gets only their own roster row from listMeetingsForViewer, but an
+  // officer previewing this view gets the whole roster -- so match by email
+  // rather than trusting attendance[0].
+  const mine = current?.meeting.attendance.find(
+    (a) => a.user.email === user.email,
+  );
+  const checkedIn = mine?.status === "PRESENT";
+  const comingUp = upcomingMeetings(meetings, now)
+    .filter((m) => m.id !== current?.meeting.id)
+    .slice(0, 3);
+  const toRate = recent
+    .filter(
+      (r) =>
+        r.status === "PRESENT" &&
+        !r.hasFeedback &&
+        now - new Date(r.scheduledAt).getTime() < RATE_WINDOW_MS,
+    )
+    .reverse();
+  const recorded = recent.filter((r) => r.status !== "REGISTERED");
+  const presentCount = recorded.filter((r) => r.status === "PRESENT").length;
+
+  const firstName = (user.preferredName || user.name || "").split(" ")[0];
+  const summary =
+    current?.phase === "live"
+      ? checkedIn
+        ? "You're checked in to today's meeting."
+        : `${current.meeting.title} is happening now.`
+      : current
+        ? `Next up: ${current.meeting.title}, ${formatRelative(current.meeting.scheduledAt, now)}.`
+        : "No meetings on the calendar yet.";
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {previewing && <MemberPreviewBanner />}
-      <Image
-        src="/FirstByteBitex4.png"
-        alt="FirstByte"
-        width={200}
-        height={200}
-        className="mx-auto mb-4"
+    <AppShell viewer={user} mode={mode}>
+      {dbUnavailable && (
+        <Banner variant="warning">
+          Could not load your dashboard right now. Showing an empty view until
+          the connection is restored.
+        </Banner>
+      )}
+
+      <PageHeader
+        title={firstName ? `Hi, ${firstName}` : "Welcome"}
+        description={summary}
       />
-      {/* Landing */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">
-            Welcome, {user.name ?? "member"}
-          </CardTitle>
-          <CardDescription>Your FirstByte Hub</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Scan the QR code shown at your meeting to check-in - or open an
-            upcoming meeting below and enter the code on the screen.
-          </p>
-        </CardContent>
-      </Card>
 
-      {/* Teams */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Your teams</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {memberships.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              You aren&apos;t on any teams yet.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {memberships.map((m) => (
-                <Badge key={m.id} variant="secondary">
-                  {m.team.name}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Attendance Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Your attendance</CardTitle>
-          <CardDescription>
-            Present out of all recorded (present + absent )
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-3xl font-bold">
-            {attendance.rate !== null
-              ? `${Math.round(attendance.rate * 100)}%`
-              : "-"}
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            {attendance.present} Present · {attendance.absent} Absent ·{" "}
-            {attendance.notRecorded} Not recorded
-          </p>
-          <Link
-            href="/attendance"
-            className="text-sm text-primary hover:underline mt-3 inline-block"
-          >
-            View your records
-          </Link>
-        </CardContent>
-      </Card>
-
-      {/* Upcoming meetings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upcoming meetings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {meetings.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No upcoming meetings.
-            </p>
-          ) : (
-            meetings.map((meeting) => {
-              const attended = meeting.attendance[0]?.status === "PRESENT";
-              return (
-                <div
-                  key={meeting.id}
-                  className="flex flex-col  gap-2 rounded-md border px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{meeting.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {meeting.scheduledAt.toLocaleDateString()}
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-5">
+          {current && (
+            <section className="flex flex-col gap-4 rounded-2xl border border-primary/30 bg-card p-5">
+              {current.phase === "live" ? (
+                <LivePill />
+              ) : (
+                <span className="text-xs font-semibold text-primary">
+                  Next up · {formatRelative(current.meeting.scheduledAt, now)}
+                </span>
+              )}
+              <div className="flex flex-col gap-1">
+                <h2 className="text-[clamp(1.25rem,2.4vw,1.55rem)] font-bold tracking-tight">
+                  {current.meeting.title}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {[
+                    current.phase === "live"
+                      ? `Started ${formatTime(current.meeting.scheduledAt)}`
+                      : formatLongDateTime(current.meeting.scheduledAt),
+                    current.meeting.location,
+                    current.meeting.isRequired ? "Required" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                {current.meeting.description &&
+                  current.phase === "upcoming" && (
+                    <p className="pt-1 text-sm">
+                      {current.meeting.description}
                     </p>
+                  )}
+              </div>
+              {current.phase === "live" &&
+                (checkedIn ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="flex items-center gap-2 font-semibold text-primary">
+                      <CircleCheck className="size-5" aria-hidden="true" />
+                      You&apos;re checked in
+                      {mine?.checkedInAt &&
+                        ` · ${formatTime(mine.checkedInAt)}`}
+                    </p>
+                    <RateMeetingButton
+                      meetingId={current.meeting.id}
+                      meetingTitle={current.meeting.title}
+                      label="Rate today's meeting"
+                    />
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <MeetingStatusBadge scheduledAt={meeting.scheduledAt} />
-                    <Badge variant={meeting.team ? "outline" : "secondary"}>
-                      {meeting.team ? meeting.team.name : "General"}
-                    </Badge>
-                    <Button asChild size="sm">
-                      <Link href={`/check-in/${meeting.id}`}>Check in</Link>
-                    </Button>
-                    {attended ? (
-                      <Button asChild size="sm">
-                        <Link href={`/feedback/${meeting.id}`}>Feedback</Link>
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="outline" disabled>
-                        Feedback
-                      </Button>
-                    )}
+                ) : (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <CheckInDialog
+                      meetingId={current.meeting.id}
+                      meetingTitle={current.meeting.title}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      Scan the QR code on the screen, or type the code.
+                    </span>
                   </div>
-                </div>
-              );
-            })
+                ))}
+            </section>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Logout */}
-      <CardFooter className="px-0">
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <Button
-            asChild
-            variant="outline"
-            className="text-sm px-3 py-1.5 rounded-md"
+          <Section
+            title="Coming up for you"
+            action={
+              <Button asChild variant="link" size="sm" className="h-auto p-0">
+                <Link href="/meetings">All meetings →</Link>
+              </Button>
+            }
           >
-            <Link href="/settings">Settings</Link>
-          </Button>
-          <form>
-            <SubmitButton
-              formAction={logOut}
-              variant="brand"
-              className="text-sm px-3 py-1.5 rounded-md"
-              pendingLabel="Logging Out..."
-            >
-              Log out
-            </SubmitButton>
-          </form>
-          <SuggestionBoxLink />
+            {comingUp.length === 0 ? (
+              <EmptyState title="Nothing else scheduled">
+                New meetings for you and your teams show up here.
+              </EmptyState>
+            ) : (
+              <RowList>
+                {comingUp.map((m) => (
+                  <li key={m.id}>
+                    <MeetingRow
+                      meeting={m}
+                      phase="upcoming"
+                      showAudience={false}
+                    />
+                  </li>
+                ))}
+              </RowList>
+            )}
+          </Section>
         </div>
-      </CardFooter>
-    </div>
+
+        <div className="flex min-w-0 flex-col gap-5">
+          {toRate.length > 0 && (
+            <Section title="Rate past meetings">
+              <RowList>
+                {toRate.map((r) => (
+                  <li key={r.id} className="flex items-center gap-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">{r.title}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatShortDate(r.scheduledAt)} · you went
+                      </p>
+                    </div>
+                    <RateMeetingButton
+                      meetingId={r.meetingId}
+                      meetingTitle={r.title}
+                    />
+                  </li>
+                ))}
+              </RowList>
+            </Section>
+          )}
+
+          <Section
+            title="Your attendance"
+            action={
+              <Button asChild variant="link" size="sm" className="h-auto p-0">
+                <Link href="/attendance">History →</Link>
+              </Button>
+            }
+          >
+            {recent.length === 0 ? (
+              <EmptyState title="Nothing yet">
+                After your first meeting, it shows up here.
+              </EmptyState>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="text-3xl font-bold tabular-nums">
+                    {presentCount} of {recorded.length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    recent meetings where attendance was taken
+                  </p>
+                </div>
+                <AttendanceSquares items={recent} />
+              </div>
+            )}
+          </Section>
+
+          <Section
+            title="Your teams"
+            action={
+              <Button asChild variant="link" size="sm" className="h-auto p-0">
+                <Link href="/settings#teams">Manage →</Link>
+              </Button>
+            }
+          >
+            {memberships.length === 0 ? (
+              <EmptyState title="Not on a team yet">
+                Pick one in Settings and an officer will review it.
+              </EmptyState>
+            ) : (
+              <RowList>
+                {memberships.map((m) => (
+                  <li key={m.id} className="flex items-center gap-3 py-2.5">
+                    <PersonAvatar name={m.team.name} />
+                    <span className="font-semibold">{m.team.name}</span>
+                  </li>
+                ))}
+              </RowList>
+            )}
+          </Section>
+        </div>
+      </div>
+    </AppShell>
   );
 }

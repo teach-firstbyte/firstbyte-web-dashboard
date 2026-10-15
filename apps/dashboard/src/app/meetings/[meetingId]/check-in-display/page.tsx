@@ -1,8 +1,7 @@
+import { ProjectorScreen } from "@/components/meetings/ProjectorScreen";
 import { generateCheckInCode } from "@/lib/attendance/check-in-code";
-import { CheckInQR } from "./CheckInQR";
 import { requireOfficer } from "@/lib/auth/requireOfficer";
-import { BackLink } from "@/components/BackLink";
-import { findMeetingTitle } from "@/server/meetings/queries";
+import { findMeetingCheckInSummary } from "@/server/meetings/queries";
 import { parseId } from "@/server/validation";
 
 export default async function CheckInDisplayPage({
@@ -13,24 +12,29 @@ export default async function CheckInDisplayPage({
   await requireOfficer();
   const { meetingId } = await params;
 
-  const parsedMeetingId = parseId(meetingId);
-  if (parsedMeetingId === null) {
+  const id = parseId(meetingId);
+  if (id === null) {
     return <p className="p-6 text-center">Invalid meeting.</p>;
   }
-
-  const meetingTitle = await findMeetingTitle(parsedMeetingId);
-  if (meetingTitle === null) {
+  const meeting = await findMeetingCheckInSummary(id);
+  if (meeting === null) {
     return <p className="p-6 text-center">Meeting not found.</p>;
   }
 
-  //Server-only: generate the code with the secret. Only 'code' + 'path' cross to the client.
-  const code = generateCheckInCode(parsedMeetingId);
-  const path = `/check-in/${parsedMeetingId}?code=${code}`;
+  // Server-only: generate the code with the secret. Only `code` + `path`
+  // cross to the client.
+  const code = generateCheckInCode(id);
 
   return (
-    <div className="container mx-auto max-w-md p-6 space-y-6">
-      <BackLink />
-      <CheckInQR meetingTitle={meetingTitle} code={code} path={path} />
-    </div>
+    <ProjectorScreen
+      meetingId={id}
+      screen="checkin"
+      title={meeting.title}
+      scheduledAt={meeting.scheduledAt}
+      path={`/check-in/${id}?code=${code}`}
+      code={code}
+      count={meeting.present}
+      total={meeting.total}
+    />
   );
 }

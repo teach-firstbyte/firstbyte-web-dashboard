@@ -3,7 +3,11 @@ import { prisma } from "@/server/db";
 import { ServiceError } from "@/server/errors";
 import type { Viewer } from "@/server/viewer";
 import { getAttendanceById } from "./queries";
-import type { CreateAttendanceInput, UpdateAttendanceInput } from "./schema";
+import type {
+  BulkAttendanceStatusInput,
+  CreateAttendanceInput,
+  UpdateAttendanceInput,
+} from "./schema";
 
 /**
  * Creates one attendance record. Officer-only, gated at the route.
@@ -81,4 +85,25 @@ export async function checkInToMeeting(viewer: Viewer, meetingId: number) {
       checkedInAt,
     },
   });
+}
+
+/**
+ * Sets several roster rows of one meeting to the same status. Officer-only,
+ * gated at the route.
+ *
+ * Scoped by meetingId as well as the ids, so the meeting a request names is the
+ * only one it can touch. Ids that belong elsewhere are skipped, not errors, and
+ * the count says how many rows actually changed.
+ *
+ * No check-in time is written: this is an officer's bulk decision, not anybody
+ * scanning a code.
+ */
+export async function setAttendanceStatusBulk(
+  input: BulkAttendanceStatusInput,
+) {
+  const { count } = await prisma.attendance.updateMany({
+    where: { meetingId: input.meetingId, id: { in: input.attendanceIds } },
+    data: { status: input.status },
+  });
+  return { updated: count };
 }

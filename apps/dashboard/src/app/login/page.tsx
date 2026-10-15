@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { AuthForm } from "./AuthForm";
 import { BackLink } from "@/components/BackLink";
-import { safeInternalPath } from "@/lib/paths";
+import { safeInternalPath, withBasePath } from "@/lib/paths";
 
 export default async function LoginPage({
   searchParams,
@@ -24,7 +24,7 @@ export default async function LoginPage({
       </div>
       <div className="text-center mb-8">
         <Image
-          src="/FirstByteBitex4.png"
+          src={withBasePath("/FirstByteBitex4.png")}
           alt="FirstByte"
           width={120}
           height={120}

@@ -72,6 +72,11 @@ export function listUsers(
   });
 }
 
+/** How many approved accounts there are. For the officer home's numbers row. */
+export function countApprovedUsers(): Promise<number> {
+  return prisma.user.count({ where: { status: AccountStatus.APPROVED } });
+}
+
 /** The review queue: accounts waiting on, or already refused by, an officer. */
 export function listPendingUsers(): Promise<PendingUserPayload[]> {
   return prisma.user.findMany({

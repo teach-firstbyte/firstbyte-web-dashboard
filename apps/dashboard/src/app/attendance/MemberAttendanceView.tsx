@@ -1,10 +1,10 @@
-import { BackLink } from "@/components/BackLink";
+import { PageHeader } from "@/components/common/Section";
+import { AppShell } from "@/components/layout/AppShell";
 import { MemberAttendanceTable } from "@/components/MemberAttendanceTable";
 import { MemberStatusFilter } from "@/components/MemberStatusFilter";
 import { PaginationControls } from "@/components/PaginationControls";
 import { Banner } from "@/components/ui/banner";
-import { MemberPreviewBanner } from "@/components/ViewModeToggle";
-import { isOfficer } from "@/lib/auth/roles";
+import { getViewMode } from "@/lib/auth/viewMode";
 import { listAttendancePageForMember } from "@/server/attendance/queries";
 import { emptyPage, type Page } from "@/server/page";
 import type { Viewer } from "@/server/viewer";
@@ -41,35 +41,29 @@ export async function MemberAttendanceView({
     : "You have no attendance records yet.";
 
   return (
-    <div className="container mx-auto p-6">
-      {/* Same derivation as MemberDashboard: only an officer who asked for the
-          member view can be an officer rendering this component. */}
-      {isOfficer(user) && (
-        <div className="mb-4">
-          <MemberPreviewBanner />
-        </div>
-      )}
+    <AppShell viewer={user} mode={await getViewMode(user)}>
       {dbUnavailable && (
-        <Banner variant="warning" className="mb-4">
+        <Banner variant="warning">
           Could not load your attendance right now. Showing an empty view until
           the connection is restored.
         </Banner>
       )}
-      <BackLink />
-      <div className="mt-4 mb-4">
-        <Suspense fallback={<div className="h-9" />}>
-          <MemberStatusFilter />
-        </Suspense>
-      </div>
-      <div className="mt-4">
-        <MemberAttendanceTable rows={result.rows} emptyMessage={emptyMessage} />
-      </div>
+      <PageHeader
+        title="My attendance"
+        description="Every meeting you were expected at, and whether you came."
+        action={
+          <Suspense fallback={<div className="h-9" />}>
+            <MemberStatusFilter />
+          </Suspense>
+        }
+      />
+      <MemberAttendanceTable rows={result.rows} emptyMessage={emptyMessage} />
       <PaginationControls
         page={result.page}
         totalPages={result.totalPages}
         hasPrev={result.hasPrev}
         hasNext={result.hasNext}
       />
-    </div>
+    </AppShell>
   );
 }

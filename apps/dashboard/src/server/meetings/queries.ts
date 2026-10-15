@@ -1,3 +1,4 @@
+import { AttendanceStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { getAttendanceCutoff } from "@/lib/attendance/cutoff";
 import { isOfficer } from "@/lib/auth/roles";
@@ -90,4 +91,29 @@ export async function findMeetingTitle(
   });
 
   return meeting?.title ?? null;
+}
+
+/**
+ * Title, start time and live check-in count, for the projector screens. Null
+ * for a meeting that does not exist, like findMeetingTitle.
+ *
+ * Counts in the database rather than loading the roster: the projector page
+ * refreshes every few seconds while it is up.
+ */
+export async function findMeetingCheckInSummary(meetingId: number) {
+  const meeting = await prisma.meeting.findUnique({
+    where: { id: meetingId },
+    select: { title: true, scheduledAt: true, location: true },
+  });
+  if (!meeting) return null;
+
+  const [present, total, responses] = await Promise.all([
+    prisma.attendance.count({
+      where: { meetingId, status: AttendanceStatus.PRESENT },
+    }),
+    prisma.attendance.count({ where: { meetingId } }),
+    prisma.feedback.count({ where: { meetingId } }),
+  ]);
+
+  return { ...meeting, present, total, responses };
 }

@@ -3,11 +3,7 @@ import { OfficerDashboard } from "./OfficerDashboard";
 import { getViewMode } from "@/lib/auth/viewMode";
 import { MemberDashboard } from "./MemberDashboard";
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
+export default async function Home() {
   const user = await requireApprovedUser();
   // getViewMode, not isOfficer: same answer for everyone except an officer who
   // has asked to preview the member view. It re-checks the role internally, so
@@ -15,7 +11,7 @@ export default async function Home({
   const view = await getViewMode(user);
 
   return view === "officer" ? (
-    <OfficerDashboard user={user} searchParams={searchParams} />
+    <OfficerDashboard user={user} />
   ) : (
     <MemberDashboard user={user} />
   );

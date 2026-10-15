@@ -2,10 +2,10 @@
 
 import * as React from "react";
 
-// Shared row-trigger behaviour for the officer dashboard tables. Each table
+// Shared row-trigger behaviour for the officer dashboard tables and lists. Each table
 // keeps its own existing state (add/assign modals, filters); this hook only owns
 // which row's detail panel is open, and it hands back props to spread onto the
-// <TableRow>.
+// <TableRow> (or any list row, e.g. an <li> in the Meetings list).
 
 // Elements that own their own clicks. `a[href]` covers both the mailto: link in
 // UsersTable and the three Next.js <Link>s in MeetingsTable, which render as
@@ -26,6 +26,11 @@ const INTERACTIVE_SELECTOR =
 function isInteractiveTarget(target: EventTarget | null, row: HTMLElement) {
   if (!(target instanceof Element)) return false;
 
+  // React bubbles events through portals, so a click on a ⋯ menu item or a
+  // dialog opened from the row reaches this handler even though that element
+  // is drawn elsewhere on the page. Only clicks on the row itself count.
+  if (!row.contains(target)) return true;
+
   const hit = target.closest(INTERACTIVE_SELECTOR);
   return hit !== null && row.contains(hit);
 }
@@ -35,9 +40,9 @@ export function useDetailRow<T>() {
 
   // The Sheet has no Radix Trigger (the row is the trigger), so remember which
   // row opened it and aim focus back there when it closes.
-  const originRef = React.useRef<HTMLTableRowElement | null>(null);
+  const originRef = React.useRef<HTMLElement | null>(null);
 
-  const open = React.useCallback((item: T, row: HTMLTableRowElement) => {
+  const open = React.useCallback((item: T, row: HTMLElement) => {
     originRef.current = row;
     setSelected(item);
   }, []);
@@ -58,7 +63,7 @@ export function useDetailRow<T>() {
   }, []);
 
   const getRowProps = React.useCallback(
-    (item: T): React.ComponentProps<"tr"> => ({
+    (item: T): React.HTMLAttributes<HTMLElement> => ({
       tabIndex: 0,
       "aria-haspopup": "dialog",
       className:
