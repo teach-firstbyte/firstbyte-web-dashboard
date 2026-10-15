@@ -90,6 +90,19 @@ export function monthAndDay(value: Date | string) {
   };
 }
 
+/**
+ * "2026-10-14", for files people sort and re-import. en-CA is the locale whose
+ * short date is already year-month-day, so this needs no string assembly.
+ */
+export function formatIsoDate(value: Date | string) {
+  return new Date(value).toLocaleDateString("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: CLUB_TIME_ZONE,
+  });
+}
+
 /** "October 2026", for grouping past meetings. */
 export function formatMonthYear(value: Date | string) {
   return new Date(value).toLocaleDateString("en-US", {

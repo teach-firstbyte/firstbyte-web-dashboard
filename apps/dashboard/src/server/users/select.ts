@@ -67,3 +67,39 @@ export const pendingUserArgs = Prisma.validator<Prisma.UserDefaultArgs>()({
 });
 
 export type PendingUserPayload = Prisma.UserGetPayload<typeof pendingUserArgs>;
+
+/**
+ * A member as the roster export sees them: the profile fields an officer can
+ * choose as CSV columns, and the teams they are on.
+ *
+ * Its own shape rather than a wider userWithTeamsArgs, because that one feeds
+ * the Members table on every page load and these answers (pronouns, grad year,
+ * major) are only needed in the moment someone exports. APPROVED memberships
+ * only, for the same reason as userWithTeamsArgs.
+ */
+export const memberExportArgs = Prisma.validator<Prisma.UserDefaultArgs>()({
+  select: {
+    id: true,
+    email: true,
+    name: true,
+    preferredName: true,
+    pronouns: true,
+    gradYear: true,
+    major: true,
+    role: true,
+    createdAt: true,
+    teamMemberships: {
+      where: { status: TeamMemberStatus.APPROVED },
+      select: {
+        role: true,
+        joinedAt: true,
+        team: { select: { id: true, name: true } },
+      },
+      orderBy: { team: { name: "asc" } },
+    },
+  },
+});
+
+export type MemberExportPayload = Prisma.UserGetPayload<
+  typeof memberExportArgs
+>;

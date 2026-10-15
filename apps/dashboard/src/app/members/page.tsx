@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { PageHeader } from "@/components/common/Section";
 import { AppShell } from "@/components/layout/AppShell";
+import { ExportMembersButton } from "@/components/members/ExportMembersDialog";
 import { UsersTable } from "@/components/members/UsersTable";
 import { SearchInput } from "@/components/SearchInput";
 import { Banner } from "@/components/ui/banner";
@@ -12,9 +13,9 @@ import { enumParam, searchParam } from "@/server/validation";
 import type { User } from "@/types/dashboard";
 
 /**
- * Every approved member, with search, sorting and Assign teams. This used to
- * be a table on the officer home; it moved here because it's for looking
- * things up, not for daily work.
+ * Every approved member, with search, sorting, Assign teams and CSV export.
+ * This used to be a table on the officer home; it moved here because it's for
+ * looking things up, not for daily work.
  */
 export default async function MembersPage({
   searchParams,
@@ -48,6 +49,7 @@ export default async function MembersPage({
       <PageHeader
         title="Members"
         description="New sign-ups are approved from the home page."
+        action={<ExportMembersButton size="default" />}
       />
       <Suspense fallback={null}>
         <UsersTable users={users} canManageRestricted={isSuperAdmin(user)}>

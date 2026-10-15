@@ -156,3 +156,27 @@ export interface MemberAttendanceRow {
     scheduledAt: Date;
   };
 }
+
+/**
+ * One approved member as the CSV export reads them. Arrives as JSON from
+ * GET /api/users/export, so the dates are ISO strings by then -- the export
+ * only ever passes them to the date formatters, which take either.
+ */
+export interface MemberExportRecord {
+  id: number;
+  email: string;
+  name: string | null;
+  preferredName: string | null;
+  pronouns: string | null;
+  gradYear: number | null;
+  major: string | null;
+  // The club-wide Role, for the Officer column.
+  role: string;
+  createdAt: Date | string;
+  teamMemberships: Array<{
+    // The TeamRole (LEAD / MEMBER).
+    role: string;
+    joinedAt: Date | string;
+    team: { id: number; name: string };
+  }>;
+}
