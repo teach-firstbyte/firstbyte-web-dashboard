@@ -1,4 +1,4 @@
-import { AccountStatus } from "@prisma/client";
+import { AccountStatus, Role } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { isOfficer } from "@/lib/auth/roles";
 import { ServiceError } from "@/server/errors";
@@ -7,6 +7,7 @@ import { approvePendingMemberships } from "@/server/teamMembers/mutations";
 import { getUserById, isLastApprovedOfficer } from "./queries";
 import type {
   CreateUserInput,
+  DeleteAccountInput,
   UpdateProfileInput,
   UpdateUserInput,
 } from "./schema";
@@ -54,6 +55,80 @@ export async function deleteUser(userId: number) {
   return user;
 }
 
+/** What a deleted account shows wherever its name used to be. */
+export const FORMER_MEMBER_NAME = "Former member";
+
+/**
+ * Deletes the viewer's own account, for the Settings page.
+ *
+ * Not a real delete. Attendance and feedback rows cascade with the user (see
+ * prisma/schema.prisma), so removing the row would change past numbers: a
+ * meeting with 30 of 40 present could later read 27 of 36. Instead the row
+ * stays as an anonymous "Former member" and only what is about the person
+ * goes:
+ *
+ *   personal fields   cleared; the email becomes a placeholder, so the real
+ *                     one is free for a new sign-up
+ *   team memberships  deleted, pending requests included
+ *   future meetings   attendance rows deleted, so they leave those rosters
+ *   past meetings     attendance and feedback kept, now on the anonymous row
+ *
+ * Status DELETED keeps the row out of every list that filters on APPROVED:
+ * Members, rosters for new meetings, missed meetings, the member count.
+ *
+ * This does not remove the Supabase login -- a service has no session or
+ * admin client. The settings action does that after this returns.
+ *
+ * Takes only the Viewer, never a target id, so nobody can delete someone else
+ * through it.
+ */
+export async function deleteOwnAccount(
+  viewer: Viewer,
+  input: DeleteAccountInput,
+) {
+  if (input.confirmEmail.toLowerCase() !== viewer.email.toLowerCase()) {
+    throw new ServiceError(
+      "INVALID",
+      "That email does not match your account. Nothing was deleted.",
+    );
+  }
+
+  // Unlike in setAccountStatus, this guard can fire: here the caller *is* the
+  // target, so the last officer is not counted among the ones who remain.
+  if (isOfficer(viewer) && (await isLastApprovedOfficer(viewer.id))) {
+    throw new ServiceError(
+      "CONFLICT",
+      "You are the last officer. Make someone else an officer before you delete your account.",
+    );
+  }
+
+  const now = new Date();
+
+  await prisma.$transaction([
+    prisma.teamMember.deleteMany({ where: { userId: viewer.id } }),
+    prisma.attendance.deleteMany({
+      where: { userId: viewer.id, meeting: { scheduledAt: { gt: now } } },
+    }),
+    prisma.user.update({
+      where: { id: viewer.id },
+      data: {
+        status: AccountStatus.DELETED,
+        deletedAt: now,
+        // The .invalid top-level domain is reserved, so this can never be a
+        // real address that someone signs up with.
+        email: `deleted-${viewer.id}@deleted.invalid`,
+        name: FORMER_MEMBER_NAME,
+        preferredName: null,
+        pronouns: null,
+        gradYear: null,
+        major: null,
+        // An anonymous row should not keep officer rights.
+        role: Role.NORTHEASTERN_STUDENT,
+      },
+    }),
+  ]);
+}
+
 /**
  * Decides an account: approve it, deny it, or put it back in the queue.
  *
@@ -94,6 +169,12 @@ export async function setAccountStatus(
   }
 
   const target = await getUserById(targetUserId);
+
+  // Approving a deleted row would put a nameless "Former member" back on the
+  // roster. The person signs up again instead, as a new account.
+  if (target.status === AccountStatus.DELETED) {
+    throw new ServiceError("CONFLICT", "This account was deleted");
+  }
 
   const losingAnOfficer =
     status !== AccountStatus.APPROVED && isOfficer(target);

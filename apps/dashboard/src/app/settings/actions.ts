@@ -1,11 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { type ActionResult, toActionError } from "@/server/errors";
 import { parseOrThrow } from "@/server/http";
-import { updateProfileByEmail } from "@/server/users/mutations";
-import { updateProfileSchema } from "@/server/users/schema";
+import {
+  deleteOwnAccount,
+  updateProfileByEmail,
+} from "@/server/users/mutations";
+import {
+  deleteAccountSchema,
+  updateProfileSchema,
+} from "@/server/users/schema";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import {
   requestToJoinTeam,
@@ -75,6 +83,58 @@ export async function updatePassword(
   if (error) return { error: error.message };
 
   return { success: true };
+}
+
+/**
+ * Delete your own account, then sign out.
+ *
+ * The order is deliberate:
+ *   1. Create the admin client. A missing key stops here, before anything
+ *      changes.
+ *   2. Anonymize the row (deleteOwnAccount). This frees the email.
+ *   3. Sign out, so this browser has no session left.
+ *   4. Remove the Supabase login, so the old password or Google sign-in no
+ *      longer works.
+ *
+ * Doing 4 before 2 would be worse if 2 then failed: the row would keep the
+ * real email, and signing up again would bring back the old account. If 4
+ * fails after 2, the person is still out of the old account -- the next
+ * sign-in creates a new, empty one through syncUserToDb -- so it is logged
+ * rather than shown to someone who is already signed out.
+ */
+export async function deleteAccount(
+  prevState: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const viewer = await requireApprovedUser("/settings");
+  const supabase = await createClient();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+  if (!authUser) return { error: "Not authenticated" };
+
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+    const input = parseOrThrow(deleteAccountSchema, {
+      confirmEmail: formData.get("confirmEmail"),
+    });
+    await deleteOwnAccount(viewer, input);
+  } catch (e) {
+    return toActionError(e, "deleteAccount", "Failed to delete your account");
+  }
+
+  await supabase.auth.signOut();
+
+  const { error } = await admin.auth.admin.deleteUser(authUser.id);
+  if (error) {
+    console.error(
+      `deleteAccount: user ${viewer.id} was anonymized, but removing their Supabase login failed:`,
+      error,
+    );
+  }
+
+  redirect("/login?deleted=1");
 }
 
 /**

@@ -1,5 +1,6 @@
 import { AccountStatus } from "@prisma/client";
 
+import { DeleteAccountForm } from "@/components/account/DeleteAccountForm";
 import { PasswordForm } from "@/components/account/PasswordForm";
 import { ProfileForm } from "@/components/account/ProfileForm";
 import {
@@ -12,17 +13,21 @@ import { AppShell } from "@/components/layout/AppShell";
 import { SubmitButton } from "@/components/SubmitButton";
 import { getSession } from "@/lib/auth/getSession";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
+import { isOfficer } from "@/lib/auth/roles";
 import { getViewMode } from "@/lib/auth/viewMode";
 import { listActiveTeams, listOwnTeamRequests } from "@/server/teams/queries";
+import { isLastApprovedOfficer } from "@/server/users/queries";
 import { logOut } from "../login/actions";
 
 export default async function UserSettingsPage() {
   const user = await requireApprovedUser("/settings");
-  const [mode, session, joinable, requests] = await Promise.all([
+  const [mode, session, joinable, requests, isLastOfficer] = await Promise.all([
     getViewMode(user),
     getSession(),
     listActiveTeams(),
     listOwnTeamRequests(user.id),
+    // Same check deleteOwnAccount makes, so the page can explain it up front.
+    isOfficer(user) ? isLastApprovedOfficer(user.id) : false,
   ]);
 
   // Teams you could join, plus any you're already tied to (which includes
@@ -98,6 +103,10 @@ export default async function UserSettingsPage() {
 
         <Section title="Appearance">
           <ThemePicker />
+        </Section>
+
+        <Section id="delete-account" title="Delete account">
+          <DeleteAccountForm email={user.email} isLastOfficer={isLastOfficer} />
         </Section>
 
         <form>

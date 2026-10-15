@@ -52,19 +52,36 @@ export const updateProfileSchema = z.object({
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
-export const accountStatusSchema = z.object({
-  status: z.enum(AccountStatus, {
-    error: `Invalid status. Must be one of: ${Object.values(AccountStatus).join(", ")}`,
-  }),
+/**
+ * The statuses an officer may set. Not DELETED: only deleteOwnAccount writes
+ * that, because it also clears the personal fields. Setting it by hand would
+ * hide a person while keeping all of their data.
+ */
+const DECIDABLE_STATUSES = Object.values(AccountStatus).filter(
+  (s) => s !== AccountStatus.DELETED,
+);
+
+const decidableStatus = z.enum(DECIDABLE_STATUSES, {
+  error: `Invalid status. Must be one of: ${DECIDABLE_STATUSES.join(", ")}`,
 });
+
+export const accountStatusSchema = z.object({ status: decidableStatus });
 
 export const bulkAccountStatusSchema = z.object({
   userIds: z
     .array(z.number().int().positive())
     .min(1, "Select at least one account"),
-  status: z.enum(AccountStatus, {
-    error: `Invalid status. Must be one of: ${Object.values(AccountStatus).join(", ")}`,
-  }),
+  status: decidableStatus,
 });
 
 export type BulkAccountStatusInput = z.infer<typeof bulkAccountStatusSchema>;
+
+/** The Settings "Delete account" form: the email, typed again to confirm. */
+export const deleteAccountSchema = z.object({
+  confirmEmail: z
+    .string({ error: "Type your email to confirm" })
+    .trim()
+    .min(1, "Type your email to confirm"),
+});
+
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;
