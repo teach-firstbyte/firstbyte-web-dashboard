@@ -1,29 +1,18 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 
 import { deleteAccount } from "@/app/settings/actions";
-import { SubmitButton } from "@/components/SubmitButton";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { TypeToConfirmDialog } from "@/components/common/TypeToConfirmDialog";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 
 /**
  * The Settings "Delete account" block: what happens, then a button that opens
  * a dialog where you type your email to confirm.
  *
- * The typed email is checked here only to enable the button. deleteOwnAccount
- * checks it again, because a form's input is never trusted.
+ * The dialog checks the typed email only to enable its button.
+ * deleteOwnAccount checks it again, because a form's input is never trusted.
  *
  * `isLastOfficer` replaces the button with a message. The server refuses that
  * case too; this only saves the person a dialog that can't succeed.
@@ -37,10 +26,6 @@ export function DeleteAccountForm({
 }) {
   const [state, formAction, pending] = useActionState(deleteAccount, {});
   const [open, setOpen] = useState(false);
-  const [typed, setTyped] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const matches = typed.trim().toLowerCase() === email.toLowerCase();
 
   return (
     <div className="flex flex-col gap-3 text-sm">
@@ -84,71 +69,30 @@ export function DeleteAccountForm({
         </div>
       )}
 
-      <AlertDialog
+      <TypeToConfirmDialog
         open={open}
-        onOpenChange={(next) => {
-          // Stay open while the request runs, so its error has somewhere to
-          // show.
-          if (pending) return;
-          setOpen(next);
-          if (!next) setTyped("");
+        onOpenChange={setOpen}
+        title="Delete your account?"
+        message={
+          <>
+            You can&apos;t undo this. Type{" "}
+            <span className="font-medium text-foreground">{email}</span> to
+            confirm.
+          </>
+        }
+        phrase={email}
+        inputLabel="Your email"
+        confirmLabel="Delete account"
+        pendingLabel="Deleting…"
+        pending={pending}
+        error={state.error}
+        onConfirm={(typed) => {
+          const form = new FormData();
+          form.set("confirmEmail", typed);
+          // Outside a <form action>, React needs the transition to track it.
+          startTransition(() => formAction(form));
         }}
-      >
-        <AlertDialogContent
-          size="sm"
-          // AlertDialog focuses Cancel by default. Typing is the only way
-          // forward here, so start in the email box instead.
-          onOpenAutoFocus={(e) => {
-            e.preventDefault();
-            inputRef.current?.focus();
-          }}
-        >
-          <form action={formAction} className="contents">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete your account?</AlertDialogTitle>
-              <AlertDialogDescription>
-                You can&apos;t undo this. Type{" "}
-                <span className="font-medium break-words text-foreground">
-                  {email}
-                </span>{" "}
-                to confirm.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <Field>
-              <FieldLabel htmlFor="confirmEmail" className="sr-only">
-                Your email
-              </FieldLabel>
-              <Input
-                ref={inputRef}
-                id="confirmEmail"
-                name="confirmEmail"
-                type="email"
-                autoComplete="off"
-                placeholder={email}
-                value={typed}
-                onChange={(e) => setTyped(e.target.value)}
-              />
-            </Field>
-            {state.error && (
-              <p role="alert" className="text-sm break-words text-destructive">
-                {state.error}
-              </p>
-            )}
-            <AlertDialogFooter>
-              <AlertDialogCancel type="button" disabled={pending}>
-                Cancel
-              </AlertDialogCancel>
-              <SubmitButton
-                variant="destructive"
-                disabled={!matches}
-                pendingLabel="Deleting…"
-              >
-                Delete account
-              </SubmitButton>
-            </AlertDialogFooter>
-          </form>
-        </AlertDialogContent>
-      </AlertDialog>
+      />
     </div>
   );
 }

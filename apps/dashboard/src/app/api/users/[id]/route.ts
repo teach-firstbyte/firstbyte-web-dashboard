@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { requireOfficerApi } from "@/lib/auth/requireOfficerApi";
 import { requireUserApi } from "@/lib/auth/requireUserApi";
 import { parseJsonBody, toErrorResponse } from "@/server/http";
-import { deleteUser, updateUser } from "@/server/users/mutations";
+import { createAdminClient, removeLoginByEmail } from "@/lib/supabase/admin";
+import { deleteAccountAsOfficer, updateUser } from "@/server/users/mutations";
 import { getUserWithTeams, targetIdFor } from "@/server/users/queries";
-import { updateUserSchema } from "@/server/users/schema";
+import { deleteAccountSchema, updateUserSchema } from "@/server/users/schema";
 import { requireId } from "@/server/validation";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -51,25 +52,40 @@ export async function PUT(request: Request, { params }: RouteContext) {
 }
 
 /**
- * Deletes a user. Officers only -- no targetIdFor here, because self-deletion
- * through this route is not a feature.
+ * Deletes someone else's account, for an officer on the Members page. The body
+ * is `{ confirmEmail }`: the person's email, typed again.
+ *
+ * The rules live in deleteAccountAsOfficer: officers delete members, only a
+ * super admin deletes another officer, and nobody deletes themselves here
+ * (that is Settings). The account is anonymized, not removed, so past
+ * attendance and feedback totals stay the same.
+ *
+ * The admin client is created first, so a missing service role key fails
+ * before anything changes.
  */
 export async function DELETE(request: Request, { params }: RouteContext) {
-  const { error } = await requireOfficerApi();
+  const { user, error } = await requireOfficerApi();
   if (error) return error;
 
   try {
+    const admin = createAdminClient();
     const { id } = await params;
-    const user = await deleteUser(requireId(id, "user"));
+    const input = await parseJsonBody(request, deleteAccountSchema);
+    const { email } = await deleteAccountAsOfficer(
+      user,
+      requireId(id, "user"),
+      input,
+    );
+    const loginRemoved = await removeLoginByEmail(admin, email);
     return NextResponse.json(
-      { message: "User deleted successfully", user },
+      { message: "Account deleted", loginRemoved },
       { status: 200 },
     );
   } catch (e) {
     return toErrorResponse(
       e,
       "DELETE /api/users/[id]",
-      "Failed to delete user",
+      "Failed to delete the account",
     );
   }
 }

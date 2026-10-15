@@ -52,7 +52,11 @@ export default async function MembersPage({
         action={<ExportMembersButton size="default" />}
       />
       <Suspense fallback={null}>
-        <UsersTable users={users} canManageRestricted={isSuperAdmin(user)}>
+        <UsersTable
+          users={users}
+          canManageRestricted={isSuperAdmin(user)}
+          viewer={{ id: user.id, role: user.role }}
+        >
           <SearchInput placeholder="Search by name or email…" />
         </UsersTable>
       </Suspense>

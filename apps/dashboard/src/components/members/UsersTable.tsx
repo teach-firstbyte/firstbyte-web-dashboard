@@ -57,6 +57,8 @@ interface UsersTableProps {
    * the viewer's role, so this component never needs the Role enum.
    */
   canManageRestricted: boolean;
+  /** Who is looking, for the Delete account rule in the member panel. */
+  viewer: { id: number; role: string };
   children?: React.ReactNode;
 }
 
@@ -105,6 +107,7 @@ function SortableTableHead({
 export function UsersTable({
   users,
   canManageRestricted,
+  viewer,
   children,
 }: UsersTableProps) {
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -295,8 +298,13 @@ export function UsersTable({
         </Table>
         <UserDetailSheet
           user={detail.selected}
+          viewer={viewer}
           onOpenChange={detail.onOpenChange}
           onCloseAutoFocus={detail.onCloseAutoFocus}
+          onDeleted={() => {
+            detail.onOpenChange(false);
+            router.refresh();
+          }}
         />
         <Dialog open={showAssignModal} onOpenChange={setShowAssignModal}>
           <DialogContent>
