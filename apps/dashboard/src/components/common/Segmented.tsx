@@ -53,7 +53,9 @@ export function Segmented<T extends string>({
           value={option.value}
           className={
             variant === "pills"
-              ? "rounded-full px-3.5 data-[state=on]:bg-card data-[state=on]:shadow-sm"
+              ? // The group's own rules square off the items (data-[spacing=0]),
+                // so the pill radius has to be set at that same strength.
+                "rounded-full px-3.5 data-[spacing=0]:rounded-full data-[spacing=0]:first:rounded-full data-[spacing=0]:last:rounded-full data-[state=on]:bg-card data-[state=on]:shadow-sm data-[state=on]:hover:bg-card"
               : "rounded-full px-3 data-[state=on]:border-primary data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
           }
         >
