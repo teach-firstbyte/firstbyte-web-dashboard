@@ -60,7 +60,7 @@ export async function PUT(request: Request, { params }: RouteContext) {
  * (that is Settings). The account is anonymized, not removed, so past
  * attendance and feedback totals stay the same.
  *
- * The admin client is created first, so a missing service role key fails
+ * The admin client is created first, so a missing secret key fails
  * before anything changes.
  */
 export async function DELETE(request: Request, { params }: RouteContext) {

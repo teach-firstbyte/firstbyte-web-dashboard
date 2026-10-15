@@ -55,8 +55,8 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
       CHECKIN_SECRET: ci-placeholder-not-a-real-secret
-      # SUPABASE_SERVICE_ROLE_KEY is deliberately absent. It is read only when
-      # someone deletes their account (src/lib/supabase/admin.ts), never during
+      # SUPABASE_SECRET_KEY is deliberately absent. It is read only when an
+      # account is deleted (src/lib/supabase/admin.ts), never during
       # a build, so CI does not need it. Keep that secret in Vercel only.
     steps:
       - uses: actions/checkout@v4
