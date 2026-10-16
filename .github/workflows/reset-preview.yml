@@ -1,0 +1,85 @@
+name: Reset preview database
+
+# Puts the shared PREVIEW database (Supabase project kszxdakaiyispmrgicim)
+# back to a known state:
+#   1. drops every app table, including migrations from closed pull requests
+#   2. applies the migrations on `main`
+#   3. seeds the officers, 50 made-up members and a semester of meetings
+#   4. creates the four test logins, or resets their passwords
+#
+# Login accounts other than the test logins are kept. Production is never
+# touched: the scripts refuse to run against it.
+#
+# Run it by hand: Actions -> Reset preview database -> Run workflow. Use it
+# after rotating the test passwords, or when preview data gets messy. It
+# deletes everything anyone made on preview, so tell the team first.
+#
+# Secrets on the "Preview database" GitHub environment (Settings ->
+# Environments). See "Preview environment" in apps/dashboard/README.md.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    environment: Preview database
+    concurrency:
+      group: preview-database
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: apps/dashboard
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      SUPABASE_URL: https://kszxdakaiyispmrgicim.supabase.co
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      PREVIEW_SEED_OFFICERS: ${{ secrets.PREVIEW_SEED_OFFICERS }}
+      PREVIEW_TEST_ACCOUNTS: ${{ secrets.PREVIEW_TEST_ACCOUNTS }}
+    steps:
+      # Always `main`, whichever branch the run was started from.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Check the secrets are set
+        run: |
+          missing=""
+          for name in DATABASE_URL DIRECT_URL SUPABASE_SECRET_KEY PREVIEW_SEED_OFFICERS PREVIEW_TEST_ACCOUNTS; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing secrets on the 'Preview database' environment:$missing. See apps/dashboard/README.md."
+            exit 1
+          fi
+
+      # The seed reads the same two git-ignored files as on a laptop.
+      - name: Write the seed input files
+        run: |
+          printf '%s' "$PREVIEW_SEED_OFFICERS" > supabase/seed/officers.json
+          printf '%s\n' "$PREVIEW_TEST_ACCOUNTS" > supabase/seed/.env.test-accounts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      # Each script checks the URLs first and stops if they are not the
+      # preview project.
+      - name: Drop the app tables
+        run: node scripts/seed/wipe.mjs
+
+      - name: Apply the migrations on main
+        run: npx prisma migrate deploy
+
+      - name: Seed data and test logins
+        run: npx dotenv -e supabase/seed/.env.test-accounts -- node scripts/seed/seed.mjs
+
+      - name: Confirm the database is up to date
+        run: npx prisma migrate status

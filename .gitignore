@@ -53,3 +53,6 @@ next-env.d.ts
 
 # prisma generated client
 src/generated/prisma
+
+# preview/local seed input: real officer names and school emails
+**/supabase/seed/officers.json

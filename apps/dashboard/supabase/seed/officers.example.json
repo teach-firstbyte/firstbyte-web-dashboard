@@ -1,0 +1,41 @@
+{
+  "$comment": "Copy to officers.json (git-ignored) and fill in the real officers, or ask Claude to copy them from production (read-only). Never commit officers.json: it holds real names and emails. role is SUPER_ADMIN (president, vice president, website lead) or NORTHEASTERN_ADMIN (every other officer). Each team entry is a team name from the list above, with role LEAD or MEMBER.",
+  "teams": [
+    { "name": "CS Curricula", "joinPolicy": "OPEN" },
+    { "name": "STEM Curricula", "joinPolicy": "OPEN" },
+    { "name": "Website", "joinPolicy": "OPEN" },
+    { "name": "Events", "joinPolicy": "OPEN" },
+    { "name": "Brand and Marketing", "joinPolicy": "OPEN" },
+    {
+      "name": "E-Board",
+      "description": "The executive board of FirstByte.",
+      "joinPolicy": "INVITE_ONLY"
+    }
+  ],
+  "officers": [
+    {
+      "name": "Alex Example",
+      "email": "alex.example@example.com",
+      "role": "SUPER_ADMIN",
+      "teams": [{ "team": "E-Board", "role": "LEAD" }]
+    },
+    {
+      "name": "Sam Sample",
+      "email": "sam.sample@example.com",
+      "role": "SUPER_ADMIN",
+      "teams": [
+        { "team": "E-Board", "role": "MEMBER" },
+        { "team": "Website", "role": "LEAD" }
+      ]
+    },
+    {
+      "name": "Jordan Placeholder",
+      "email": "jordan.placeholder@example.com",
+      "role": "NORTHEASTERN_ADMIN",
+      "teams": [
+        { "team": "E-Board", "role": "MEMBER" },
+        { "team": "CS Curricula", "role": "LEAD" }
+      ]
+    }
+  ]
+}

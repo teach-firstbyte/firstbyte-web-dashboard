@@ -3,6 +3,7 @@ import { AuthForm } from "./AuthForm";
 import { BackLink } from "@/components/BackLink";
 import { Banner } from "@/components/ui/banner";
 import { safeInternalPath, withBasePath } from "@/lib/paths";
+import { isPreviewDeployment } from "@/lib/deployment";
 
 export default async function LoginPage({
   searchParams,
@@ -44,7 +45,13 @@ export default async function LoginPage({
           Your account was deleted. Thanks for being part of FirstByte.
         </Banner>
       )}
-      <AuthForm error={error} returnTo={returnTo} />
+      {/* Preview deployments use their own Supabase project, which has no
+          Google sign-in set up. Test accounts sign in with a password. */}
+      <AuthForm
+        error={error}
+        returnTo={returnTo}
+        googleEnabled={!isPreviewDeployment()}
+      />
     </div>
   );
 }

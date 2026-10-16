@@ -46,11 +46,21 @@ const nextConfig: NextConfig = {
     // server actions whose Origin does not match x-forwarded-host, which would
     // break login, settings, password reset, and feedback submission with
     // "Invalid Server Actions request" while every page still rendered fine.
+    //
+    // Preview builds also accept *.vercel.app, because there the Origin is the
+    // website's preview URL (firstbyte-website-git-<branch>-firstbyte-neu
+    // .vercel.app, or a deployment's own URL). Next's `*` only stands for one
+    // whole dot-separated label, so "*-firstbyte-neu.vercel.app" would match
+    // nothing. The wider pattern is acceptable on previews only: vercel.app
+    // is on the Public Suffix List, so another *.vercel.app site is a
+    // different site and its form posts carry none of our login cookies, and
+    // previews sit behind Vercel's login wall. Production never gets it.
     serverActions: {
       allowedOrigins: [
         "teachfirstbyte.com",
         "www.teachfirstbyte.com",
         "localhost:3000",
+        ...(process.env.VERCEL_ENV === "preview" ? ["*.vercel.app"] : []),
       ],
     },
   },

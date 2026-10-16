@@ -1,0 +1,75 @@
+name: Preview database migrations
+
+# Applies a pull request's Prisma migrations to the shared PREVIEW database
+# (Supabase project kszxdakaiyispmrgicim), so its Vercel preview deployment
+# has the tables its code expects. Production is never touched here; see
+# migrate.yml for that.
+#
+# Runs on its own when a pull request changes a migration. It uses
+# `prisma migrate deploy`, which only runs migration files that haven't run
+# yet and never resets data.
+#
+# Every pull request shares one preview database. A migration from a pull
+# request that is later closed stays in it. To get back to `main`, run
+# "Reset preview database" (reset-preview.yml).
+#
+# The connection strings are secrets on the "Preview database" GitHub
+# environment (Settings -> Environments). It has no required reviewers, so
+# this runs without waiting. See "Preview environment" in
+# apps/dashboard/README.md.
+
+on:
+  pull_request:
+    paths:
+      - "apps/dashboard/prisma/migrations/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    # Pull requests from forks get no secrets, so the job could not connect.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: Preview database
+    # One change to the preview database at a time, shared with the reset job.
+    concurrency:
+      group: preview-database
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: apps/dashboard
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # "Session pooler" string (port 5432). GitHub's runners have no IPv6.
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the database secrets are set
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$DIRECT_URL" ]; then
+            echo "::error::DATABASE_URL and DIRECT_URL must be secrets on the 'Preview database' environment (Settings -> Environments). See apps/dashboard/README.md."
+            exit 1
+          fi
+
+      # Refuses to go on if a secret points at production by mistake.
+      - name: Check the secrets point at the preview project
+        run: node --input-type=module -e "import { assertSafeTarget } from './scripts/seed/guard.mjs'; if (assertSafeTarget(['DATABASE_URL', 'DIRECT_URL']) !== 'preview') { console.error('Not the preview project.'); process.exit(1); }"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Show pending migrations
+        run: npx prisma migrate status || true
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Confirm the database is up to date
+        run: npx prisma migrate status
