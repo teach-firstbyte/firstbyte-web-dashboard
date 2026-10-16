@@ -130,20 +130,26 @@ If the database pauses anyway, open the project in the Supabase dashboard and cl
 
 The workflow logs in as `keepalive`, a Postgres role that can connect but **has no access to any table**, so its password can't read or change club data. To set it up again (for example, for a new Supabase project):
 
-1. Make a password and copy it to the clipboard. Hex characters are safe in a URL, so the password needs no escaping. `tr` removes the line break at the end; without it, the pasted password in step 2 would include it:
+Run steps 1, 2 and 4 in **one terminal window**: the password lives in a shell variable, which only that window can see. It never appears on screen or in your shell history.
+
+1. Make a password and keep it in a variable. Hex characters are safe in a URL, so the password needs no escaping:
    ```bash
-   openssl rand -hex 24 | tr -d '\n' | pbcopy
+   KEEPALIVE_PW=$(openssl rand -hex 24)
    ```
-2. In Supabase → SQL Editor, run this with the password pasted in:
+2. Copy it to the clipboard. `printf` adds no line break at the end, which would otherwise become part of the password:
+   ```bash
+   printf '%s' "$KEEPALIVE_PW" | pbcopy
+   ```
+3. In Supabase → SQL Editor, run this with the password pasted in. If the role already exists and you only want a new password, run `alter role keepalive with password 'PASTE_PASSWORD_HERE';` instead:
    ```sql
    create role keepalive with login password 'PASTE_PASSWORD_HERE' connection limit 2;
    alter role keepalive set statement_timeout = '5s';
    ```
-3. Without copying anything else first, save the connection string as a **repository** secret named `KEEPALIVE_DATABASE_URL`. `$(pbpaste)` puts the password from the clipboard into the **Session pooler** string, so the password itself never lands in your shell history. Replace `<project-ref>` with the id in the project's URL:
+4. Back in the same terminal window, save the **Session pooler** connection string as a **repository** secret, then forget the password. Replace `<project-ref>` with the id in the project's URL. This step reads the variable, not the clipboard, so it is fine to copy this command from here:
    ```bash
-   gh secret set KEEPALIVE_DATABASE_URL --repo teach-firstbyte/firstbyte-web-dashboard --body "postgresql://keepalive.<project-ref>:$(pbpaste)@aws-0-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require"
+   gh secret set KEEPALIVE_DATABASE_URL --repo teach-firstbyte/firstbyte-web-dashboard --body "postgresql://keepalive.<project-ref>:${KEEPALIVE_PW}@aws-0-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require" && unset KEEPALIVE_PW
    ```
-4. Test it: GitHub → Actions → Keep database awake → Run workflow. The log should print the database's current time.
+5. Test it: GitHub → Actions → Keep database awake → Run workflow. The log should print the database's current time.
 
 GitHub turns off scheduled workflows in a public repository after 60 days without a commit, and emails first. After a long break, turn it back on from the workflow's page in the Actions tab.
 
