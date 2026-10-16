@@ -73,19 +73,19 @@ const programs: ProgramFeature[] = [
   },
 ];
 
-// Bento layout and entry direction for each card, by position.
+// Bento layout and entry direction for each card, by position in `programs`.
 const cardLayouts = [
-  // First card is large feature card
+  // Large 2x2 card
   { className: "md:col-span-2 md:row-span-2", initialX: -20, initialY: -20 },
-  // Second card is a vertical rectangle
+  // Small 1x1 card
   { className: "md:col-span-1 md:row-span-1", initialX: 20, initialY: -20 },
-  // Third card is a vertical rectangle
+  // Small 1x1 card
   { className: "md:col-span-1 md:row-span-1", initialX: -20, initialY: 20 },
-  // Fourth card spans horizontally (bento style)
+  // Large 2x2 card
   { className: "md:col-span-2 md:row-span-2", initialX: 20, initialY: 20 },
-  // Fifth card is a square
+  // Small 1x1 card
   { className: "md:col-span-1 md:row-span-1", initialX: -20, initialY: -20 },
-  // Sixth card is a square
+  // Small 1x1 card
   { className: "md:col-span-1 md:row-span-1", initialX: 20, initialY: -20 },
 ];
 

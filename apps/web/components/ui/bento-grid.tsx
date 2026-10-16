@@ -19,9 +19,9 @@ const BentoGrid = ({
   );
 };
 
-// Memoized so the card only re-renders when its own props change. Without it,
-// every parent re-render (the homepage re-renders on each mouse move) re-ran
-// this card and its image.
+// Memoized so the card re-renders only when its own props change. Callers
+// should pass stable props (for example, build `background` once) so the memo
+// can skip re-renders.
 const BentoCard = memo(function BentoCard({
   name,
   className,
