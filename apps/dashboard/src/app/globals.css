@@ -174,10 +174,22 @@
   overflow: hidden;
   white-space: nowrap;
   width: calc(var(--chars) * 1ch);
-  animation: boot-type 400ms steps(var(--chars)) 150ms both;
+  animation: boot-type 200ms steps(var(--chars)) 150ms both;
 }
 @media (prefers-reduced-motion: reduce) {
   .boot-type {
     animation: none;
+  }
+}
+
+/*
+ * Crossfade full page loads between the website and the dashboard, so the
+ * terminal fades into the dashboard instead of cutting off. A cross-document
+ * view transition runs only when BOTH pages opt in, so apps/web has the same
+ * rule. Browsers without support (Firefox today) just swap the page.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
   }
 }

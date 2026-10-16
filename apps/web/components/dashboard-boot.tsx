@@ -18,6 +18,11 @@ const GIVE_UP_MS = 15_000;
  * byte arrives, and most of the wait (cold start, the sign-in check) happens
  * before then. Showing the terminal here covers all of it.
  *
+ * The intro is done in about half a second, faster than the quickest real
+ * load, so the page swap does not cut it off halfway. It then waits on the
+ * pulsing last line, and the view transition in globals.css crossfades it into
+ * the dashboard.
+ *
  * The dashboard has its own copy of this terminal for full loads of /dashboard
  * (apps/dashboard/src/components/layout/TerminalBoot.tsx); keep the two looking
  * the same.
@@ -106,8 +111,8 @@ export function DashboardBoot() {
               {COMMAND}
             </span>
           </p>
-          <Step text="checking your session" at={450} okAt={1000} />
-          <Step text="loading your dashboard" at={1000} />
+          <Step text="checking your session" at={220} okAt={320} />
+          <Step text="loading your dashboard" at={380} />
         </div>
       </div>
     </div>
