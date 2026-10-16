@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "fix": "npm run format && eslint . --fix"
+    "fix": "npm run format && eslint . --fix",
+    "verify:no-image-location": "node scripts/assert-no-image-location.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.2",
