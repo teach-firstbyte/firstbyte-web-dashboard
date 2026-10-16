@@ -2,6 +2,7 @@ import type React from "react";
 import "@/app/globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { CommandMenuLoader } from "@/components/command-menu-loader";
+import { DashboardBoot } from "@/components/dashboard-boot";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata = {
@@ -30,6 +31,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <CommandMenuLoader />
+          <DashboardBoot />
           {children}
           <Analytics />
         </ThemeProvider>

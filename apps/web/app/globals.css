@@ -204,3 +204,39 @@
 .max-w-container {
   max-width: 1280px;
 }
+
+/*
+ * The typing effect in DashboardBoot, the terminal shown on the way to the
+ * dashboard. tw-animate-css covers its fades; it has nothing that reveals text
+ * one character at a time. --chars is the command's length, set inline. Same as
+ * the dashboard's copy in apps/dashboard/src/app/globals.css.
+ */
+@keyframes boot-type {
+  from {
+    width: 0;
+  }
+}
+.boot-type {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  width: calc(var(--chars) * 1ch);
+  animation: boot-type 200ms steps(var(--chars)) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .boot-type {
+    animation: none;
+  }
+}
+
+/*
+ * Crossfade full page loads between the website and the dashboard, so the
+ * terminal fades into the dashboard instead of cutting off. A cross-document
+ * view transition runs only when BOTH pages opt in, so apps/dashboard has the same
+ * rule. Browsers without support (Firefox today) just swap the page.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+}

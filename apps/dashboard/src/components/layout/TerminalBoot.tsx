@@ -22,6 +22,9 @@ const STEPS: Record<ViewMode, [string, string]> = {
  * component would sit frozen until hydration, which can be after the real page
  * has already replaced it.
  *
+ * The intro is done in under half a second after it shows, so the real page
+ * rarely cuts it off halfway; it then waits on the pulsing last line.
+ *
  * The last step never says "ok". The screen cannot know when loading ends; the
  * real page simply takes its place.
  */
@@ -66,9 +69,9 @@ export function TerminalBoot({ view }: { view: ViewMode }) {
               {COMMAND}
             </span>
           </p>
-          <Step text="signed in" at={600} done />
-          <Step text={first} at={800} okAt={1300} />
-          <Step text={last} at={1300} />
+          <Step text="signed in" at={370} done />
+          <Step text={first} at={420} okAt={520} />
+          <Step text={last} at={580} />
         </div>
       </div>
     </div>
