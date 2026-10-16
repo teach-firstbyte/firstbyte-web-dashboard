@@ -12,6 +12,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "fix": "npm run format && next lint --fix",
+    "db:status:production": "node scripts/require-env-file.mjs .env.production && dotenv -e .env.production -- prisma migrate status",
+    "db:migrate:production": "node scripts/require-env-file.mjs .env.production && dotenv -e .env.production -- prisma migrate deploy",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -39,6 +41,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "^15.5.22",
     "eslint-config-prettier": "^10.1.8",

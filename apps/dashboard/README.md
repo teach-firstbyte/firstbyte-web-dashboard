@@ -60,7 +60,7 @@ A dashboard for tracking FirstByte club participation, attendance, projects, and
 
 ## 🗄️ Database & Prisma Setup
 
-**Never run `prisma db push` or `prisma migrate dev` on the shared database unless you are coordinating a schema change!**
+**Never run `prisma db push` or `prisma migrate dev` against the production database.** Both can wipe its data. To change it, see [Applying migrations to production](#-applying-migrations-to-production).
 
 1. **Generate the Prisma Client**
    ```bash
@@ -74,6 +74,53 @@ A dashboard for tracking FirstByte club participation, attendance, projects, and
    ALTER TABLE "your_table" ENABLE ROW LEVEL SECURITY;
    ```
    Supabase's Security Advisor (dashboard -> Advisors) warns about any table that was missed.
+
+---
+
+## 🚀 Applying migrations to production
+
+A **migration** is a SQL file in `prisma/migrations/` that changes the database's structure (a new table, a new column...). Prisma has two commands for them, and they do very different things:
+
+| Command                     | Use it on                | What it does                                                                                                                                                   |
+| --------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npx prisma migrate dev`    | Your local database only | Creates new migration files from `schema.prisma` and applies them. If the database doesn't match what it expects, it offers to **reset it (delete all data)**. |
+| `npx prisma migrate deploy` | Production               | Applies committed migrations that haven't run yet. Never creates migrations, never resets.                                                                     |
+
+### Where each database's settings live
+
+| Database                   | App settings                              | Migration settings                         |
+| -------------------------- | ----------------------------------------- | ------------------------------------------ |
+| Local (Supabase in Docker) | `.env` and `.env.local`                   | `.env`                                     |
+| Production                 | Vercel → Settings → Environment Variables | GitHub environment **Production database** |
+
+Keep `.env` and `.env.local` pointed at your local database. Don't switch them to production by commenting lines in and out: if you forget to switch back, the next `migrate dev` runs against the real data.
+
+### The normal way: GitHub Actions
+
+The **Database migrations** workflow (`.github/workflows/migrate.yml`) runs `prisma migrate deploy` for you when a push to `main` changes `prisma/migrations/`. It waits for a required reviewer to click **Approve** (GitHub → Actions → the run → Review deployments) before it touches the database. To re-run it by hand: GitHub → Actions → Database migrations → Run workflow.
+
+How it's set up (GitHub → Settings → Environments → **Production database**):
+
+- Secrets, copied from the Supabase project's **Connect** page:
+  - `DATABASE_URL`: the **Transaction pooler** string (port 6543)
+  - `DIRECT_URL`: the **Session pooler** string (port 5432)
+- Required reviewers, and only the `main` branch may use it.
+
+Both strings must use the shared pooler, whose host looks like `aws-0-us-east-2.pooler.supabase.com`. GitHub's machines have no IPv6, so anything on `db.<project>.supabase.co` (the direct connection, or the paid plans' dedicated pooler) won't connect from there.
+
+### By hand, when you need to
+
+1. Copy `.env.production.example` to `.env.production` and fill in the two connection strings. It is git-ignored.
+2. See what would run, then apply it:
+   ```bash
+   npm run db:status:production
+   npm run db:migrate:production
+   ```
+   Check that the `Datasource "db"` line Prisma prints names the database you meant.
+
+### Writing a migration that's safe to deploy
+
+The migration and the new code never go live at exactly the same moment, so each migration must work with **both** the code that's running now and the code that's coming. For example, to rename a column: add the new column in one PR, switch the code to it in the next, and drop the old column in a later one.
 
 ---
 
