@@ -61,7 +61,7 @@ export function MeetingDetailSheet({
               </DetailGrid>
             </DetailSection>
 
-            <DetailSection title={`Attendance (${m.attendance.length})`}>
+            <DetailSection title="Attendance">
               {m.attendance.length === 0 ? (
                 <DetailEmpty>
                   No attendance records for this meeting.
@@ -98,9 +98,9 @@ export function MeetingDetailSheet({
                             Checked in at {formatTime(record.checkedInAt)}
                           </p>
                         )}
-                        {record.notes && (
+                        {record.notes?.trim() ? (
                           <p className="text-sm break-words">{record.notes}</p>
-                        )}
+                        ) : null}
                       </li>
                     ))}
                   </ul>

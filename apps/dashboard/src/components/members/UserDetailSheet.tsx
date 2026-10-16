@@ -40,17 +40,19 @@ export function UserDetailSheet({
       {(u) => (
         <>
           <DetailSection title="Account">
-            {/* The name is already the panel title, and ids and update times
-                are bookkeeping, so the grid keeps only what a reader acts on. */}
+            {/* The title is the name, or the email when there is no name. In
+                that case the Email field would only repeat the title. */}
             <DetailGrid>
-              <DetailField label="Email" className="sm:col-span-2">
-                <a
-                  href={`mailto:${u.email}`}
-                  className="text-primary hover:underline"
-                >
-                  {u.email}
-                </a>
-              </DetailField>
+              {u.name && (
+                <DetailField label="Email" className="sm:col-span-2">
+                  <a
+                    href={`mailto:${u.email}`}
+                    className="text-primary hover:underline"
+                  >
+                    {u.email}
+                  </a>
+                </DetailField>
+              )}
               <DetailField label="Role">
                 {isOfficerRole(u.role) ? (
                   <OfficerBadge />

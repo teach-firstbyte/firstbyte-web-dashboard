@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { DetailSheet } from "@/components/ui/detail-sheet";
 import { DetailField, DetailGrid, DetailSection } from "@/components/ui/detail";
+import { Separator } from "@/components/ui/separator";
 import { formatLongDateTime } from "@/lib/format";
 import type { Feedback } from "@/types/dashboard";
 
@@ -86,7 +87,8 @@ export function FeedbackDetailSheet({
             )}
           </DetailSection>
 
-          <p className="border-t pt-4 text-sm text-muted-foreground">
+          <Separator />
+          <p className="text-sm text-muted-foreground">
             Meeting held on {formatLongDateTime(f.meeting.scheduledAt)}
           </p>
         </>
