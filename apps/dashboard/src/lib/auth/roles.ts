@@ -4,13 +4,27 @@
 // against the schema by lib/enums.prisma-sync.ts.
 import { ROLE, type RoleValue } from "@/lib/enums";
 
-export const OFFICER_ROLES: RoleValue[] = [
+export type OfficerRoleValue =
+  typeof ROLE.NORTHEASTERN_ADMIN | typeof ROLE.SUPER_ADMIN;
+
+/**
+ * The officer roles. Also the roles someone can be promoted to, since every
+ * promotion lands on one of them (see promotableRoles in accountPolicy.ts).
+ */
+export const OFFICER_ROLES: OfficerRoleValue[] = [
+  ROLE.NORTHEASTERN_ADMIN,
+  ROLE.SUPER_ADMIN,
+];
+
+/** Every role from lowest to highest. Promoting moves a person rightwards. */
+export const ROLES_LOW_TO_HIGH: readonly RoleValue[] = [
+  ROLE.NORTHEASTERN_STUDENT,
   ROLE.NORTHEASTERN_ADMIN,
   ROLE.SUPER_ADMIN,
 ];
 
 export function isOfficer(user: { role: RoleValue }) {
-  return OFFICER_ROLES.includes(user.role);
+  return isOfficerRole(user.role);
 }
 
 /**

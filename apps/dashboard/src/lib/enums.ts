@@ -30,6 +30,18 @@ export const ROLE = {
 
 export type RoleValue = (typeof ROLE)[keyof typeof ROLE];
 
+/** Mirrors `enum AccountStatus`. */
+export const ACCOUNT_STATUS = {
+  ONBOARDING: "ONBOARDING",
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  DENIED: "DENIED",
+  DELETED: "DELETED",
+} as const;
+
+export type AccountStatusValue =
+  (typeof ACCOUNT_STATUS)[keyof typeof ACCOUNT_STATUS];
+
 /**
  * Mirrors `enum AttendanceStatus`. Screens offer ATTENDANCE_STATUS_OPTIONS
  * below, which carries the labels and the order.

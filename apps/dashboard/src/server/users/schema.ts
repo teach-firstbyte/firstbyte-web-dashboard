@@ -1,5 +1,6 @@
 import { AccountStatus } from "@prisma/client";
 import { z } from "zod";
+import { OFFICER_ROLES } from "@/lib/auth/roles";
 import { boundedText, gradYear } from "@/server/onboarding/schema";
 import { nullableText } from "@/server/validation";
 
@@ -85,3 +86,14 @@ export const deleteAccountSchema = z.object({
 });
 
 export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;
+
+/**
+ * The Members panel's promote request. Only roles someone can be promoted to,
+ * which are the officer roles: NORTHEASTERN_STUDENT is never a promotion.
+ * Whether this role is allowed for this person is promoteUser's job.
+ */
+export const promoteUserSchema = z.object({
+  role: z.enum(OFFICER_ROLES, {
+    error: `Invalid role. Must be one of: ${OFFICER_ROLES.join(", ")}`,
+  }),
+});

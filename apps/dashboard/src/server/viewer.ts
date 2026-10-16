@@ -26,6 +26,10 @@ export type Viewer = User & { readonly [brand]: "viewer" };
  * email Supabase confirmed. Calling it on request data defeats the entire type.
  * There is no lint rule protecting this -- treat a new call site as a security
  * change in review.
+ *
+ * The one other allowed place is a `*.db.test.ts` file, on a row the test
+ * created itself. There is no session in a test, and no request either, so
+ * nothing outside the test can choose who the Viewer is.
  */
 export function asViewer(user: User): Viewer {
   return user as Viewer;

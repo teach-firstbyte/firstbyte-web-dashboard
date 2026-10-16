@@ -13,6 +13,7 @@ import type { User } from "@/types/dashboard";
 import { OfficerBadge } from "@/components/OfficerBadge";
 import { isOfficerRole } from "@/lib/auth/roles";
 import { DeleteMemberAccount } from "./DeleteMemberAccount";
+import { PromoteMember } from "./PromoteMember";
 
 interface UserDetailSheetProps {
   user: User | null;
@@ -20,6 +21,7 @@ interface UserDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   onCloseAutoFocus: (event: Event) => void;
   onDeleted: () => void;
+  onPromoted: () => void;
 }
 
 export function UserDetailSheet({
@@ -28,6 +30,7 @@ export function UserDetailSheet({
   onOpenChange,
   onCloseAutoFocus,
   onDeleted,
+  onPromoted,
 }: UserDetailSheetProps) {
   return (
     <DetailSheet
@@ -55,7 +58,7 @@ export function UserDetailSheet({
               )}
               <DetailField label="Role">
                 {isOfficerRole(u.role) ? (
-                  <OfficerBadge />
+                  <OfficerBadge role={u.role} />
                 ) : (
                   <Badge variant="secondary">Member</Badge>
                 )}
@@ -86,6 +89,8 @@ export function UserDetailSheet({
               </ul>
             )}
           </DetailSection>
+
+          <PromoteMember viewer={viewer} user={u} onPromoted={onPromoted} />
 
           <DeleteMemberAccount viewer={viewer} user={u} onDeleted={onDeleted} />
         </>
