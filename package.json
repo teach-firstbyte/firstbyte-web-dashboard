@@ -15,6 +15,8 @@
     "lint:dashboard": "npm run lint -w @firstbyte/dashboard",
     "typecheck:dashboard": "npm run typecheck -w @firstbyte/dashboard",
     "format:check:dashboard": "npm run format:check -w @firstbyte/dashboard",
+    "test:dashboard": "npm run test -w @firstbyte/dashboard",
+    "test:unit:dashboard": "npm run test:unit -w @firstbyte/dashboard",
     "lint:web": "npm run lint -w @firstbyte/web",
     "typecheck:web": "npm run typecheck -w @firstbyte/web",
     "format:check:web": "npm run format:check -w @firstbyte/web",

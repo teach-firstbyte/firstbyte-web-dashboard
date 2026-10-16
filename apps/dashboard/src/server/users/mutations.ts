@@ -1,7 +1,7 @@
 import { AccountStatus, Role } from "@prisma/client";
 import { prisma } from "@/server/db";
-import { canDeleteAccount } from "@/lib/auth/accountPolicy";
-import { isOfficer } from "@/lib/auth/roles";
+import { canDeleteAccount, canPromote } from "@/lib/auth/accountPolicy";
+import { isOfficer, isSuperAdmin } from "@/lib/auth/roles";
 import { ServiceError } from "@/server/errors";
 import type { Viewer } from "@/server/viewer";
 import { approvePendingMemberships } from "@/server/teamMembers/mutations";
@@ -336,4 +336,88 @@ export function upsertUserByEmail(email: string, name: string | null) {
  */
 export function updateProfileByEmail(email: string, input: UpdateProfileInput) {
   return prisma.user.update({ where: { email }, data: input });
+}
+
+/**
+ * Throws FORBIDDEN unless the caller may promote anyone at all.
+ *
+ * promoteUser calls this first. The route also calls it before it reads the
+ * request, so a plain officer gets 403 even when the body or id is wrong too,
+ * not a 400 that would tell them more about the endpoint than they need.
+ */
+export function assertMayPromote(promoter: Viewer) {
+  if (!isSuperAdmin(promoter)) {
+    throw new ServiceError(
+      "FORBIDDEN",
+      "Only a super admin can promote people.",
+    );
+  }
+}
+
+/**
+ * Raises a person's role, for a super admin on the Members page: member to
+ * officer, member to super admin, or officer to super admin.
+ *
+ * Which roles are allowed is canPromote (lib/auth/accountPolicy.ts), which reads
+ * promotableRoles, the same function that decides which buttons the Members
+ * panel shows. The checks
+ * before it are there for clearer errors, not as extra rules:
+ *
+ *   caller not a super admin   403 (assertMayPromote)
+ *   no such account, or one    404, same as deleteAccountAsOfficer
+ *   that was deleted
+ *   pending, denied or         409 -- they have no dashboard yet; approve
+ *   still onboarding           them first
+ *   same or lower role         400 -- demotion is a different feature
+ *
+ * The new role takes effect on the person's next page load: every page reads
+ * the role from the database, not from the session.
+ */
+export async function promoteUser(
+  promoter: Viewer,
+  targetUserId: number,
+  role: Role,
+) {
+  assertMayPromote(promoter);
+
+  const target = await getUserById(targetUserId);
+
+  if (target.status === AccountStatus.DELETED) {
+    throw new ServiceError("NOT_FOUND", "User not found");
+  }
+
+  if (target.status !== AccountStatus.APPROVED) {
+    throw new ServiceError(
+      "CONFLICT",
+      "Only approved accounts can be promoted.",
+    );
+  }
+
+  if (!canPromote(promoter, target, role)) {
+    throw new ServiceError(
+      "INVALID",
+      "You can only promote someone to a role above the one they have.",
+    );
+  }
+
+  // Matches on the role and status just checked, so a change in between --
+  // another super admin promoting them first, or the account being deleted --
+  // updates nothing instead of writing over it.
+  const { count } = await prisma.user.updateMany({
+    where: {
+      id: target.id,
+      role: target.role,
+      status: AccountStatus.APPROVED,
+    },
+    data: { role },
+  });
+
+  if (count === 0) {
+    throw new ServiceError(
+      "CONFLICT",
+      "This account changed while you were looking at it. Reload and try again.",
+    );
+  }
+
+  return { id: target.id, role };
 }

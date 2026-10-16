@@ -58,8 +58,23 @@ Run from the repo root:
 | `npm run lint:dashboard` | ESLint, `--max-warnings=0` |
 | `npm run typecheck:dashboard` | `tsc --noEmit` |
 | `npm run format:check:dashboard` | Prettier check |
+| `npm run test:dashboard` | All Vitest tests (needs local Supabase, see below) |
+| `npm run test:unit:dashboard` | Only the tests that need no database |
 
 To run any other script in one workspace: `npm run <script> -w @firstbyte/web`.
+
+### Dashboard tests
+
+The dashboard has two kinds of [Vitest](https://vitest.dev) tests:
+
+- `*.test.ts` test plain functions. They need no database.
+- `*.db.test.ts` test services against a real Postgres database. Start local
+  Supabase first. The tests use their own database, `firstbyte_test`, on the
+  same Postgres. They never touch the `postgres` database that the dev server
+  uses. Each run empties `firstbyte_test` and applies any new migrations.
+
+To use another test database, set `TEST_DATABASE_URL`. Its name must end in
+`_test` and it must be on your own machine, because each run deletes its data.
 
 > `apps/web` has no ESLint config yet, and `next.config.mjs` sets
 > `typescript.ignoreBuildErrors: true`, so its type errors do not fail builds.

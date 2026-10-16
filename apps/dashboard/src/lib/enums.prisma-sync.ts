@@ -14,12 +14,14 @@
  * caught up. Fix lib/enums.ts; do not weaken the assertion.
  */
 import type {
+  AccountStatus,
   AttendanceStatus,
   Role,
   TeamJoinPolicy,
   TeamMemberStatus,
 } from "@prisma/client";
 import type {
+  AccountStatusValue,
   AttendanceStatusValue,
   RoleValue,
   TeamJoinPolicyValue,
@@ -39,6 +41,9 @@ type Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 type Assert<T extends true> = T;
 
 export type RoleInSync = Assert<Exact<RoleValue, Role>>;
+export type AccountStatusInSync = Assert<
+  Exact<AccountStatusValue, AccountStatus>
+>;
 export type AttendanceStatusInSync = Assert<
   Exact<AttendanceStatusValue, AttendanceStatus>
 >;

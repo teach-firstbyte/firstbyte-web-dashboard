@@ -1,5 +1,6 @@
 import { Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { isSuperAdminRole } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils";
 
 // Marks a user as an officer. "Officer" here means exactly what isOfficer()
@@ -8,12 +9,24 @@ import { cn } from "@/lib/utils";
 // It is deliberately NOT TeamRole.LEAD, which is a per-team role and a separate
 // population; team rosters render that alongside this, in its own badge.
 
-/** The full "star + Officer" badge, for anywhere there is room for the label. */
-export function OfficerBadge({ className }: { className?: string }) {
+/**
+ * The full "star + Officer" badge, for anywhere there is room for the label.
+ *
+ * Pass `role` where the two officer tiers should look different -- the
+ * Members table and panel, where promotions happen -- and a super admin reads
+ * "Super admin". Elsewhere both are just officers.
+ */
+export function OfficerBadge({
+  className,
+  role,
+}: {
+  className?: string;
+  role?: string;
+}) {
   return (
     <Badge className={className}>
       <OfficerStarIcon />
-      Officer
+      {role && isSuperAdminRole(role) ? "Super admin" : "Officer"}
     </Badge>
   );
 }

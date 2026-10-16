@@ -57,7 +57,7 @@ interface UsersTableProps {
    * the viewer's role, so this component never needs the Role enum.
    */
   canManageRestricted: boolean;
-  /** Who is looking, for the Delete account rule in the member panel. */
+  /** Who is looking, for the Promote and Delete account rules in the member panel. */
   viewer: { id: number; role: string };
   children?: React.ReactNode;
 }
@@ -117,6 +117,14 @@ export function UsersTable({
   // Detail panel state lives alongside the modal state above; opening a row
   // doesn't touch either, so the table keeps whatever the officer had set up.
   const detail = useDetailRow<User>();
+
+  // After a delete or a promotion. The panel holds the row as it was when it
+  // opened, so close it rather than show stale details; the refreshed table
+  // shows the change.
+  const closePanelAndRefresh = () => {
+    detail.onOpenChange(false);
+    router.refresh();
+  };
 
   const [teams, setTeams] = useState<
     { id: number; name: string; joinPolicy: string }[]
@@ -268,7 +276,9 @@ export function UsersTable({
                       <span className="min-w-0 truncate">
                         {user.name || "N/A"}
                       </span>
-                      {isOfficerRole(user.role) && <OfficerBadge />}
+                      {isOfficerRole(user.role) && (
+                        <OfficerBadge role={user.role} />
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -301,10 +311,8 @@ export function UsersTable({
           viewer={viewer}
           onOpenChange={detail.onOpenChange}
           onCloseAutoFocus={detail.onCloseAutoFocus}
-          onDeleted={() => {
-            detail.onOpenChange(false);
-            router.refresh();
-          }}
+          onDeleted={closePanelAndRefresh}
+          onPromoted={closePanelAndRefresh}
         />
         <Dialog open={showAssignModal} onOpenChange={setShowAssignModal}>
           <DialogContent>
