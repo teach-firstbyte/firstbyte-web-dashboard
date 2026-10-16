@@ -216,10 +216,6 @@ function TeamMemberCard({
           delay: noStaggerDelay ? 0 : index * 0.1,
           ease: [0.19, 1, 0.22, 1],
         }}
-        whileHover={{
-          y: isMobile ? 0 : -8,
-          transition: { duration: 0.3, ease: "easeOut" },
-        }}
         onHoverStart={() => handleMouseEnter()}
         onHoverEnd={() => handleMouseLeave()}
         onMouseMove={handleMouseMove}
@@ -230,7 +226,7 @@ function TeamMemberCard({
         {/* Set a fixed min-height for non-mobile cards to ensure equal height, accounting for year badges */}
         <Card
           className={cn(
-            "overflow-hidden transition-all duration-300 group-hover:shadow-lg border-2 border-transparent group-hover:border-primary/20 cursor-pointer",
+            "overflow-hidden transition-[box-shadow,border-color] duration-150 group-hover:shadow-lg border-2 border-transparent group-hover:border-primary/20 cursor-pointer",
             !isMobile && "min-h-[320px] sm:h-full",
           )}
         >
@@ -247,7 +243,7 @@ function TeamMemberCard({
                   src={member.image}
                   alt={member.name}
                   loading={index === 0 ? "eager" : "lazy"}
-                  className="object-cover transition-transform duration-500 group-hover:scale-110 h-full w-full"
+                  className="object-cover h-full w-full"
                 />
               ) : (
                 <AvatarFallback className="h-full w-full rounded-none text-5xl">

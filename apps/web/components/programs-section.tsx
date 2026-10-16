@@ -73,6 +73,45 @@ const programs: ProgramFeature[] = [
   },
 ];
 
+// Bento layout and entry direction for each card, by position.
+const cardLayouts = [
+  // First card is large feature card
+  { className: "md:col-span-2 md:row-span-2", initialX: -20, initialY: -20 },
+  // Second card is a vertical rectangle
+  { className: "md:col-span-1 md:row-span-1", initialX: 20, initialY: -20 },
+  // Third card is a vertical rectangle
+  { className: "md:col-span-1 md:row-span-1", initialX: -20, initialY: 20 },
+  // Fourth card spans horizontally (bento style)
+  { className: "md:col-span-2 md:row-span-2", initialX: 20, initialY: 20 },
+  // Fifth card is a square
+  { className: "md:col-span-1 md:row-span-1", initialX: -20, initialY: -20 },
+  // Sixth card is a square
+  { className: "md:col-span-1 md:row-span-1", initialX: 20, initialY: -20 },
+];
+
+// Built once at module load, so each BentoCard gets the same props (including
+// the `background` element) on every render and its memo can skip re-renders.
+const programCards = programs.map((program, index) => ({
+  name: program.title,
+  Icon: program.icon,
+  description: program.description,
+  href: program.link,
+  cta: "Learn more",
+  ...(cardLayouts[index] ?? { className: "", initialX: 0, initialY: 0 }),
+  background: (
+    <div className="absolute inset-0 h-full w-full">
+      <div className="absolute inset-0 bg-linear-to-b from-black/40 via-black/20 to-black/40 z-20 transition-opacity duration-300 group-hover:opacity-75" />
+      <Image
+        src={program.image}
+        alt={program.title}
+        width={500}
+        height={300}
+        className="object-cover object-center absolute inset-0 h-full w-full transition-transform duration-300 will-change-transform group-hover:scale-105"
+      />
+    </div>
+  ),
+}));
+
 export const ProgramsSection = forwardRef<HTMLElement>((props, ref) => {
   return (
     <section
@@ -348,73 +387,9 @@ export const ProgramsSection = forwardRef<HTMLElement>((props, ref) => {
         </div>
 
         <BentoGrid className="md:auto-rows-64 grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4">
-          {programs.map((program, index) => {
-            const Icon = program.icon;
-
-            // Create more bento-box like layout
-            let customClassName = "";
-            let initialX = 0;
-            let initialY = 0;
-
-            // Determine animation direction based on position
-            if (index === 0) {
-              // First card is large feature card
-              customClassName = "md:col-span-2 md:row-span-2";
-              initialX = -20;
-              initialY = -20;
-            } else if (index === 1) {
-              // Second card is a vertical rectangle
-              customClassName = "md:col-span-1 md:row-span-1";
-              initialX = 20;
-              initialY = -20;
-            } else if (index === 2) {
-              // Third card is a vertical rectangle
-              customClassName = "md:col-span-1 md:row-span-1";
-              initialX = -20;
-              initialY = 20;
-            } else if (index === 3) {
-              // Fourth card spans horizontally (bento style)
-              customClassName = "md:col-span-2 md:row-span-2";
-              initialX = 20;
-              initialY = 20;
-            } else if (index === 4) {
-              // Fifth card is a square
-              customClassName = "md:col-span-1 md:row-span-1";
-              initialX = -20;
-              initialY = -20;
-            } else if (index === 5) {
-              // Sixth card is a square
-              customClassName = "md:col-span-1 md:row-span-1";
-              initialX = 20;
-              initialY = -20;
-            }
-
-            return (
-              <BentoCard
-                key={program.title}
-                name={program.title}
-                className={customClassName}
-                Icon={Icon}
-                description={program.description}
-                href={program.link}
-                cta="Learn more"
-                initialX={initialX}
-                initialY={initialY}
-                background={
-                  <div className="absolute inset-0 h-full w-full">
-                    <div className="absolute inset-0 bg-linear-to-b from-black/40 via-black/20 to-black/40 z-20 transition-opacity duration-300 group-hover:opacity-75" />
-                    <Image
-                      src={program.image}
-                      alt={program.title}
-                      width={500}
-                      height={300}
-                      className="object-cover object-center absolute inset-0 h-full w-full transition-transform duration-300 group-hover:scale-105"
-                    />
-                  </div>
-                }
-              />
-            );
-          })}
+          {programCards.map((card) => (
+            <BentoCard key={card.name} {...card} />
+          ))}
         </BentoGrid>
 
         <motion.div
