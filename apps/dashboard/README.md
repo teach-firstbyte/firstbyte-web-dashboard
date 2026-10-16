@@ -39,7 +39,7 @@ A dashboard for tracking FirstByte club participation, attendance, projects, and
      ```
      ```.env.local
      NEXT_PUBLIC_SUPABASE_URL="https://[URL].supabase.co"
-     NEXT_PUBLIC_SUPABASE_ANON_KEY="[ANON_KEY]"
+     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="[PUBLISHABLE_KEY]"
      ```
 
 - Generate a `CHECKIN_SECRET` for the attendance check-in codes:
