@@ -111,8 +111,11 @@ const nextConfig = {
   async rewrites() {
     const origin = dashboardOrigin();
     // Printed in the build log, so a preview that proxies to the wrong
-    // dashboard is easy to spot.
-    console.log(`Dashboard zone: ${origin}`);
+    // dashboard is easy to spot. Vercel masks the value when it came from
+    // DASHBOARD_URL (a sensitive variable), so the source is printed too.
+    console.log(
+      `Dashboard zone: ${origin} (VERCEL_RELATED_PROJECTS ${process.env.VERCEL_RELATED_PROJECTS ? "set" : "not set"}, VERCEL_ENV ${process.env.VERCEL_ENV ?? "not set"})`,
+    );
     return [
       /**
        * Client-side navigations inside the dashboard zone fetch RSC payloads,
