@@ -39,6 +39,7 @@ yarn-error.log*
 # ...but the template of required variable names carries no secrets and should
 # be committed, so new contributors know what to fill in.
 !.env.example
+!.env.*.example
 
 # vercel
 .vercel
