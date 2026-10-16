@@ -44,6 +44,7 @@ model User {
   //relationships
   teamMemberships   TeamMember[]
   attendanceRecords Attendance[]
+  attendanceMarked  Attendance[] @relation("AttendanceMarkedBy")
   feedbackGiven     Feedback[]   @relation("FeedbackAuthor")
 
   // Officer who decided this account. SetNull so removing an officer does not
@@ -106,19 +107,22 @@ model TeamMember {
 
 model Meeting {
   //fields
-  id          Int         @id @default(autoincrement())
-  title       String
-  description String?
-  type        MeetingType
-  teamId      Int?        @map("team_id")
-  scheduledAt DateTime    @map("scheduled_at")
-  startedAt   DateTime?   @map("started_at")
-  endedAt     DateTime?   @map("ended_at")
-  location    String?
-  isRequired  Boolean     @default(false) @map("is_required")
-  maxCapacity Int?        @map("max_capacity")
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  id                 Int         @id @default(autoincrement())
+  title              String
+  description        String?
+  type               MeetingType
+  teamId             Int?        @map("team_id")
+  scheduledAt        DateTime    @map("scheduled_at")
+  startedAt          DateTime?   @map("started_at")
+  endedAt            DateTime?   @map("ended_at")
+  location           String?
+  isRequired         Boolean     @default(false) @map("is_required")
+  maxCapacity        Int?        @map("max_capacity")
+  // When an officer pressed Close attendance, or when it closed by itself.
+  // Null means attendance for this meeting is still open.
+  attendanceClosedAt DateTime?   @map("attendance_closed_at")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
 
   //relationships
   team       Team?        @relation(fields: [teamId], references: [id])
@@ -137,14 +141,19 @@ model Attendance {
   checkedInAt  DateTime?        @map("checked_in_at")
   checkedOutAt DateTime?        @map("checked_out_at")
   notes        String?
+  // Who last set the status: the member themselves (check-in, "I can't make
+  // it") or an officer. Null for rows from before this column existed.
+  markedById   Int?             @map("marked_by_id")
   createdAt    DateTime         @default(now()) @map("created_at")
   updatedAt    DateTime         @updatedAt @map("updated_at")
 
   //relationships
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meeting  Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  markedBy User?   @relation("AttendanceMarkedBy", fields: [markedById], references: [id], onDelete: SetNull)
 
   @@unique([userId, meetingId])
+  @@index([markedById])
   @@map("attendance")
 }
 
@@ -200,6 +209,7 @@ enum AttendanceStatus {
   REGISTERED
   PRESENT
   ABSENT
+  EXCUSED
 
   @@map("attendance_status")
 }

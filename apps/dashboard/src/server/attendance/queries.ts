@@ -218,6 +218,7 @@ function summarize(
     REGISTERED: 0,
     PRESENT: 0,
     ABSENT: 0,
+    EXCUSED: 0,
   };
   for (const row of rows) counts[row.status] = row._count._all;
 
