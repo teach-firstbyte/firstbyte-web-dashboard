@@ -32,17 +32,14 @@ export type CreateMeetingInput = z.infer<typeof createMeetingSchema>;
 /**
  * Every field optional: a PUT writes only what it is given.
  *
- * startedAt and endedAt accept null, because clearing them is meaningful --
- * that is how a meeting is marked as not started. scheduledAt does not, because
- * the column is required.
+ * attendanceClosedAt is not here: Close attendance sets it, through its own
+ * route, so it can mark the people left over absent in the same step.
  */
 export const updateMeetingSchema = z
   .object({
     title: z.string().trim().min(1, "title cannot be empty"),
     type: meetingType,
     scheduledAt: dateField,
-    startedAt: dateField.nullable(),
-    endedAt: dateField.nullable(),
     description: nullableText,
     teamId: nullableIdParam,
     location: nullableText,

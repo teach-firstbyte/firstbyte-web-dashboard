@@ -28,8 +28,8 @@ const BADGE_VARIANTS: Record<
   "default" | "destructive" | "outline" | "secondary"
 > = {
   PRESENT: "default",
+  EXCUSED: "outline",
   ABSENT: "destructive",
-  REGISTERED: "outline",
   NOT_RECORDED: "secondary",
 };
 
@@ -46,7 +46,9 @@ export function MemberAttendanceTable({
     <Card>
       <CardHeader>
         <CardTitle>Your attendance records</CardTitle>
-        <CardDescription>Every meeting you were registered for</CardDescription>
+        <CardDescription>
+          Meetings you came to, were excused from, or missed
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Table>

@@ -13,6 +13,7 @@ import { useDetailRow } from "@/hooks/useDetailRow";
 import { formatMonthYear } from "@/lib/format";
 import {
   attendancePercent,
+  countExcused,
   meetingPhase,
   meetingTypeLabel,
 } from "@/lib/meetings";
@@ -194,9 +195,15 @@ export function MeetingList({
                               ) : (
                                 <>
                                   <b className="text-foreground">
-                                    {m.attendance.length}
+                                    {m.expectedCount}
                                   </b>{" "}
                                   invited
+                                  {countExcused(m.attendance) > 0 && (
+                                    <>
+                                      <br />
+                                      {countExcused(m.attendance)} excused
+                                    </>
+                                  )}
                                   {m.maxCapacity ? (
                                     <>
                                       <br />

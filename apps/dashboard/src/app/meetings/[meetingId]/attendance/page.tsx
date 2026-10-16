@@ -48,11 +48,7 @@ export default async function MeetingAttendancePage({
           ) : undefined
         }
       />
-      <AttendanceRoster
-        meetingId={id}
-        meetingTitle={meeting.title}
-        scheduledAt={meeting.scheduledAt}
-      />
+      <AttendanceRoster meetingId={id} scheduledAt={meeting.scheduledAt} />
     </AppShell>
   );
 }

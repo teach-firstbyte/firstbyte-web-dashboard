@@ -1,19 +1,19 @@
 import type { AttendanceStatus, Prisma } from "@prisma/client";
 
 export type MemberAttendanceKey =
-  "PRESENT" | "ABSENT" | "REGISTERED" | "NOT_RECORDED";
+  "PRESENT" | "EXCUSED" | "ABSENT" | "NOT_RECORDED";
 
 export const MEMBER_ATTENDANCE_KEYS: MemberAttendanceKey[] = [
   "PRESENT",
+  "EXCUSED",
   "ABSENT",
-  "REGISTERED",
   "NOT_RECORDED",
 ];
 
 export const MEMBER_ATTENDANCE_LABELS: Record<MemberAttendanceKey, string> = {
   PRESENT: "Present",
+  EXCUSED: "Excused",
   ABSENT: "Absent",
-  REGISTERED: "Registered",
   NOT_RECORDED: "Not recorded",
 };
 
@@ -28,6 +28,15 @@ export function parseFilter(
     : undefined;
 }
 
+/**
+ * Rows a member's history never shows: a leftover REGISTERED row for a
+ * meeting that hasn't finished. It only meant "expected", and the member home
+ * already lists upcoming meetings. Pass the same cutoff as displayKey.
+ */
+export function hiddenFromHistory(cutoff: Date): Prisma.AttendanceWhereInput {
+  return { status: "REGISTERED", meeting: { scheduledAt: { gte: cutoff } } };
+}
+
 /** Maps a filter key to a Prisma where fragment. Pass the same cutoff as displayKey */
 export function keyToWhere(
   key: MemberAttendanceKey,
@@ -36,13 +45,10 @@ export function keyToWhere(
   switch (key) {
     case "PRESENT":
       return { status: "PRESENT" };
+    case "EXCUSED":
+      return { status: "EXCUSED" };
     case "ABSENT":
       return { status: "ABSENT" };
-    case "REGISTERED":
-      return {
-        status: "REGISTERED",
-        meeting: { scheduledAt: { gte: cutoff } },
-      };
     case "NOT_RECORDED":
       return {
         status: "REGISTERED",
@@ -51,13 +57,12 @@ export function keyToWhere(
   }
 }
 
-/** Maps a stored row to the key it displays as. Pass the same cutoff as keyToWhere. */
-export function displayKey(
-  status: AttendanceStatus,
-  scheduledAt: Date,
-  cutoff: Date,
-): MemberAttendanceKey {
-  if (status === "PRESENT") return "PRESENT";
-  if (status === "ABSENT") return "ABSENT";
-  return scheduledAt < cutoff ? "NOT_RECORDED" : "REGISTERED";
+/**
+ * Maps a stored row to the key it displays as. A REGISTERED row is from before
+ * the attendance rework: nobody took attendance for that person. Rows for
+ * meetings that haven't finished are filtered out by hiddenFromHistory.
+ */
+export function displayKey(status: AttendanceStatus): MemberAttendanceKey {
+  if (status === "REGISTERED") return "NOT_RECORDED";
+  return status;
 }

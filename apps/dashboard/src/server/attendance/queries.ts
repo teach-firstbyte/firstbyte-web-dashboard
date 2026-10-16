@@ -5,23 +5,33 @@ import {
   TeamMemberStatus,
 } from "@prisma/client";
 import { prisma } from "@/server/db";
-import { getAttendanceCutoff } from "@/lib/attendance/cutoff";
+import { getAttendanceCutoff } from "@/lib/attendance/timing";
 import {
   displayKey,
+  hiddenFromHistory,
   keyToWhere,
   parseFilter,
 } from "@/lib/attendance/member-status";
+import { isAttendanceClosed } from "@/lib/attendance/timing";
 import { isOfficer } from "@/lib/auth/roles";
 import { getPagination } from "@/lib/pagination";
 import { ServiceError } from "@/server/errors";
 import { listFeedbackMeetingIds } from "@/server/feedback/queries";
+import {
+  DECIDED_STATUSES,
+  decidedStatus,
+  expectedUsersWhere,
+} from "./expected";
 import type { Page } from "@/server/page";
 import { enumParam, pageParam, searchParam } from "@/server/validation";
 import type { Viewer } from "@/server/viewer";
 import {
   attendanceWithContextArgs,
   type AttendanceWithContext,
+  type MeetingRosterPayload,
   type MemberAttendanceRowPayload,
+  type RosterRowPayload,
+  type RosterStatus,
 } from "./select";
 import type { AttendanceFilter } from "./schema";
 
@@ -65,10 +75,10 @@ export async function listAttendancePageForOfficer(
   pageSize: number,
 ): Promise<Page<AttendanceWithContext>> {
   const q = searchParam(params.q);
-  const status = enumParam(params.status, Object.values(AttendanceStatus));
+  const status = enumParam(params.status, [...DECIDED_STATUSES]);
 
   const where: Prisma.AttendanceWhereInput = {
-    status,
+    status: status ?? decidedStatus,
     OR: q
       ? [
           { user: { name: { contains: q, mode: "insensitive" } } },
@@ -111,10 +121,10 @@ export async function listAttendancePageForOfficer(
  * The viewer's own id is an AND term rather than a plain `userId`, so a status
  * filter can never displace it.
  *
- * displayKey and keyToWhere both take the same cutoff on purpose: a row past
- * the cutoff that is still REGISTERED displays as "Not recorded", and the
- * filter for that label has to draw its line in the same place or the filtered
- * list disagrees with the labels in it.
+ * hiddenFromHistory and keyToWhere take the same cutoff on purpose: a
+ * REGISTERED row past the cutoff displays as "Not recorded", one before it is
+ * not shown, and the filter for that label has to draw its line in the same
+ * place or the filtered list disagrees with the labels in it.
  */
 export async function listAttendancePageForMember(
   viewer: Viewer,
@@ -124,7 +134,10 @@ export async function listAttendancePageForMember(
   const cutoff = getAttendanceCutoff();
   const filter = parseFilter(params.status);
 
-  const AND: Prisma.AttendanceWhereInput[] = [{ userId: viewer.id }];
+  const AND: Prisma.AttendanceWhereInput[] = [
+    { userId: viewer.id },
+    { NOT: hiddenFromHistory(cutoff) },
+  ];
   if (filter) AND.push(keyToWhere(filter, cutoff));
   const where: Prisma.AttendanceWhereInput = { AND };
 
@@ -163,7 +176,7 @@ export async function listAttendancePageForMember(
     rows: records.map((r) => ({
       id: r.id,
       meetingId: r.meetingId,
-      displayStatus: displayKey(r.status, r.meeting.scheduledAt, cutoff),
+      displayStatus: displayKey(r.status),
       hasFeedback: feedbackMeetingIds.has(r.meetingId),
       meeting: {
         title: r.meeting.title,
@@ -210,34 +223,52 @@ export async function hasAttended(
   return record?.status === AttendanceStatus.PRESENT;
 }
 
-/** present/absent counts plus the rate they imply, or null when nothing is decided. */
+/**
+ * present/absent counts plus the rate they imply, or a null rate when nobody
+ * is marked either way. Excused and leftover REGISTERED rows count neither
+ * way: an excused absence is not held against anyone.
+ */
 function summarize(
   rows: { status: AttendanceStatus; _count: { _all: number } }[],
 ) {
-  const counts: Record<AttendanceStatus, number> = {
-    REGISTERED: 0,
-    PRESENT: 0,
-    ABSENT: 0,
-    EXCUSED: 0,
-  };
-  for (const row of rows) counts[row.status] = row._count._all;
+  let present = 0;
+  let absent = 0;
+  for (const row of rows) {
+    if (row.status === AttendanceStatus.PRESENT) present = row._count._all;
+    if (row.status === AttendanceStatus.ABSENT) absent = row._count._all;
+  }
 
-  const decided = counts.PRESENT + counts.ABSENT;
-  return {
-    rate: decided > 0 ? counts.PRESENT / decided : null,
-    present: counts.PRESENT,
-    absent: counts.ABSENT,
-  };
+  const decided = present + absent;
+  return { rate: decided > 0 ? present / decided : null, present, absent };
+}
+
+/**
+ * The two rates, for one member or for the whole club.
+ *
+ * The main one counts required meetings only, so skipping an optional event
+ * never lowers it. `allEventsRate` counts every meeting, and is shown
+ * separately with a clear label.
+ */
+async function attendanceRates(where: Prisma.AttendanceWhereInput) {
+  const [required, all] = await Promise.all([
+    prisma.attendance.groupBy({
+      by: ["status"],
+      where: { ...where, meeting: { isRequired: true } },
+      _count: { _all: true },
+    }),
+    prisma.attendance.groupBy({
+      by: ["status"],
+      where,
+      _count: { _all: true },
+    }),
+  ]);
+
+  return { ...summarize(required), allEventsRate: summarize(all).rate };
 }
 
 /** Club-wide attendance figures, for the officer dashboard. */
 export async function getAttendanceStats() {
-  const rows = await prisma.attendance.groupBy({
-    by: ["status"],
-    _count: { _all: true },
-  });
-
-  return summarize(rows);
+  return attendanceRates({});
 }
 
 /**
@@ -246,14 +277,11 @@ export async function getAttendanceStats() {
  * `notRecorded` counts rows still REGISTERED for a meeting that already
  * happened -- nobody took attendance. Kept out of the rate on purpose: it is
  * not the member's absence, so counting it against them would be unfair.
+ * These rows only exist for meetings from before the attendance rework.
  */
 export async function getAttendanceStatsForViewer(viewer: Viewer) {
-  const [rows, notRecorded] = await Promise.all([
-    prisma.attendance.groupBy({
-      by: ["status"],
-      where: { userId: viewer.id },
-      _count: { _all: true },
-    }),
+  const [rates, notRecorded] = await Promise.all([
+    attendanceRates({ userId: viewer.id }),
     prisma.attendance.count({
       where: {
         userId: viewer.id,
@@ -263,7 +291,7 @@ export async function getAttendanceStatsForViewer(viewer: Viewer) {
     }),
   ]);
 
-  return { ...summarize(rows), notRecorded };
+  return { ...rates, notRecorded };
 }
 
 /**
@@ -360,4 +388,84 @@ export async function listRecentAttendanceForViewer(viewer: Viewer, take = 8) {
     scheduledAt: r.meeting.scheduledAt,
     hasFeedback: rated.has(r.meetingId),
   }));
+}
+
+/**
+ * The officer roster for one meeting: one row per person, marked or not.
+ *
+ * While attendance is open, that is everyone the meeting is for right now,
+ * plus anyone else with a record (a walk-in). Once it is closed, the records
+ * alone are the roster, so someone approved later doesn't appear on a meeting
+ * that was over before they joined.
+ *
+ * Throws NOT_FOUND.
+ */
+export async function listMeetingRoster(
+  meetingId: number,
+): Promise<MeetingRosterPayload> {
+  const meeting = await prisma.meeting.findUnique({
+    where: { id: meetingId },
+    select: { teamId: true, scheduledAt: true, attendanceClosedAt: true },
+  });
+  if (!meeting) throw new ServiceError("NOT_FOUND", "Meeting not found");
+
+  const closed = isAttendanceClosed(meeting);
+  const person = { id: true, name: true, email: true } as const;
+
+  const [records, expected] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { meetingId, status: decidedStatus },
+      select: {
+        userId: true,
+        status: true,
+        checkedInAt: true,
+        notes: true,
+        markedById: true,
+        user: { select: person },
+      },
+    }),
+    closed
+      ? Promise.resolve([])
+      : prisma.user.findMany({
+          where: expectedUsersWhere(meeting.teamId),
+          select: person,
+        }),
+  ]);
+
+  const expectedIds = new Set(expected.map((u) => u.id));
+  const rows = new Map<number, RosterRowPayload>();
+
+  for (const u of expected) {
+    rows.set(u.id, {
+      userId: u.id,
+      name: u.name,
+      email: u.email,
+      status: null,
+      checkedInAt: null,
+      notes: null,
+      selfMarked: false,
+      expected: true,
+    });
+  }
+  for (const r of records) {
+    rows.set(r.userId, {
+      userId: r.userId,
+      name: r.user.name,
+      email: r.user.email,
+      // decidedStatus filtered REGISTERED out above.
+      status: r.status as RosterStatus,
+      checkedInAt: r.checkedInAt,
+      notes: r.notes,
+      selfMarked: r.markedById === r.userId,
+      expected: closed || expectedIds.has(r.userId),
+    });
+  }
+
+  return {
+    closed,
+    closedAt: meeting.attendanceClosedAt,
+    rows: [...rows.values()].sort((a, b) =>
+      (a.name ?? a.email).localeCompare(b.name ?? b.email),
+    ),
+  };
 }

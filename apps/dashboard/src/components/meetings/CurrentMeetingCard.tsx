@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardCheck, QrCode, Star } from "lucide-react";
+import { CalendarX2, ClipboardCheck, QrCode, Star } from "lucide-react";
 
 import { Meter } from "@/components/common/Meter";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,10 @@ export function CurrentMeetingCard({
   locations: string[];
 }) {
   const present = countPresent(meeting.attendance);
-  const invited = meeting.attendance.length;
+  const invited = meeting.expectedCount;
+  // Members who said "I can't make it" (or an officer excused). The in-app
+  // notice to officers: there are no emails or push notifications yet.
+  const excused = meeting.attendance.filter((a) => a.status === "EXCUSED");
   const meta = [
     phase === "live"
       ? `Started ${formatTime(meeting.scheduledAt)}`
@@ -76,6 +79,19 @@ export function CurrentMeetingCard({
           </div>
         )}
       </div>
+
+      {excused.length > 0 && (
+        <div className="relative flex items-start gap-2 rounded-xl bg-muted px-3 py-2 text-sm">
+          <CalendarX2
+            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <p>
+            <span className="font-semibold">{excused.length} excused:</span>{" "}
+            {excused.map((a) => a.user.name || a.user.email).join(", ")}
+          </p>
+        </div>
+      )}
 
       <div className="relative flex flex-wrap items-center gap-2">
         <Button asChild size="lg">

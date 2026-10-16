@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Check, QrCode, UserPlus, X } from "lucide-react";
+import { CalendarX2, Check, QrCode, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Meter } from "@/components/common/Meter";
@@ -12,18 +12,23 @@ import { Segmented } from "@/components/common/Segmented";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { ATTENDANCE_STATUS, type AttendanceStatusValue } from "@/lib/enums";
-import { formatTime } from "@/lib/format";
+import { formatDateTime, formatTime } from "@/lib/format";
 import { meetingPhase } from "@/lib/meetings";
 import { withBasePath } from "@/lib/paths";
-import type { Attendance, User } from "@/types/dashboard";
+import type {
+  MeetingRoster,
+  RosterRow,
+  RosterStatus,
+  User,
+} from "@/types/dashboard";
 
-type Filter = "all" | "unmarked" | "present" | "absent";
+type Filter = "all" | "unmarked" | "present" | "excused" | "absent";
 
-const FILTER_STATUS: Record<Exclude<Filter, "all">, AttendanceStatusValue> = {
-  unmarked: ATTENDANCE_STATUS.REGISTERED,
-  present: ATTENDANCE_STATUS.PRESENT,
-  absent: ATTENDANCE_STATUS.ABSENT,
+const FILTER_STATUS: Record<Exclude<Filter, "all">, RosterStatus | null> = {
+  unmarked: null,
+  present: "PRESENT",
+  excused: "EXCUSED",
+  absent: "ABSENT",
 };
 
 async function send(path: string, method: string, body?: unknown) {
@@ -40,45 +45,45 @@ async function send(path: string, method: string, body?: unknown) {
 }
 
 /**
- * Taking attendance at a meeting. Most people check themselves in with the QR
- * code, so this is for fixing the gaps: find a name, tap ✓ or ✕, add someone
- * who walked in, and at the end mark everyone left over as absent.
+ * Taking attendance at a meeting. The list is everyone the meeting is for
+ * right now, so nobody has to be added by hand unless they walked in. Most
+ * people check themselves in with the QR code, and some excuse themselves
+ * before it starts, so this is for fixing the gaps: find a name, tap Present,
+ * Excused or Absent, add a walk-in, and at the end Close attendance.
  *
- * Writes are optimistic, like the old AttendanceToggle: the row changes on tap
- * and the request reconciles behind it. A failed save reverts that person and
- * says so. Rows stay tappable so a mis-tap can be fixed at once.
+ * Writes are optimistic: the row changes on tap and the request reconciles
+ * behind it. A failed save reverts that person and says so. Rows stay
+ * tappable, even after closing, so a mis-tap can be fixed at once.
  */
 export function AttendanceRoster({
   meetingId,
-  meetingTitle,
   scheduledAt,
 }: {
   meetingId: number;
-  meetingTitle: string;
   scheduledAt: Date | string;
 }) {
-  const [records, setRecords] = React.useState<Attendance[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const [roster, setRoster] = React.useState<MeetingRoster | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [filter, setFilter] = React.useState<Filter>("all");
   const [query, setQuery] = React.useState("");
   const [members, setMembers] = React.useState<User[] | null>(null);
   const [saving, setSaving] = React.useState(0);
 
-  // Per-row request counter. Tapping ✓ then ✕ on one person races two
+  // Per-person request counter. Tapping ✓ then ✕ on one person races two
   // requests; only the newest may write state.
   const seqRef = React.useRef(new Map<number, number>());
 
+  const load = React.useCallback(
+    () =>
+      send(`/api/meetings/${meetingId}/roster`, "GET")
+        .then((data: MeetingRoster) => setRoster(data))
+        .catch(() => setLoadError("Could not load attendance.")),
+    [meetingId],
+  );
+
   React.useEffect(() => {
-    let cancelled = false;
-    send(`/api/attendance?meetingId=${meetingId}`, "GET")
-      .then((rows: Attendance[]) => !cancelled && setRecords(rows))
-      .catch(() => !cancelled && setLoadError("Could not load attendance."))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [meetingId]);
+    load();
+  }, [load]);
 
   // The member list is only needed to add a walk-in, so fetch it the first
   // time someone searches.
@@ -89,8 +94,17 @@ export function AttendanceRoster({
       .catch(() => setMembers([]));
   }, [query, members]);
 
-  const setStatus = (id: number, status: string) =>
-    setRecords((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+  const patchRow = (userId: number, patch: Partial<RosterRow>) =>
+    setRoster((prev) =>
+      prev
+        ? {
+            ...prev,
+            rows: prev.rows.map((r) =>
+              r.userId === userId ? { ...r, ...patch } : r,
+            ),
+          }
+        : prev,
+    );
 
   const track = async (work: () => Promise<void>) => {
     setSaving((n) => n + 1);
@@ -101,122 +115,116 @@ export function AttendanceRoster({
     }
   };
 
-  /** Tap ✓ or ✕. Tapping the one already on clears it back to not marked. */
-  const mark = (record: Attendance, tapped: AttendanceStatusValue) => {
-    const previous = record.status;
-    const next = previous === tapped ? ATTENDANCE_STATUS.REGISTERED : tapped;
-    const seq = (seqRef.current.get(record.id) ?? 0) + 1;
-    seqRef.current.set(record.id, seq);
-    const isStale = () => seqRef.current.get(record.id) !== seq;
+  /** Tap a status. Tapping the one already on clears it back to not marked. */
+  const mark = (row: RosterRow, tapped: RosterStatus) => {
+    const previous = row.status;
+    const next = previous === tapped ? null : tapped;
+    const seq = (seqRef.current.get(row.userId) ?? 0) + 1;
+    seqRef.current.set(row.userId, seq);
+    const isStale = () => seqRef.current.get(row.userId) !== seq;
 
-    setStatus(record.id, next);
+    patchRow(row.userId, { status: next, selfMarked: false });
     track(async () => {
       try {
-        const updated = await send(`/api/attendance/${record.id}`, "PUT", {
+        await send(`/api/meetings/${meetingId}/roster/${row.userId}`, "PUT", {
           status: next,
         });
-        if (!isStale() && updated?.status) setStatus(record.id, updated.status);
       } catch {
         if (isStale()) return;
-        setStatus(record.id, previous);
-        toast.error(
-          `Couldn't save ${record.user.name || record.user.email}. Try again.`,
-        );
+        patchRow(row.userId, { status: previous, selfMarked: row.selfMarked });
+        toast.error(`Couldn't save ${row.name || row.email}. Try again.`);
       }
     });
   };
 
-  const unmarked = records.filter(
-    (r) => r.status === ATTENDANCE_STATUS.REGISTERED,
-  );
-
-  /** "Mark the rest absent", with Undo. One request for everyone. */
-  const markRestAbsent = () => {
-    const ids = unmarked.map((r) => r.id);
-    const apply = (status: AttendanceStatusValue) =>
-      setRecords((prev) =>
-        prev.map((r) => (ids.includes(r.id) ? { ...r, status } : r)),
-      );
-    apply(ATTENDANCE_STATUS.ABSENT);
+  /** Close attendance: everyone not marked becomes Absent. */
+  const closeAttendance = () => {
     track(async () => {
       try {
-        await send("/api/attendance/bulk", "PATCH", {
-          meetingId,
-          attendanceIds: ids,
-          status: ATTENDANCE_STATUS.ABSENT,
-        });
+        const { markedAbsent } = await send(
+          `/api/meetings/${meetingId}/close-attendance`,
+          "POST",
+        );
+        await load();
         toast(
-          `Marked ${ids.length} ${ids.length === 1 ? "person" : "people"} absent`,
-          {
-            action: {
-              label: "Undo",
-              onClick: () => {
-                apply(ATTENDANCE_STATUS.REGISTERED);
-                send("/api/attendance/bulk", "PATCH", {
-                  meetingId,
-                  attendanceIds: ids,
-                  status: ATTENDANCE_STATUS.REGISTERED,
-                }).catch(() =>
-                  toast.error("Couldn't undo that. Refresh and check."),
-                );
-              },
-            },
-          },
+          markedAbsent > 0
+            ? `Attendance closed. Marked ${markedAbsent} ${markedAbsent === 1 ? "person" : "people"} absent.`
+            : "Attendance closed.",
         );
       } catch (e) {
-        apply(ATTENDANCE_STATUS.REGISTERED);
-        toast.error(e instanceof Error ? e.message : "Couldn't save that.");
+        toast.error(e instanceof Error ? e.message : "Couldn't close it.");
       }
     });
   };
 
-  /** Add someone who walked in without being on the roster. */
+  /** Add someone the meeting wasn't for, as present. */
   const addWalkIn = (member: User) => {
     setQuery("");
+    const row: RosterRow = {
+      userId: member.id,
+      name: member.name,
+      email: member.email,
+      status: "PRESENT",
+      checkedInAt: null,
+      notes: null,
+      selfMarked: false,
+      expected: false,
+    };
+    setRoster((prev) => (prev ? { ...prev, rows: [...prev.rows, row] } : prev));
     track(async () => {
       try {
-        const created = await send("/api/attendance", "POST", {
-          userId: member.id,
-          meetingId,
-          status: ATTENDANCE_STATUS.PRESENT,
-          checkedInAt: new Date().toISOString(),
+        await send(`/api/meetings/${meetingId}/roster/${member.id}`, "PUT", {
+          status: "PRESENT",
         });
-        const row: Attendance = {
-          ...created,
-          user: { name: member.name, email: member.email },
-          meeting: { title: meetingTitle, scheduledAt: new Date(scheduledAt) },
-        };
-        setRecords((prev) => [...prev, row]);
         toast(`Added ${member.name || member.email} as present`, {
           action: {
             label: "Undo",
             onClick: () => {
-              setRecords((prev) => prev.filter((r) => r.id !== row.id));
-              send(`/api/attendance/${row.id}`, "DELETE").catch(() =>
+              setRoster((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      rows: prev.rows.filter((r) => r.userId !== member.id),
+                    }
+                  : prev,
+              );
+              send(`/api/meetings/${meetingId}/roster/${member.id}`, "PUT", {
+                status: null,
+              }).catch(() =>
                 toast.error("Couldn't undo that. Refresh and check."),
               );
             },
           },
         });
       } catch (e) {
+        setRoster((prev) =>
+          prev
+            ? { ...prev, rows: prev.rows.filter((r) => r.userId !== member.id) }
+            : prev,
+        );
         toast.error(e instanceof Error ? e.message : "Couldn't add them.");
       }
     });
   };
 
-  if (loading) {
+  if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
+  if (!roster) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Spinner /> Loading attendance…
       </div>
     );
   }
-  if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
 
-  const count = (status: AttendanceStatusValue) =>
-    records.filter((r) => r.status === status).length;
-  const present = count(ATTENDANCE_STATUS.PRESENT);
-  const absent = count(ATTENDANCE_STATUS.ABSENT);
+  // A walk-in someone cleared back to "not marked" has no reason to stay on
+  // the list: the meeting wasn't for them.
+  const rows = roster.rows.filter((r) => r.expected || r.status !== null);
+  const count = (status: RosterStatus | null) =>
+    rows.filter((r) => r.status === status).length;
+  const present = count("PRESENT");
+  const excused = count("EXCUSED");
+  const absent = count("ABSENT");
+  const unmarked = count(null);
 
   const q = query.trim().toLowerCase();
   const matches = (name: string | null, email: string) =>
@@ -224,17 +232,20 @@ export function AttendanceRoster({
     (name ?? "").toLowerCase().includes(q) ||
     email.toLowerCase().includes(q);
 
-  const shown = records
+  const shown = rows
     .filter((r) => filter === "all" || r.status === FILTER_STATUS[filter])
-    .filter((r) => matches(r.user.name, r.user.email))
-    .sort((a, b) =>
-      (a.user.name ?? a.user.email).localeCompare(b.user.name ?? b.user.email),
-    );
+    .filter((r) => matches(r.name, r.email))
+    .sort((a, b) => (a.name ?? a.email).localeCompare(b.name ?? b.email));
 
-  const onRoster = new Set(records.map((r) => r.userId));
+  const onRoster = new Set(rows.map((r) => r.userId));
   const walkIns = q
     ? (members ?? [])
-        .filter((m) => !onRoster.has(m.id) && matches(m.name, m.email))
+        .filter(
+          (m) =>
+            m.status === "APPROVED" &&
+            !onRoster.has(m.id) &&
+            matches(m.name, m.email),
+        )
         .slice(0, 5)
     : [];
 
@@ -249,13 +260,10 @@ export function AttendanceRoster({
             value={filter}
             onValueChange={setFilter}
             options={[
-              { value: "all", label: "Everyone", count: records.length },
-              {
-                value: "unmarked",
-                label: "Not marked",
-                count: unmarked.length,
-              },
+              { value: "all", label: "Everyone", count: rows.length },
+              { value: "unmarked", label: "Not marked", count: unmarked },
               { value: "present", label: "Present", count: present },
+              { value: "excused", label: "Excused", count: excused },
               { value: "absent", label: "Absent", count: absent },
             ]}
           />
@@ -271,9 +279,13 @@ export function AttendanceRoster({
           </span>
         </div>
         <Meter
-          parts={[{ value: present }, { value: absent, tone: "destructive" }]}
-          total={records.length}
-          label={`${present} present, ${absent} absent, ${unmarked.length} not marked`}
+          parts={[
+            { value: present },
+            { value: excused, tone: "warning" },
+            { value: absent, tone: "destructive" },
+          ]}
+          total={rows.length}
+          label={`${present} present, ${excused} excused, ${absent} absent, ${unmarked} not marked`}
         />
       </div>
 
@@ -287,8 +299,8 @@ export function AttendanceRoster({
       />
 
       <ul className="-my-1 divide-y">
-        {shown.map((record) => (
-          <RosterRow key={record.id} record={record} onMark={mark} />
+        {shown.map((row) => (
+          <RosterRowItem key={row.userId} row={row} onMark={mark} />
         ))}
       </ul>
 
@@ -307,7 +319,7 @@ export function AttendanceRoster({
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{m.name || m.email}</p>
                   <p className="truncate text-sm text-muted-foreground">
-                    Didn&apos;t RSVP
+                    This meeting isn&apos;t for them
                   </p>
                 </div>
                 <Button
@@ -352,74 +364,106 @@ export function AttendanceRoster({
         </EmptyState>
       )}
 
-      {started && unmarked.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted px-4 py-3">
-          <p className="text-sm">
-            <span className="font-semibold">Meeting over?</span>{" "}
-            <span className="text-muted-foreground">
-              {unmarked.length}{" "}
-              {unmarked.length === 1 ? "person hasn't" : "people haven't"} been
-              marked yet.
-            </span>
-          </p>
-          <Button size="sm" variant="outline" onClick={markRestAbsent}>
-            Mark the rest absent
-          </Button>
-        </div>
+      {roster.closed ? (
+        <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+          {roster.closedAt
+            ? `Attendance closed ${formatDateTime(roster.closedAt)}.`
+            : "Attendance for this meeting is closed."}{" "}
+          You can still change anyone.
+        </p>
+      ) : (
+        started && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted px-4 py-3">
+            <p className="text-sm">
+              <span className="font-semibold">Meeting over?</span>{" "}
+              <span className="text-muted-foreground">
+                {unmarked === 0
+                  ? "Everyone is marked."
+                  : `${unmarked} ${unmarked === 1 ? "person isn't" : "people aren't"} marked yet. Closing marks them absent.`}{" "}
+                It closes by itself 3 hours after the start.
+              </span>
+            </p>
+            <Button size="sm" variant="outline" onClick={closeAttendance}>
+              Close attendance
+            </Button>
+          </div>
+        )
       )}
     </div>
   );
 }
 
-function RosterRow({
-  record,
+function rowDetail(row: RosterRow): string {
+  switch (row.status) {
+    case "PRESENT":
+      return row.checkedInAt
+        ? `Checked in ${formatTime(row.checkedInAt)}`
+        : row.expected
+          ? "Marked present"
+          : "Walk-in, marked present";
+    case "EXCUSED": {
+      const who = row.selfMarked ? "Can't make it" : "Excused by an officer";
+      return row.notes ? `${who}: ${row.notes}` : who;
+    }
+    case "ABSENT":
+      return "Absent";
+    default:
+      return "Not marked";
+  }
+}
+
+function RosterRowItem({
+  row,
   onMark,
 }: {
-  record: Attendance;
-  onMark: (record: Attendance, status: AttendanceStatusValue) => void;
+  row: RosterRow;
+  onMark: (row: RosterRow, status: RosterStatus) => void;
 }) {
-  const who = record.user.name || record.user.email;
-  const detail =
-    record.status === ATTENDANCE_STATUS.PRESENT
-      ? record.checkedInAt
-        ? `Checked in ${formatTime(record.checkedInAt)}`
-        : "Marked present"
-      : record.status === ATTENDANCE_STATUS.ABSENT
-        ? "Marked absent"
-        : "Not marked";
+  const who = row.name || row.email;
 
   return (
     <li className="flex items-center gap-3 py-2.5">
       <PersonAvatar
-        name={record.user.name}
-        email={record.user.email}
+        name={row.name}
+        email={row.email}
         tone={
-          record.status === ATTENDANCE_STATUS.PRESENT
+          row.status === "PRESENT"
             ? "brand"
-            : record.status === ATTENDANCE_STATUS.ABSENT
+            : row.status === "ABSENT"
               ? "danger"
               : "muted"
         }
       />
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">{who}</p>
-        <p className="truncate text-sm text-muted-foreground">{detail}</p>
+        <p className="truncate text-sm text-muted-foreground">
+          {rowDetail(row)}
+        </p>
       </div>
       <div className="flex gap-1.5">
         <MarkButton
-          on={record.status === ATTENDANCE_STATUS.PRESENT}
-          tone="present"
+          on={row.status === "PRESENT"}
+          variantOn="default"
           label={`Mark ${who} present`}
-          onClick={() => onMark(record, ATTENDANCE_STATUS.PRESENT)}
+          onClick={() => onMark(row, "PRESENT")}
         >
           <Check />
           <span className="hidden sm:inline">Present</span>
         </MarkButton>
         <MarkButton
-          on={record.status === ATTENDANCE_STATUS.ABSENT}
-          tone="absent"
+          on={row.status === "EXCUSED"}
+          variantOn="secondary"
+          label={`Mark ${who} excused`}
+          onClick={() => onMark(row, "EXCUSED")}
+        >
+          <CalendarX2 />
+          <span className="hidden sm:inline">Excused</span>
+        </MarkButton>
+        <MarkButton
+          on={row.status === "ABSENT"}
+          variantOn="destructive"
           label={`Mark ${who} absent`}
-          onClick={() => onMark(record, ATTENDANCE_STATUS.ABSENT)}
+          onClick={() => onMark(row, "ABSENT")}
         >
           <X />
           <span className="hidden sm:inline">Absent</span>
@@ -431,13 +475,13 @@ function RosterRow({
 
 function MarkButton({
   on,
-  tone,
+  variantOn,
   label,
   onClick,
   children,
 }: {
   on: boolean;
-  tone: "present" | "absent";
+  variantOn: "default" | "secondary" | "destructive";
   label: string;
   onClick: () => void;
   children: React.ReactNode;
@@ -447,9 +491,7 @@ function MarkButton({
     // background would win over a plain bg-* class and hide the pressed state.
     <Button
       size="sm"
-      variant={
-        on ? (tone === "present" ? "default" : "destructive") : "outline"
-      }
+      variant={on ? variantOn : "outline"}
       aria-pressed={on}
       aria-label={label}
       onClick={onClick}

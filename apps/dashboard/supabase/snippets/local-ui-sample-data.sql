@@ -48,33 +48,41 @@ VALUES
      date_trunc('day', now()) + interval '2 days 18 hours', 'Snell Library 090', false, NULL, now()),
   ('[sample] Workshop: Intro to Python', 'WORKSHOP', NULL, date_trunc('day', now()) + interval '6 days 19 hours', 'Richards Hall 235', false, NULL, now());
 
--- Rosters: every approved member on every club-wide meeting, the team for team ones.
-INSERT INTO public.attendance (user_id, meeting_id, status, updated_at)
-SELECT u.id, m.id, 'REGISTERED', now()
-FROM public.meetings m JOIN public.users u ON u.status = 'APPROVED'
-WHERE m.title LIKE '[sample]%'
-  AND (m.team_id IS NULL OR EXISTS (
-    SELECT 1 FROM public.team_members tm WHERE tm.user_id = u.id AND tm.team_id = m.team_id AND tm.status = 'APPROVED'));
+-- Attendance. Records exist only where something happened: a check-in, an
+-- excuse, or an officer's mark. Nobody gets one just for being expected.
 
--- Finished meetings: most came. The test member missed GM #2 and GM #3, so
--- they appear under "Missed 2 of the last 3 meetings".
-UPDATE public.attendance a SET
-  status = (CASE
+-- Finished meetings, closed: most came. The test member missed GM #2 and
+-- GM #3, so they appear under "Missed 2 of the last 3 meetings".
+INSERT INTO public.attendance (user_id, meeting_id, status, checked_in_at, marked_by_id, updated_at)
+SELECT u.id, m.id, s.status, CASE WHEN s.status = 'PRESENT'
+    THEN m.scheduled_at + ((u.id % 9) || ' minutes')::interval END,
+  u.id, now()
+FROM public.meetings m
+JOIN public.users u ON u.status = 'APPROVED'
+CROSS JOIN LATERAL (SELECT (CASE
     WHEN u.email = 'ui-test-member@firstbyte.test' AND m.title NOT LIKE '%#1' THEN 'ABSENT'
-    WHEN (a.user_id + m.id) % 4 = 0 THEN 'ABSENT'
-    ELSE 'PRESENT' END)::attendance_status,
-  checked_in_at = m.scheduled_at + ((a.user_id % 9) || ' minutes')::interval
-FROM public.meetings m, public.users u
-WHERE a.meeting_id = m.id AND a.user_id = u.id
-  AND m.title LIKE '[sample] General Meeting #%';
-UPDATE public.attendance SET checked_in_at = NULL WHERE status = 'ABSENT';
+    WHEN (u.id + m.id) % 7 = 0 THEN 'EXCUSED'
+    WHEN (u.id + m.id) % 4 = 0 THEN 'ABSENT'
+    ELSE 'PRESENT' END)::attendance_status AS status) s
+WHERE m.title LIKE '[sample] General Meeting #%';
+UPDATE public.meetings SET attendance_closed_at = scheduled_at + interval '3 hours'
+WHERE title LIKE '[sample] General Meeting #%';
 
 -- Happening now: about half have checked in. The test member hasn't yet.
-UPDATE public.attendance a SET status = 'PRESENT', checked_in_at = m.scheduled_at + interval '3 minutes'
+INSERT INTO public.attendance (user_id, meeting_id, status, checked_in_at, marked_by_id, updated_at)
+SELECT u.id, m.id, 'PRESENT', m.scheduled_at + interval '3 minutes', u.id, now()
+FROM public.meetings m JOIN public.users u ON u.status = 'APPROVED'
+WHERE m.title = '[sample] General Meeting: Teaching with Scratch'
+  AND u.id % 2 = 0 AND u.email <> 'ui-test-member@firstbyte.test';
+
+-- Coming up: one member already said they can't make it to the workshop, so
+-- the officer home shows the notice. The test member hasn't, so you can try it.
+INSERT INTO public.attendance (user_id, meeting_id, status, notes, marked_by_id, updated_at)
+SELECT u.id, m.id, 'EXCUSED', 'Midterm that evening', u.id, now()
 FROM public.meetings m, public.users u
-WHERE a.meeting_id = m.id AND a.user_id = u.id
-  AND m.title = '[sample] General Meeting: Teaching with Scratch'
-  AND a.user_id % 2 = 0 AND u.email <> 'ui-test-member@firstbyte.test';
+WHERE m.title = '[sample] Workshop: Intro to Python'
+  AND u.id = (SELECT min(id) FROM public.users
+              WHERE status = 'APPROVED' AND email <> 'ui-test-member@firstbyte.test');
 
 -- Feedback on GM #3, including one low rating. The test member came to GM #1
 -- and hasn't rated anything, so GM #1 is too old to ask about (two-week window).
@@ -88,5 +96,5 @@ WHERE m.title = '[sample] General Meeting #3: Lesson planning' AND a.status = 'P
 
 COMMIT;
 
-SELECT title, scheduled_at, (SELECT count(*) FROM public.attendance WHERE meeting_id = m.id) AS roster
+SELECT title, scheduled_at, (SELECT count(*) FROM public.attendance WHERE meeting_id = m.id) AS records
 FROM public.meetings m WHERE title LIKE '[sample]%' ORDER BY scheduled_at;

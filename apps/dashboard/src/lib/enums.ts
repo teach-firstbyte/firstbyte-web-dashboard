@@ -31,9 +31,8 @@ export const ROLE = {
 export type RoleValue = (typeof ROLE)[keyof typeof ROLE];
 
 /**
- * Mirrors `enum AttendanceStatus`. Declaration order is load-bearing: the
- * attendance filter renders `Object.values(...)` directly, so this is the order
- * the options appear in.
+ * Mirrors `enum AttendanceStatus`. Screens offer ATTENDANCE_STATUS_OPTIONS
+ * below, not this, because REGISTERED is never written any more.
  */
 export const ATTENDANCE_STATUS = {
   REGISTERED: "REGISTERED",
@@ -44,6 +43,16 @@ export const ATTENDANCE_STATUS = {
 
 export type AttendanceStatusValue =
   (typeof ATTENDANCE_STATUS)[keyof typeof ATTENDANCE_STATUS];
+
+/**
+ * The statuses anything writes now, in the order filters show them.
+ * REGISTERED is left over from the old model and is never offered.
+ */
+export const ATTENDANCE_STATUS_OPTIONS = [
+  { value: ATTENDANCE_STATUS.PRESENT, label: "Present" },
+  { value: ATTENDANCE_STATUS.EXCUSED, label: "Excused" },
+  { value: ATTENDANCE_STATUS.ABSENT, label: "Absent" },
+] as const;
 
 /** Mirrors `enum TeamMemberStatus`. */
 export const TEAM_MEMBER_STATUS = {

@@ -33,9 +33,13 @@ export function MeetingDetailSheet({
       description={(m) => meetingTypeLabel(m.type)}
     >
       {(m) => {
-        const present = m.attendance.filter(
-          (record) => record.status === "PRESENT",
-        ).length;
+        const count = (status: string) =>
+          m.attendance.filter((record) => record.status === status).length;
+        const summary = [
+          `${count("PRESENT")} present`,
+          `${count("EXCUSED")} excused`,
+          `${count("ABSENT")} absent`,
+        ].join(", ");
 
         return (
           <>
@@ -76,9 +80,7 @@ export function MeetingDetailSheet({
               </DetailGrid>
             </DetailSection>
 
-            <DetailSection
-              title={`Attendance (${present} of ${m.attendance.length} present)`}
-            >
+            <DetailSection title={`Attendance (${summary})`}>
               {m.attendance.length === 0 ? (
                 <DetailEmpty>
                   No attendance records for this meeting.

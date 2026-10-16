@@ -18,7 +18,6 @@ export const attendanceWithContextArgs =
       meetingId: true,
       status: true,
       checkedInAt: true,
-      checkedOutAt: true,
       notes: true,
       createdAt: true,
       user: { select: { name: true, email: true } },
@@ -34,9 +33,9 @@ export type AttendanceWithContext = Prisma.AttendanceGetPayload<
  * One row of a member's own attendance history.
  *
  * Hand-written rather than a GetPayload, because two of its fields do not exist
- * in the database: `displayStatus` folds the meeting time into the status (a
- * REGISTERED row for a meeting that already happened displays as "Not
- * recorded"), and `hasFeedback` is the answer to a second query.
+ * in the database: `displayStatus` is the label the status shows as (a
+ * leftover REGISTERED row displays as "Not recorded"), and `hasFeedback` is
+ * the answer to a second query.
  *
  * types/dashboard.ts declares the same shape for the client, and
  * props.prisma-sync.ts asserts the two agree. This one is the source of truth,
@@ -51,4 +50,28 @@ export interface MemberAttendanceRowPayload {
     title: string;
     scheduledAt: Date;
   };
+}
+
+export type RosterStatus = "PRESENT" | "EXCUSED" | "ABSENT";
+
+/**
+ * One person on a meeting's officer roster, marked or not. Hand-written: a
+ * "not marked" person has no attendance row, so there is no Prisma shape for
+ * it. types/dashboard.ts declares the same shape for the client.
+ */
+export interface RosterRowPayload {
+  userId: number;
+  name: string | null;
+  email: string;
+  status: RosterStatus | null;
+  checkedInAt: Date | null;
+  notes: string | null;
+  selfMarked: boolean;
+  expected: boolean;
+}
+
+export interface MeetingRosterPayload {
+  closed: boolean;
+  closedAt: Date | null;
+  rows: RosterRowPayload[];
 }

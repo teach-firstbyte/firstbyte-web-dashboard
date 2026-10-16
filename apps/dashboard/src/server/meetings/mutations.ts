@@ -1,55 +1,14 @@
-import {
-  AccountStatus,
-  AttendanceStatus,
-  Prisma,
-  TeamMemberStatus,
-} from "@prisma/client";
 import { prisma } from "@/server/db";
 import { ServiceError } from "@/server/errors";
 import { getMeetingById } from "./queries";
 import type { CreateMeetingInput, UpdateMeetingInput } from "./schema";
 
 /**
- * Who a meeting applies to.
- *   team meeting (teamId set)  -> approved memberships of approved accounts
- *   club meeting (teamId null) -> every approved account
- *
- * Both filters matter. A pending join request is not a membership, and a
- * pending account is not a member -- without the account filter, creating a
- * club meeting registers everyone still onboarding, waiting on review, or
- * already denied.
+ * Creates a meeting. Nobody gets an attendance record for it yet: records are
+ * made when something happens (a check-in, an excuse, an officer's mark), and
+ * who the meeting is for is worked out live. See attendance/expected.ts.
  */
-async function expectedRoster(
-  tx: Prisma.TransactionClient,
-  teamId: number | null,
-): Promise<number[]> {
-  if (teamId === null) {
-    const users = await tx.user.findMany({
-      where: { status: AccountStatus.APPROVED },
-      select: { id: true },
-    });
-    return users.map((u) => u.id);
-  }
-
-  const members = await tx.teamMember.findMany({
-    where: {
-      teamId,
-      status: TeamMemberStatus.APPROVED,
-      user: { status: AccountStatus.APPROVED },
-    },
-    select: { userId: true },
-  });
-  return members.map((m) => m.userId);
-}
-
-/**
- * Creates a meeting and pre-registers the roster it implies.
- *
- * In a transaction, which the two-call version in the route was not: when the
- * createMany failed, the meeting stayed in the database with an empty roster
- * while the officer saw a 500 that suggested nothing had been created.
- */
-export async function createMeetingWithRoster(input: CreateMeetingInput) {
+export async function createMeeting(input: CreateMeetingInput) {
   // Checked up front so a bad teamId is a 400 with a sentence, rather than a
   // P2003 foreign-key violation surfacing as "Failed to create meeting".
   if (input.teamId !== null) {
@@ -60,25 +19,7 @@ export async function createMeetingWithRoster(input: CreateMeetingInput) {
     if (!team) throw new ServiceError("INVALID", "That team does not exist");
   }
 
-  return prisma.$transaction(async (tx) => {
-    const meeting = await tx.meeting.create({ data: input });
-
-    const userIds = await expectedRoster(tx, meeting.teamId);
-    if (userIds.length > 0) {
-      await tx.attendance.createMany({
-        data: userIds.map((userId) => ({
-          userId,
-          meetingId: meeting.id,
-          status: AttendanceStatus.REGISTERED,
-        })),
-        // Attendance has @@unique([userId, meetingId]); a retry must not
-        // fail on rows a previous attempt already wrote.
-        skipDuplicates: true,
-      });
-    }
-
-    return meeting;
-  });
+  return prisma.meeting.create({ data: input });
 }
 
 /**

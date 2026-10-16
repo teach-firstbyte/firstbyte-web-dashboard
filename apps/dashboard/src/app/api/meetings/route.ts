@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireOfficerApi } from "@/lib/auth/requireOfficerApi";
 import { requireUserApi } from "@/lib/auth/requireUserApi";
 import { parseJsonBody, toErrorResponse } from "@/server/http";
-import { createMeetingWithRoster } from "@/server/meetings/mutations";
+import { createMeeting } from "@/server/meetings/mutations";
 import { listMeetingsForViewer } from "@/server/meetings/queries";
 import { createMeetingSchema } from "@/server/meetings/schema";
 
@@ -25,7 +25,7 @@ export async function GET(): Promise<NextResponse> {
 }
 
 /**
- * Creates a new meeting and pre-registers its roster.
+ * Creates a new meeting. No attendance records are made for it.
  * @param request - The request object
  * @returns The created meeting
  */
@@ -35,7 +35,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   try {
     const input = await parseJsonBody(request, createMeetingSchema);
-    const meeting = await createMeetingWithRoster(input);
+    const meeting = await createMeeting(input);
     return NextResponse.json(meeting, { status: 201 });
   } catch (e) {
     return toErrorResponse(e, "POST /api/meetings", "Failed to create meeting");

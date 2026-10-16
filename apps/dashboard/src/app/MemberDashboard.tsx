@@ -3,6 +3,7 @@ import { CircleCheck } from "lucide-react";
 
 import { AttendanceSquares } from "@/components/attendance/AttendanceSquares";
 import { CheckInDialog } from "@/components/attendance/CheckInDialog";
+import { ExcuseButton } from "@/components/attendance/ExcuseButton";
 import { PersonAvatar } from "@/components/common/PersonAvatar";
 import {
   EmptyState,
@@ -22,6 +23,7 @@ import {
   formatShortDate,
   formatTime,
 } from "@/lib/format";
+import { checkInWindow } from "@/lib/attendance/timing";
 import { pickCurrentMeeting, upcomingMeetings } from "@/lib/meetings";
 import { getMemberDashboard } from "@/server/dashboard/queries";
 import type { Viewer } from "@/server/viewer";
@@ -31,9 +33,20 @@ type Data = Awaited<ReturnType<typeof getMemberDashboard>>;
 const EMPTY: Data = {
   memberships: [],
   meetings: [],
-  attendance: { rate: null, present: 0, absent: 0, notRecorded: 0 },
+  attendance: {
+    rate: null,
+    allEventsRate: null,
+    present: 0,
+    absent: 0,
+    notRecorded: 0,
+  },
   recent: [],
 };
+
+/** "71%", or a dash when nothing has been marked yet. */
+function percent(rate: number | null) {
+  return rate === null ? "–" : `${Math.round(rate * 100)}%`;
+}
 
 /** Feedback is asked for meetings in the last two weeks only. */
 const RATE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
@@ -56,16 +69,20 @@ export async function MemberDashboard({ user }: { user: Viewer }) {
   }
   const mode = await getViewMode(user);
 
-  const { memberships, meetings, recent } = data;
+  const { memberships, meetings, recent, attendance } = data;
   const now = Date.now();
   const current = pickCurrentMeeting(meetings, now);
   // A member gets only their own roster row from listMeetingsForViewer, but an
   // officer previewing this view gets the whole roster -- so match by email
   // rather than trusting attendance[0].
-  const mine = current?.meeting.attendance.find(
-    (a) => a.user.email === user.email,
-  );
+  const myRecord = (m: (typeof meetings)[number]) =>
+    m.attendance.find((a) => a.user.email === user.email);
+  const mine = current ? myRecord(current.meeting) : undefined;
   const checkedIn = mine?.status === "PRESENT";
+  const canCheckIn =
+    current !== null &&
+    !checkedIn &&
+    checkInWindow(current.meeting.scheduledAt, now) === "open";
   const comingUp = upcomingMeetings(meetings, now)
     .filter((m) => m.id !== current?.meeting.id)
     .slice(0, 3);
@@ -77,8 +94,6 @@ export async function MemberDashboard({ user }: { user: Viewer }) {
         now - new Date(r.scheduledAt).getTime() < RATE_WINDOW_MS,
     )
     .reverse();
-  const recorded = recent.filter((r) => r.status !== "REGISTERED");
-  const presentCount = recorded.filter((r) => r.status === "PRESENT").length;
 
   const firstName = (user.preferredName || user.name || "").split(" ")[0];
   const summary =
@@ -137,32 +152,46 @@ export async function MemberDashboard({ user }: { user: Viewer }) {
                     </p>
                   )}
               </div>
-              {current.phase === "live" &&
-                (checkedIn ? (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <p className="flex items-center gap-2 font-semibold text-primary">
-                      <CircleCheck className="size-5" aria-hidden="true" />
-                      You&apos;re checked in
-                      {mine?.checkedInAt &&
-                        ` · ${formatTime(mine.checkedInAt)}`}
-                    </p>
-                    <RateMeetingButton
+              {current.phase === "upcoming" && !canCheckIn && (
+                <ExcuseButton
+                  meetingId={current.meeting.id}
+                  meetingTitle={current.meeting.title}
+                  status={mine?.status ?? null}
+                  selfMarked={mine?.markedById === mine?.userId}
+                />
+              )}
+              {checkedIn ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="flex items-center gap-2 font-semibold text-primary">
+                    <CircleCheck className="size-5" aria-hidden="true" />
+                    You&apos;re checked in
+                    {mine?.checkedInAt && ` · ${formatTime(mine.checkedInAt)}`}
+                  </p>
+                  <RateMeetingButton
+                    meetingId={current.meeting.id}
+                    meetingTitle={current.meeting.title}
+                    label="Rate today's meeting"
+                  />
+                </div>
+              ) : canCheckIn ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <CheckInDialog
+                    meetingId={current.meeting.id}
+                    meetingTitle={current.meeting.title}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    Scan the QR code on the screen, or type the code.
+                  </span>
+                  {current.phase === "upcoming" && (
+                    <ExcuseButton
                       meetingId={current.meeting.id}
                       meetingTitle={current.meeting.title}
-                      label="Rate today's meeting"
+                      status={mine?.status ?? null}
+                      selfMarked={mine?.markedById === mine?.userId}
                     />
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <CheckInDialog
-                      meetingId={current.meeting.id}
-                      meetingTitle={current.meeting.title}
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      Scan the QR code on the screen, or type the code.
-                    </span>
-                  </div>
-                ))}
+                  )}
+                </div>
+              ) : null}
             </section>
           )}
 
@@ -180,15 +209,26 @@ export async function MemberDashboard({ user }: { user: Viewer }) {
               </EmptyState>
             ) : (
               <RowList>
-                {comingUp.map((m) => (
-                  <li key={m.id}>
-                    <MeetingRow
-                      meeting={m}
-                      phase="upcoming"
-                      showAudience={false}
-                    />
-                  </li>
-                ))}
+                {comingUp.map((m) => {
+                  const record = myRecord(m);
+                  return (
+                    <li key={m.id}>
+                      <MeetingRow
+                        meeting={m}
+                        phase="upcoming"
+                        showAudience={false}
+                        right={
+                          <ExcuseButton
+                            meetingId={m.id}
+                            meetingTitle={m.title}
+                            status={record?.status ?? null}
+                            selfMarked={record?.markedById === record?.userId}
+                          />
+                        }
+                      />
+                    </li>
+                  );
+                })}
               </RowList>
             )}
           </Section>
@@ -232,10 +272,14 @@ export async function MemberDashboard({ user }: { user: Viewer }) {
               <div className="flex flex-col gap-3">
                 <div>
                   <p className="text-3xl font-bold tabular-nums">
-                    {presentCount} of {recorded.length}
+                    {percent(attendance.rate)}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    recent meetings where attendance was taken
+                    of required meetings · All events:{" "}
+                    {percent(attendance.allEventsRate)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Excused absences don&apos;t count either way.
                   </p>
                 </div>
                 <AttendanceSquares items={recent} />

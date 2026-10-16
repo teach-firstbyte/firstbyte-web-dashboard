@@ -1,7 +1,15 @@
-import { AttendanceStatus } from "@prisma/client";
+import {
+  AccountStatus,
+  AttendanceStatus,
+  TeamMemberStatus,
+} from "@prisma/client";
 import { prisma } from "@/server/db";
-import { getAttendanceCutoff } from "@/lib/attendance/cutoff";
+import { getAttendanceCutoff } from "@/lib/attendance/timing";
 import { isOfficer } from "@/lib/auth/roles";
+import {
+  decidedStatus,
+  expectedUsersWhere,
+} from "@/server/attendance/expected";
 import { ServiceError } from "@/server/errors";
 import { listApprovedTeamIds } from "@/server/teams/queries";
 import type { Viewer } from "@/server/viewer";
@@ -27,31 +35,66 @@ export async function listMeetingsForViewer(
   viewer: Viewer,
 ): Promise<MeetingWithRoster[]> {
   if (isOfficer(viewer)) {
-    return prisma.meeting.findMany({
-      ...meetingWithRosterArgs,
-      orderBy: [{ scheduledAt: "desc" }, { id: "desc" }],
-    });
+    const [meetings, expectedCount] = await Promise.all([
+      prisma.meeting.findMany({
+        ...meetingWithRosterArgs,
+        orderBy: [{ scheduledAt: "desc" }, { id: "desc" }],
+      }),
+      expectedCounter(),
+    ]);
+    return meetings.map((m) => ({
+      ...m,
+      expectedCount: expectedCount(m.teamId),
+    }));
   }
 
   const teamIds = await listApprovedTeamIds(viewer.id);
 
-  return prisma.meeting.findMany({
-    include: {
-      ...meetingWithRosterArgs.include,
-      attendance: {
-        ...meetingWithRosterArgs.include.attendance,
-        where: { userId: viewer.id },
+  const [meetings, expectedCount] = await Promise.all([
+    prisma.meeting.findMany({
+      include: {
+        ...meetingWithRosterArgs.include,
+        attendance: {
+          ...meetingWithRosterArgs.include.attendance,
+          where: { userId: viewer.id, status: decidedStatus },
+        },
       },
-    },
-    where: {
-      // Grace window: an in-progress meeting stays visible for about two hours
-      // past its start, so someone checking in late can still find it.
-      scheduledAt: { gt: getAttendanceCutoff() },
-      // A null teamId is a club-wide meeting, visible to every member.
-      OR: [{ teamId: null }, { teamId: { in: teamIds } }],
-    },
-    orderBy: [{ scheduledAt: "asc" }, { id: "asc" }],
-  });
+      where: {
+        // Grace window: an in-progress meeting stays visible for three hours
+        // past its start, so someone checking in late can still find it.
+        scheduledAt: { gt: getAttendanceCutoff() },
+        // A null teamId is a club-wide meeting, visible to every member.
+        OR: [{ teamId: null }, { teamId: { in: teamIds } }],
+      },
+      orderBy: [{ scheduledAt: "asc" }, { id: "asc" }],
+    }),
+    expectedCounter(),
+  ]);
+  return meetings.map((m) => ({
+    ...m,
+    expectedCount: expectedCount(m.teamId),
+  }));
+}
+
+/**
+ * How many people a meeting is for, for every meeting at once: two counts
+ * instead of one per meeting. The same rule as expectedUsersWhere, written as
+ * a group-by over memberships.
+ */
+async function expectedCounter(): Promise<(teamId: number | null) => number> {
+  const [club, teams] = await Promise.all([
+    prisma.user.count({ where: expectedUsersWhere(null) }),
+    prisma.teamMember.groupBy({
+      by: ["teamId"],
+      where: {
+        status: TeamMemberStatus.APPROVED,
+        user: { status: AccountStatus.APPROVED },
+      },
+      _count: { _all: true },
+    }),
+  ]);
+  const byTeam = new Map(teams.map((t) => [t.teamId, t._count._all]));
+  return (teamId) => (teamId === null ? club : (byTeam.get(teamId) ?? 0));
 }
 
 /** One meeting with its roster and feedback. Throws NOT_FOUND. */
@@ -93,9 +136,18 @@ export async function findMeetingTitle(
   return meeting?.title ?? null;
 }
 
+/** Title and start time, for the check-in page. Null when there is no such meeting. */
+export async function findMeetingHeading(meetingId: number) {
+  return prisma.meeting.findUnique({
+    where: { id: meetingId },
+    select: { title: true, scheduledAt: true },
+  });
+}
+
 /**
  * Title, start time and live check-in count, for the projector screens. Null
- * for a meeting that does not exist, like findMeetingTitle.
+ * for a meeting that does not exist, like findMeetingTitle. `total` is how
+ * many people the meeting is for, plus walk-ins who checked in.
  *
  * Counts in the database rather than loading the roster: the projector page
  * refreshes every few seconds while it is up.
@@ -103,17 +155,31 @@ export async function findMeetingTitle(
 export async function findMeetingCheckInSummary(meetingId: number) {
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },
-    select: { title: true, scheduledAt: true, location: true },
+    select: {
+      title: true,
+      scheduledAt: true,
+      location: true,
+      teamId: true,
+      attendanceClosedAt: true,
+    },
   });
   if (!meeting) return null;
 
-  const [present, total, responses] = await Promise.all([
+  const expected = expectedUsersWhere(meeting.teamId);
+  const [present, expectedCount, walkIns, responses] = await Promise.all([
     prisma.attendance.count({
       where: { meetingId, status: AttendanceStatus.PRESENT },
     }),
-    prisma.attendance.count({ where: { meetingId } }),
+    prisma.user.count({ where: expected }),
+    prisma.attendance.count({
+      where: {
+        meetingId,
+        status: AttendanceStatus.PRESENT,
+        user: { NOT: expected },
+      },
+    }),
     prisma.feedback.count({ where: { meetingId } }),
   ]);
 
-  return { ...meeting, present, total, responses };
+  return { ...meeting, present, total: expectedCount + walkIns, responses };
 }

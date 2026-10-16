@@ -12,7 +12,7 @@ export type HistoryItem = {
 
 /**
  * One square per recent meeting, oldest to newest: ✓ came, ✕ marked absent,
- * – not recorded. Hover or focus a square for the meeting and date.
+ * – excused or not recorded. Hover or focus a square for the meeting and date.
  */
 export function AttendanceSquares({ items }: { items: HistoryItem[] }) {
   return (
@@ -23,7 +23,9 @@ export function AttendanceSquares({ items }: { items: HistoryItem[] }) {
             ? "present"
             : item.status === "ABSENT"
               ? "absent"
-              : "not recorded"
+              : item.status === "EXCUSED"
+                ? "excused"
+                : "not recorded"
         }`;
         return (
           <li
@@ -34,7 +36,8 @@ export function AttendanceSquares({ items }: { items: HistoryItem[] }) {
               "grid size-8 place-items-center rounded-lg [&_svg]:size-4",
               item.status === "PRESENT" && "bg-primary text-primary-foreground",
               item.status === "ABSENT" && "bg-destructive/10 text-destructive",
-              item.status === "REGISTERED" && "bg-muted text-muted-foreground",
+              (item.status === "REGISTERED" || item.status === "EXCUSED") &&
+                "bg-muted text-muted-foreground",
             )}
           >
             {item.status === "PRESENT" ? (
