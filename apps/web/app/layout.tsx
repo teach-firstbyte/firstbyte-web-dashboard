@@ -1,7 +1,7 @@
 import type React from "react";
 import "@/app/globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { CommandMenu } from "@/components/command-menu";
+import { CommandMenuLoader } from "@/components/command-menu-loader";
 import { DashboardBoot } from "@/components/dashboard-boot";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -30,7 +30,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <CommandMenu />
+          <CommandMenuLoader />
           <DashboardBoot />
           {children}
           <Analytics />

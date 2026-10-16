@@ -2,33 +2,7 @@
 
 import type { PropsWithChildren } from "react";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
-
-interface MousePosition {
-  x: number;
-  y: number;
-}
-
-export default function useMousePosition(): MousePosition {
-  const [mousePosition, setMousePosition] = useState<MousePosition>({
-    x: 0,
-    y: 0,
-  });
-
-  useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
-      setMousePosition({ x: event.clientX, y: event.clientY });
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-    };
-  }, []);
-
-  return mousePosition;
-}
+import { useEffect, useRef } from "react";
 
 interface HighlightGroupProps {
   children: React.ReactNode;
@@ -42,34 +16,40 @@ export const HighlightGroup: React.FC<HighlightGroupProps> = ({
   refresh = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mousePosition = useMousePosition();
   const mouse = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const containerSize = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
-  const [boxes, setBoxes] = useState<HTMLElement[]>([]);
+  const boxes = useRef<HTMLElement[]>([]);
 
   useEffect(() => {
     if (containerRef.current) {
-      setBoxes(
-        Array.from(containerRef.current.children).map(
-          (el) => el as HTMLElement,
-        ),
+      boxes.current = Array.from(containerRef.current.children).map(
+        (el) => el as HTMLElement,
       );
     }
-  }, []);
-
-  useEffect(() => {
     initContainer();
+
+    // Read the mouse straight from the event, at most once per frame. Keeping
+    // it in React state re-rendered the whole page on every mouse move.
+    let frameId: number | null = null;
+    let lastEvent: MouseEvent | null = null;
+    const handleMouseMove = (event: MouseEvent) => {
+      lastEvent = event;
+      if (frameId !== null) return;
+      frameId = requestAnimationFrame(() => {
+        frameId = null;
+        if (lastEvent) onMouseMove(lastEvent);
+      });
+    };
+
     window.addEventListener("resize", initContainer);
+    window.addEventListener("mousemove", handleMouseMove);
 
     return () => {
+      if (frameId !== null) cancelAnimationFrame(frameId);
       window.removeEventListener("resize", initContainer);
+      window.removeEventListener("mousemove", handleMouseMove);
     };
-  }, [setBoxes]);
-
-  useEffect(() => {
-    onMouseMove();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mousePosition]);
+  }, []);
 
   useEffect(() => {
     initContainer();
@@ -82,21 +62,24 @@ export const HighlightGroup: React.FC<HighlightGroupProps> = ({
     }
   };
 
-  const onMouseMove = () => {
+  const onMouseMove = (event: MouseEvent) => {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const { w, h } = containerSize.current;
-      const x = mousePosition.x - rect.left;
-      const y = mousePosition.y - rect.top;
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
       const inside = x < w && x > 0 && y < h && y > 0;
       if (inside) {
         mouse.current.x = x;
         mouse.current.y = y;
-        boxes.forEach((box) => {
-          const boxX =
-            -(box.getBoundingClientRect().left - rect.left) + mouse.current.x;
-          const boxY =
-            -(box.getBoundingClientRect().top - rect.top) + mouse.current.y;
+        // Measure every box first, then write. Alternating a style write with
+        // a layout read made the browser recalculate layout once per box.
+        const boxRects = boxes.current.map((box) =>
+          box.getBoundingClientRect(),
+        );
+        boxes.current.forEach((box, i) => {
+          const boxX = -(boxRects[i].left - rect.left) + mouse.current.x;
+          const boxY = -(boxRects[i].top - rect.top) + mouse.current.y;
           box.style.setProperty("--mouse-x", `${boxX}px`);
           box.style.setProperty("--mouse-y", `${boxY}px`);
         });
@@ -175,7 +158,6 @@ export const Particles: React.FC<ParticlesProps> = ({
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const context = useRef<CanvasRenderingContext2D | null>(null);
   const circles = useRef<Circle[]>([]);
-  const mousePosition = useMousePosition();
   const mouse = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const canvasSize = useRef<{ w: number; h: number }>({ w: 0, h: 0 });
   const dpr = typeof window !== "undefined" ? window.devicePixelRatio : 1;
@@ -185,19 +167,36 @@ export const Particles: React.FC<ParticlesProps> = ({
       context.current = canvasRef.current.getContext("2d");
     }
     initCanvas();
-    animate();
+
+    // Draw only while the canvas is on screen, and stop for good on unmount.
+    // Before, the loop never stopped: it kept drawing after the hero scrolled
+    // away and even after leaving the page.
+    let frameId: number | null = null;
+    const loop = () => {
+      animate();
+      frameId = requestAnimationFrame(loop);
+    };
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        if (frameId === null) frameId = requestAnimationFrame(loop);
+      } else if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+        frameId = null;
+      }
+    });
+    if (canvasContainerRef.current) io.observe(canvasContainerRef.current);
+
     window.addEventListener("resize", initCanvas);
+    window.addEventListener("mousemove", onMouseMove);
 
     return () => {
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      io.disconnect();
       window.removeEventListener("resize", initCanvas);
+      window.removeEventListener("mousemove", onMouseMove);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    onMouseMove();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mousePosition.x, mousePosition.y]);
 
   useEffect(() => {
     initCanvas();
@@ -209,12 +208,12 @@ export const Particles: React.FC<ParticlesProps> = ({
     drawParticles();
   };
 
-  const onMouseMove = () => {
+  const onMouseMove = (event: MouseEvent) => {
     if (canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
       const { w, h } = canvasSize.current;
-      const x = mousePosition.x - rect.left - w / 2;
-      const y = mousePosition.y - rect.top - h / 2;
+      const x = event.clientX - rect.left - w / 2;
+      const y = event.clientY - rect.top - h / 2;
       const inside = x < w / 2 && x > -w / 2 && y < h / 2 && y > -h / 2;
       if (inside) {
         mouse.current.x = x;
@@ -383,7 +382,6 @@ export const Particles: React.FC<ParticlesProps> = ({
         );
       }
     });
-    window.requestAnimationFrame(animate);
   };
 
   return (

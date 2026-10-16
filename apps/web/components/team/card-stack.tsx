@@ -21,8 +21,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AnimatedTooltip } from "@/components/ui/animated-tooltip";
 import { BlurTooltip, TooltipPosition } from "@/components/ui/blur-tooltip";
 import {
-  allTeamMembers,
-  getTeamPhotoForYear,
   useIsMobile,
   type PastBoard,
   type TeamMember,
@@ -181,9 +179,9 @@ function buildConsolidatedRoles(
   member: TeamMember,
   boardYear: string,
 ): ConsolidatedRole[] {
-  // Use the original complete member data so we show accurate roles
-  const originalMember =
-    allTeamMembers.find((m) => m.name === member.name) || member;
+  // A past board's member has that year's role; use their current role for
+  // the current year so the timeline is accurate
+  const originalMember = { ...member, role: member.currentRole ?? member.role };
 
   const activeYears = originalMember.years || [];
   const isActiveCurrently = activeYears.includes("2026");
@@ -338,9 +336,7 @@ function FocusedMemberDetail({
   ) => void;
   onSocialLeave: () => void;
 }) {
-  // Find the original member data to get the full, accurate bio
-  const originalMember = allTeamMembers.find((m) => m.name === member.name);
-  const bio = originalMember?.bio || member.bio;
+  const bio = member.bio;
 
   return (
     <motion.div
@@ -721,15 +717,16 @@ export function CardStack({
 
   // Get team photo if available for this board's year
   const boardYear = board.year.split("-")[0];
-  const teamPhoto = getTeamPhotoForYear(boardYear);
+  const teamPhoto = board.teamPhoto ?? null;
   const isRevivalTeam = boardYear === "2022";
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.2 }}
-      className="relative"
+    <div
+      className="relative motion-safe:animate-fade-up"
+      style={{
+        animationDuration: "0.5s",
+        animationDelay: `${index * 0.2}s`,
+      }}
     >
       <div
         className={cn(
@@ -961,6 +958,6 @@ export function CardStack({
           hideIcon={true}
         />
       )}
-    </motion.div>
+    </div>
   );
 }

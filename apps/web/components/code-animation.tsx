@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState, useRef } from "react";
+import { motion, useInView } from "framer-motion";
 import { useTheme } from "next-themes";
 
 const codeSnippets = [
@@ -101,6 +101,9 @@ export function CodeAnimation() {
   const [cursorPosition, setCursorPosition] = useState(0);
   const { resolvedTheme } = useTheme();
   const isLightTheme = resolvedTheme === "light";
+  // Type only while on screen. Before, it set state every 30 ms forever.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isInView = useInView(containerRef);
 
   // Detect screen size
   useEffect(() => {
@@ -114,7 +117,7 @@ export function CodeAnimation() {
 
   // Typing effect
   useEffect(() => {
-    if (!typing) return;
+    if (!typing || !isInView) return;
 
     const currentSet = screenMediumPlus ? codeSnippets : mobileCodeSnippets;
     const snippet = currentSet[currentSnippet].code;
@@ -128,11 +131,11 @@ export function CodeAnimation() {
     } else {
       setTyping(false);
     }
-  }, [typing, cursorPosition, currentSnippet, screenMediumPlus]);
+  }, [typing, isInView, cursorPosition, currentSnippet, screenMediumPlus]);
 
   // Delay before moving to next snippet
   useEffect(() => {
-    if (typing) return;
+    if (typing || !isInView) return;
 
     const id = setTimeout(() => {
       setText("");
@@ -142,13 +145,14 @@ export function CodeAnimation() {
     }, 5000);
 
     return () => clearTimeout(id);
-  }, [typing]);
+  }, [typing, isInView]);
 
   const currentSet = screenMediumPlus ? codeSnippets : mobileCodeSnippets;
   const language = currentSet[currentSnippet].language;
 
   return (
     <div
+      ref={containerRef}
       className={`w-full h-full ${isLightTheme ? "bg-zinc-100" : "bg-zinc-900"} rounded-lg overflow-hidden shadow-xl`}
     >
       <div

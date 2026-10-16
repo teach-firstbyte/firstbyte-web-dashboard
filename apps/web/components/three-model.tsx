@@ -3,11 +3,14 @@
 import { useRef, useState, useEffect } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { OrbitControls as ThreeOrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Code } from "lucide-react";
 import { useTheme } from "next-themes";
 
-const MODEL_URL = "/models/FirstByteBitex4.glb";
+// Meshopt-compressed (about 95 KB over the network instead of 670 KB). The
+// file name changes whenever the model changes, so it can be cached for a year.
+const MODEL_URL = "/models/FirstByteBitex4.meshopt.glb";
 
 interface ThreeModelProps {
   isMobile?: boolean; // Make prop optional for now
@@ -117,7 +120,9 @@ export function ThreeModel({ isMobile = false }: ThreeModelProps) {
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    // Phones often have 3x screens; drawing every pixel at 3x is heavy and
+    // looks the same as 2x on a model this size.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
@@ -190,6 +195,7 @@ export function ThreeModel({ isMobile = false }: ThreeModelProps) {
 
     // Load the model with improved visibility settings
     const loader = new GLTFLoader();
+    loader.setMeshoptDecoder(MeshoptDecoder);
     try {
       loader.load(
         MODEL_URL,

@@ -6,7 +6,6 @@ import { Particles } from "@/hooks/use-mouse-position";
 import dynamic from "next/dynamic";
 import { forwardRef, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useTheme } from "next-themes";
 import { AnimatedGlowButton } from "./ui/animated-glow-button";
 
 // Dynamically import ThreeModel with ssr disabled
@@ -126,132 +125,157 @@ const GreenLampContainer = ({
   );
 };
 
-interface HeroSectionProps {
-  mousePosition: { x: number; y: number } | null;
+type NetworkInformation = { saveData?: boolean; effectiveType?: string };
+
+// Start loading the 3D model (three.js plus the model file) only after the page
+// has finished loading and the browser is idle, so it does not compete with the
+// page's own files. Skip it on 2G/3G or when the visitor turned on "save data";
+// they keep the fallback card instead.
+function useShouldLoadModel() {
+  const [shouldLoad, setShouldLoad] = useState(false);
+
+  useEffect(() => {
+    const connection = (
+      navigator as Navigator & { connection?: NetworkInformation }
+    ).connection;
+    if (
+      connection?.saveData ||
+      ["slow-2g", "2g", "3g"].includes(connection?.effectiveType ?? "")
+    ) {
+      return;
+    }
+
+    let idleId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      // Safari has no requestIdleCallback
+      if ("requestIdleCallback" in window) {
+        idleId = window.requestIdleCallback(() => setShouldLoad(true), {
+          timeout: 2000,
+        });
+      } else {
+        timeoutId = setTimeout(() => setShouldLoad(true), 200);
+      }
+    };
+
+    if (document.readyState === "complete") schedule();
+    else window.addEventListener("load", schedule, { once: true });
+
+    return () => {
+      window.removeEventListener("load", schedule);
+      if (idleId !== undefined) window.cancelIdleCallback(idleId);
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
+  return shouldLoad;
 }
 
-export const HeroSection = forwardRef<HTMLElement, HeroSectionProps>(
-  ({ mousePosition }, ref) => {
-    // Client-side only rendering for the interactive parts
-    const [isClient, setIsClient] = useState(false);
-    const { resolvedTheme } = useTheme();
-    const [isMobile, setIsMobile] = useState(false);
+export const HeroSection = forwardRef<HTMLElement>((props, ref) => {
+  const shouldLoadModel = useShouldLoadModel();
+  const [isMobile, setIsMobile] = useState(false);
 
-    useEffect(() => {
-      setIsClient(true);
-      setIsMobile(window.innerWidth < 768);
-    }, []);
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+  }, []);
 
-    return (
-      <section
-        ref={ref}
-        id="home"
-        className="min-h-screen w-full relative pt-24 md:pt-32 pb-32 overflow-x-hidden"
-      >
-        {/* Background particles - only render on client */}
-        {isClient && (
-          <Particles
-            className="absolute inset-0 z-0"
-            quantity={100}
-            color={mousePosition ? "#0a8a3a" : "#1a8a3a"}
-            staticity={30}
-          />
-        )}
+  return (
+    <section
+      ref={ref}
+      id="home"
+      className="min-h-screen w-full relative pt-24 md:pt-32 pb-32 overflow-x-hidden"
+    >
+      {/* Background particles */}
+      <Particles
+        className="absolute inset-0 z-0"
+        quantity={100}
+        color="#0a8a3a"
+        staticity={30}
+      />
 
-        <div className="container mx-auto px-4 md:px-6 lg:px-8 h-full">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 h-full items-center mt-8 md:mt-12">
-            {/* Left side - Text Content */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              className="z-20 relative"
-            >
-              <div className="max-w-2xl">
-                <GreenLampContainer className="mb-0" key={resolvedTheme}>
-                  <div className="text-left">
-                    <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
-                      FirstByte
-                    </h1>
-                    <p className="text-lg sm:text-xl md:text-2xl my-4 text-muted-foreground leading-relaxed">
-                      Empowering the next generation through CS & STEM education
-                    </p>
+      <div className="container mx-auto px-4 md:px-6 lg:px-8 h-full">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 h-full items-center mt-8 md:mt-12">
+          {/* Left side - Text Content */}
+          <div className="z-20 relative motion-safe:animate-fade-up">
+            <div className="max-w-2xl">
+              <GreenLampContainer className="mb-0">
+                <div className="text-left">
+                  <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
+                    FirstByte
+                  </h1>
+                  <p className="text-lg sm:text-xl md:text-2xl my-4 text-muted-foreground leading-relaxed">
+                    Empowering the next generation through CS & STEM education
+                  </p>
 
-                    <div className="flex flex-wrap gap-3 md:gap-4 mt-6 md:mt-4 justify-start md:justify-center">
-                      <AnimatedGlowButton
-                        href="https://docs.google.com/forms/d/e/1FAIpQLScwDqGMrnM-M2-3MiaBXQQLhIusP1nk6izdAieHM-qmiyhqAQ/viewform?usp=dialog"
-                        className="group text-xs sm:text-sm inline-flex"
-                        color="light green"
-                      >
-                        Partnerships{" "}
-                        <ChevronRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 inline-block group-hover:translate-x-1 transition-transform" />
-                      </AnimatedGlowButton>
-                      <AnimatedGlowButton
-                        color="light green"
-                        href="https://forms.gle/irVdK37HQa6gGHZM9"
-                        className="group text-xs sm:text-sm inline-flex"
-                      >
-                        Join Us{" "}
-                        <ChevronRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 inline-block group-hover:translate-x-1 transition-transform" />
-                      </AnimatedGlowButton>
-                    </div>
+                  <div className="flex flex-wrap gap-3 md:gap-4 mt-6 md:mt-4 justify-start md:justify-center">
+                    <AnimatedGlowButton
+                      href="https://docs.google.com/forms/d/e/1FAIpQLScwDqGMrnM-M2-3MiaBXQQLhIusP1nk6izdAieHM-qmiyhqAQ/viewform?usp=dialog"
+                      className="group text-xs sm:text-sm inline-flex"
+                      color="light green"
+                    >
+                      Partnerships{" "}
+                      <ChevronRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 inline-block group-hover:translate-x-1 transition-transform" />
+                    </AnimatedGlowButton>
+                    <AnimatedGlowButton
+                      color="light green"
+                      href="https://forms.gle/irVdK37HQa6gGHZM9"
+                      className="group text-xs sm:text-sm inline-flex"
+                    >
+                      Join Us{" "}
+                      <ChevronRight className="ml-1 md:ml-2 h-3 w-3 md:h-4 md:w-4 inline-block group-hover:translate-x-1 transition-transform" />
+                    </AnimatedGlowButton>
                   </div>
-                </GreenLampContainer>
-              </div>
-            </motion.div>
-
-            {/* Right side - 3D Model */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="h-[400px] sm:h-[400px] md:h-[500px] lg:h-[600px] z-30 relative mt-8 sm:mt-6 lg:mt-8 pt-8 md:pt-0"
-            >
-              <div className="h-full w-full overflow-hidden bg-transparent">
-                <div className="w-full h-full relative z-30">
-                  {isClient && <ThreeModel isMobile={isMobile} />}
                 </div>
+              </GreenLampContainer>
+            </div>
+          </div>
 
-                {/* Fallback content */}
-                {!isClient && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="p-6 text-center bg-background/80 rounded-lg">
-                      <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Code size={24} className="text-primary" />
-                      </div>
-                      <h3 className="text-lg font-bold mb-2">FirstByte</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Empowering the next generation
-                      </p>
-                    </div>
-                  </div>
-                )}
+          {/* Right side - 3D Model */}
+          <div className="h-[400px] sm:h-[400px] md:h-[500px] lg:h-[600px] z-30 relative mt-8 sm:mt-6 lg:mt-8 pt-8 md:pt-0 motion-safe:animate-fade-up [animation-delay:200ms]">
+            <div className="h-full w-full overflow-hidden bg-transparent">
+              <div className="w-full h-full relative z-30">
+                {shouldLoadModel && <ThreeModel isMobile={isMobile} />}
               </div>
-            </motion.div>
+
+              {/* Fallback content */}
+              {!shouldLoadModel && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="p-6 text-center bg-background/80 rounded-lg">
+                    <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Code size={24} className="text-primary" />
+                    </div>
+                    <h3 className="text-lg font-bold mb-2">FirstByte</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Empowering the next generation
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 inset-x-0 flex justify-center">
-          <motion.div
-            className="text-center"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{
-              duration: 1.5,
-              delay: 1,
-              repeat: Number.POSITIVE_INFINITY,
-              repeatType: "reverse",
-            }}
-          >
-            <p className="text-sm text-muted-foreground mb-2">
-              Scroll to explore
-            </p>
-            <ChevronDown className="mx-auto h-6 w-6 text-muted-foreground" />
-          </motion.div>
-        </div>
-      </section>
-    );
-  },
-);
+      {/* Scroll indicator */}
+      <div className="absolute bottom-8 inset-x-0 flex justify-center">
+        <motion.div
+          className="text-center"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 1.5,
+            delay: 1,
+            repeat: Number.POSITIVE_INFINITY,
+            repeatType: "reverse",
+          }}
+        >
+          <p className="text-sm text-muted-foreground mb-2">
+            Scroll to explore
+          </p>
+          <ChevronDown className="mx-auto h-6 w-6 text-muted-foreground" />
+        </motion.div>
+      </div>
+    </section>
+  );
+});
 HeroSection.displayName = "HeroSection";

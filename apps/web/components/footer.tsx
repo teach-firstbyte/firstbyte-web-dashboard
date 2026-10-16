@@ -1,10 +1,10 @@
 "use client";
 
-import { motion, useAnimationControls } from "framer-motion";
+import { motion, useAnimationControls, useInView } from "framer-motion";
 import { Linkedin, Instagram } from "lucide-react";
 import { LinktreeIcon } from "@/components/ui/icons";
 import { useTooltip, BlurTooltip } from "@/components/ui/blur-tooltip";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -34,9 +34,16 @@ export function Footer() {
   // Animation controls for the grid lines
   const gridControls = useAnimationControls();
   const [isHovered, setIsHovered] = useState(false);
+  // The glow repeats forever, so run it only while the footer is on screen
+  const footerRef = useRef<HTMLElement>(null);
+  const isInView = useInView(footerRef);
 
   // Animate grid lines
   useEffect(() => {
+    if (!isInView) {
+      gridControls.stop();
+      return;
+    }
     gridControls.start({
       opacity: isHovered ? [0.2, 0.4, 0.2] : [0.05, 0.15, 0.05],
       scale: isHovered ? [1, 1.05, 1] : [1, 1.02, 1],
@@ -46,10 +53,11 @@ export function Footer() {
         ease: "easeInOut",
       },
     });
-  }, [isHovered, gridControls]);
+  }, [isHovered, isInView, gridControls]);
 
   return (
     <footer
+      ref={footerRef}
       className="relative py-12 px-4 border-t overflow-hidden"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
