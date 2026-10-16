@@ -53,9 +53,11 @@ jobs:
             exit 1
           fi
 
+      # Same Node.js major version as Vercel's build (Project Settings -> Node.js
+      # Version, 24.x). Change both together.
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       # Installs the whole workspace from the single root lockfile, so the
