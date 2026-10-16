@@ -68,6 +68,13 @@ A dashboard for tracking FirstByte club participation, attendance, projects, and
    ```
    This creates the client code used by the app to interact with the database.
 
+2. **Adding a new table? Turn on row-level security (RLS) in the same migration.**
+   Supabase also serves every table in `public` through its own REST API (the "Data API"), which anyone with the publishable key can call. The app never uses that API: it reads and writes only through Prisma, which skips RLS. So every table has RLS on with **no policies**, which blocks the Data API completely. Prisma doesn't do this for you, so after `npx prisma migrate dev --create-only`, add this line to the new `migration.sql`:
+   ```sql
+   ALTER TABLE "your_table" ENABLE ROW LEVEL SECURITY;
+   ```
+   Supabase's Security Advisor (dashboard -> Advisors) warns about any table that was missed.
+
 ---
 
 ## 🛠️ Starting the App
