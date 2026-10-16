@@ -39,6 +39,7 @@ export const ATTENDANCE_STATUS = {
   REGISTERED: "REGISTERED",
   PRESENT: "PRESENT",
   ABSENT: "ABSENT",
+  EXCUSED: "EXCUSED",
 } as const;
 
 export type AttendanceStatusValue =

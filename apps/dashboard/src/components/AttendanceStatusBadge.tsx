@@ -8,6 +8,8 @@ export function AttendanceStatusBadge({ status }: { status: string }) {
       return <Badge variant="default">Present</Badge>;
     case "ABSENT":
       return <Badge variant="destructive">Absent</Badge>;
+    case "EXCUSED":
+      return <Badge variant="secondary">Excused</Badge>;
     case "REGISTERED":
       return <Badge variant="outline">Registered</Badge>;
     default:
