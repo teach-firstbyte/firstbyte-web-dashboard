@@ -8,7 +8,7 @@ import {
   DetailGrid,
   DetailSection,
 } from "@/components/ui/detail";
-import { formatDateTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import type { Team } from "@/types/dashboard";
 import { OfficerBadge } from "@/components/OfficerBadge";
 import { isOfficerRole } from "@/lib/auth/roles";
@@ -47,15 +47,7 @@ export function TeamDetailSheet({
                   {t.isActive ? "Active" : "Inactive"}
                 </Badge>
               </DetailField>
-              <DetailField label="Team ID" value={t.id} />
-              <DetailField
-                label="Created"
-                value={formatDateTime(t.createdAt)}
-              />
-              <DetailField
-                label="Last updated"
-                value={formatDateTime(t.updatedAt)}
-              />
+              <DetailField label="Created" value={formatDate(t.createdAt)} />
             </DetailGrid>
           </DetailSection>
 

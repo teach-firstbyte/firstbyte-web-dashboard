@@ -8,7 +8,7 @@ import {
   DetailGrid,
   DetailSection,
 } from "@/components/ui/detail";
-import { formatDateTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import type { User } from "@/types/dashboard";
 import { OfficerBadge } from "@/components/OfficerBadge";
 import { isOfficerRole } from "@/lib/auth/roles";
@@ -40,16 +40,19 @@ export function UserDetailSheet({
       {(u) => (
         <>
           <DetailSection title="Account">
+            {/* The title is the name, or the email when there is no name. In
+                that case the Email field would only repeat the title. */}
             <DetailGrid>
-              <DetailField label="Name" value={u.name} />
-              <DetailField label="Email">
-                <a
-                  href={`mailto:${u.email}`}
-                  className="text-primary hover:underline"
-                >
-                  {u.email}
-                </a>
-              </DetailField>
+              {u.name && (
+                <DetailField label="Email" className="sm:col-span-2">
+                  <a
+                    href={`mailto:${u.email}`}
+                    className="text-primary hover:underline"
+                  >
+                    {u.email}
+                  </a>
+                </DetailField>
+              )}
               <DetailField label="Role">
                 {isOfficerRole(u.role) ? (
                   <OfficerBadge />
@@ -57,12 +60,7 @@ export function UserDetailSheet({
                   <Badge variant="secondary">Member</Badge>
                 )}
               </DetailField>
-              <DetailField label="User ID" value={u.id} />
-              <DetailField label="Joined" value={formatDateTime(u.createdAt)} />
-              <DetailField
-                label="Last updated"
-                value={formatDateTime(u.updatedAt)}
-              />
+              <DetailField label="Joined" value={formatDate(u.createdAt)} />
             </DetailGrid>
           </DetailSection>
 

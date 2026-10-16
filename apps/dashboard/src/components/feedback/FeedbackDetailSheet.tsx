@@ -3,7 +3,8 @@
 import { Badge } from "@/components/ui/badge";
 import { DetailSheet } from "@/components/ui/detail-sheet";
 import { DetailField, DetailGrid, DetailSection } from "@/components/ui/detail";
-import { formatDateTime } from "@/lib/format";
+import { Separator } from "@/components/ui/separator";
+import { formatLongDateTime } from "@/lib/format";
 import type { Feedback } from "@/types/dashboard";
 
 interface FeedbackDetailSheetProps {
@@ -23,11 +24,42 @@ export function FeedbackDetailSheet({
       onOpenChange={onOpenChange}
       onCloseAutoFocus={onCloseAutoFocus}
       title={(f) => `Feedback on ${f.meeting.title}`}
-      description={(f) => formatDateTime(f.createdAt) ?? "Feedback details"}
+      description={(f) => `Submitted ${formatLongDateTime(f.createdAt)}`}
     >
       {(f) => (
         <>
-          <DetailSection title="Author">
+          {/* The response comes first because it is why the panel was opened.
+              Ids and the repeated title and submit time are left out: the
+              header already shows the meeting and when this was sent. */}
+          <DetailSection title="Response">
+            <DetailGrid>
+              <DetailField label="Rating">
+                {f.rating === null ? null : (
+                  <span>
+                    <span className="text-warning">
+                      {"★".repeat(f.rating)}
+                      {"☆".repeat(5 - f.rating)}
+                    </span>{" "}
+                    <span className="text-muted-foreground">
+                      ({f.rating} of 5)
+                    </span>
+                  </span>
+                )}
+              </DetailField>
+              <DetailField label="Category">
+                {f.category ? (
+                  <Badge variant="outline">{f.category}</Badge>
+                ) : null}
+              </DetailField>
+              <DetailField
+                label="Comment"
+                value={f.comment}
+                className="sm:col-span-2"
+              />
+            </DetailGrid>
+          </DetailSection>
+
+          <DetailSection title="From">
             {/* Anonymous rows arrive here with author already stripped by
                 listFeedbackForViewer, server-side. Branching on isAnonymous
                 rather than on the (now null) author keeps the panel honest even
@@ -55,49 +87,10 @@ export function FeedbackDetailSheet({
             )}
           </DetailSection>
 
-          <DetailSection title="Response">
-            <DetailGrid>
-              <DetailField label="Rating">
-                {f.rating === null ? null : (
-                  <span>
-                    <span className="text-warning">
-                      {"★".repeat(f.rating)}
-                      {"☆".repeat(5 - f.rating)}
-                    </span>{" "}
-                    <span className="text-muted-foreground">
-                      ({f.rating} of 5)
-                    </span>
-                  </span>
-                )}
-              </DetailField>
-              <DetailField label="Category">
-                {f.category ? (
-                  <Badge variant="outline">{f.category}</Badge>
-                ) : null}
-              </DetailField>
-              <DetailField
-                label="Comment"
-                value={f.comment}
-                className="sm:col-span-2"
-              />
-              <DetailField label="Feedback ID" value={f.id} />
-              <DetailField
-                label="Submitted"
-                value={formatDateTime(f.createdAt)}
-              />
-            </DetailGrid>
-          </DetailSection>
-
-          <DetailSection title="Meeting">
-            <DetailGrid>
-              <DetailField label="Title" value={f.meeting.title} />
-              <DetailField
-                label="Scheduled"
-                value={formatDateTime(f.meeting.scheduledAt)}
-              />
-              <DetailField label="Meeting ID" value={f.meetingId} />
-            </DetailGrid>
-          </DetailSection>
+          <Separator />
+          <p className="text-sm text-muted-foreground">
+            Meeting held on {formatLongDateTime(f.meeting.scheduledAt)}
+          </p>
         </>
       )}
     </DetailSheet>
