@@ -4,14 +4,16 @@ name: Keep database awake
 # activity. A paused project takes the dashboard offline until someone clicks
 # "Resume project" in Supabase. The risk is highest over breaks, when nobody
 # logs in. Supabase's docs say a few database requests a day is usually enough
-# to prevent pausing, so this job runs one small query every day.
+# to prevent pausing, so this job runs one small query every day against each
+# project: production, and the preview project that Vercel preview
+# deployments use.
 #
 # This is not a guarantee: only a paid Supabase plan promises never to pause.
 # Supabase emails the project owner about a week before a pause, which leaves
 # time to react if this stops being enough.
 #
-# It logs in as `keepalive`, a Postgres role that has no access to any table,
-# so the secret cannot read or change club data even if it leaks. See
+# Each ping logs in as `keepalive`, a Postgres role that has no access to any
+# table, so the secrets cannot read or change data even if they leak. See
 # "Keeping the database awake" in apps/dashboard/README.md for the setup.
 #
 # GitHub turns off scheduled workflows in public repositories after 60 days
@@ -33,17 +35,28 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    strategy:
+      # One project failing must not stop the other's ping.
+      fail-fast: false
+      matrix:
+        include:
+          - database: production
+            secret: KEEPALIVE_DATABASE_URL
+          - database: preview
+            secret: KEEPALIVE_PREVIEW_DATABASE_URL
+    name: ping (${{ matrix.database }})
     env:
-      # A repository secret, not one on the "Production database" environment:
-      # that environment needs a reviewer to approve every run, which a daily
-      # job can't wait for. The role behind this one has no data access.
-      KEEPALIVE_DATABASE_URL: ${{ secrets.KEEPALIVE_DATABASE_URL }}
+      # Repository secrets, not ones on the "Production database" or "Preview
+      # database" environments: the production one needs a reviewer to
+      # approve every run, which a daily job can't wait for. The role behind
+      # each one has no data access.
+      KEEPALIVE_DATABASE_URL: ${{ secrets[matrix.secret] }}
       PGCONNECT_TIMEOUT: "15"
     steps:
       - name: Check the secret is set
         run: |
           if [ -z "$KEEPALIVE_DATABASE_URL" ]; then
-            echo "::error::Add the KEEPALIVE_DATABASE_URL repository secret (Settings -> Secrets and variables -> Actions). See apps/dashboard/README.md."
+            echo "::error::Add the ${{ matrix.secret }} repository secret (Settings -> Secrets and variables -> Actions). See apps/dashboard/README.md."
             exit 1
           fi
 

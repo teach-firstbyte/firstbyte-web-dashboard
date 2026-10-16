@@ -18,10 +18,13 @@ import Link from "next/link";
 export function AuthForm({
   error,
   returnTo,
+  googleEnabled,
 }: {
   error?: string;
   /** Already sanitized by the page; app-internal path or null. */
   returnTo?: string | null;
+  /** False on preview deployments, whose Supabase project has no Google login. */
+  googleEnabled: boolean;
 }) {
   const [mode, setMode] = useState<"login" | "signup">("login");
 
@@ -47,13 +50,25 @@ export function AuthForm({
           </Banner>
         )}
 
-        <GoogleButton
-          label={
-            mode === "signup" ? "Sign up with Google" : "Sign in with Google"
-          }
-          returnTo={returnTo}
-        />
-        <div className="my-4 text-center text-sm text-muted-foreground">or</div>
+        {googleEnabled ? (
+          <>
+            <GoogleButton
+              label={
+                mode === "signup"
+                  ? "Sign up with Google"
+                  : "Sign in with Google"
+              }
+              returnTo={returnTo}
+            />
+            <div className="my-4 text-center text-sm text-muted-foreground">
+              or
+            </div>
+          </>
+        ) : (
+          <Banner className="mb-4">
+            Google sign-in is off on preview deployments. Use a test account.
+          </Banner>
+        )}
         <form className="space-y-3">
           {/* Carries the deep link through the password action, which has no
               other view of the URL it was submitted from. */}
