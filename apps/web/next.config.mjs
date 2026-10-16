@@ -1,17 +1,13 @@
 /**
  * Resolve the dashboard zone's origin.
  *
- * Prefers Vercel's Related Projects wiring so that each environment proxies to
- * its own matching dashboard deployment: a preview of this app hits the
- * corresponding dashboard preview rather than production. A hardcoded
- * production URL would make cross-app changes impossible to preview.
+ * On a preview, uses Vercel's Related Projects wiring so the website preview
+ * proxies to the dashboard preview of the same branch, which uses the preview
+ * database and login. Proxying a preview to production would put preview
+ * testers on real member data. apps/web/vercel.json lists the dashboard under
+ * `relatedProjects`, which is what makes Vercel set VERCEL_RELATED_PROJECTS.
  *
- * Falls back to DASHBOARD_URL, then to the local dev port.
- *
- * Vercel sets VERCEL_RELATED_PROJECTS only because apps/web/vercel.json lists
- * the dashboard project under `relatedProjects`. Without that file, every
- * preview fell through to DASHBOARD_URL, which is the production dashboard,
- * so preview logins and data were production's.
+ * Production, and anything else, uses DASHBOARD_URL, then the local dev port.
  */
 
 /**
@@ -38,20 +34,28 @@ function dashboardOrigin() {
   const related = process.env.VERCEL_RELATED_PROJECTS;
   if (related) {
     try {
-      // Shape: [{ "project": { "name": ... }, "production": { "host": ... },
-      //           "preview": { "branch": ..., "host": ... } }, ...]
+      // Shape, as Vercel actually sends it (seen in a build log):
+      //   [{ "project": { "name": ... },
+      //      "production": { "url": ..., "alias": ... },
+      //      "preview": { "branch": "<dashboard>-git-<branch>-<team>.vercel.app" } }]
+      // `preview.branch` is the dashboard's branch URL for this same git
+      // branch. It only works once the dashboard has been deployed from this
+      // branch, so a branch that never changes apps/dashboard gets a 404 at
+      // /dashboard on its preview until someone redeploys the dashboard.
+      //
+      // Production is deliberately not read from here: it keeps using
+      // DASHBOARD_URL, as it always has. An older version of this code read
+      // `.host`, which Vercel never sends, so every build (previews too) fell
+      // through to DASHBOARD_URL -- previews proxied to the production
+      // dashboard.
       const projects = JSON.parse(related);
-      // TEMP: debugging preview routing, remove before merge.
-      console.log(
-        `Related projects: ${JSON.stringify(projects.map((p) => ({ name: p?.project?.name, keys: Object.keys(p ?? {}), production: p?.production, preview: p?.preview })))}`,
-      );
       const dashboard = projects.find((p) =>
         p?.project?.name?.includes("dashboard"),
       );
       const host =
-        process.env.VERCEL_ENV === "production"
-          ? dashboard?.production?.host
-          : (dashboard?.preview?.host ?? dashboard?.production?.host);
+        process.env.VERCEL_ENV === "preview"
+          ? dashboard?.preview?.branch
+          : undefined;
       if (host) return `https://${host}`;
     } catch {
       // Malformed value: fall through to the explicit env var below rather than

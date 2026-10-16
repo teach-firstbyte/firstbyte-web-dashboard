@@ -180,17 +180,17 @@ A **preview deployment** is a temporary copy of the site that Vercel builds for 
 - **One shared database.** Every preview uses the same Supabase project, `kszxdakaiyispmrgicim` (production is `bohtlovxpytpylfaievn`). What you change on one preview shows on all of them. It never holds real member data. The officers' names and emails are copied from production, and every other member is made up.
 - **Login.** Preview uses that project's own Supabase Auth, so production passwords do not work there. Use a [test login](#test-logins).
 - **Google sign-in is off on preview.** The login page hides the Google button and shows a note instead. The check is `isPreviewDeployment()` in `src/lib/deployment.ts`.
-- **Own secrets.** Preview has its own `CHECKIN_SECRET`, `CRON_SECRET` and `SUPABASE_SECRET_KEY` in Vercel. It has no `NEXT_PUBLIC_APP_URL`. Password reset links use the host you browse instead (the `x-forwarded-host` fallback in `src/app/forgot-password/actions.ts`).
+- **Own secrets.** Preview has its own `CHECKIN_SECRET`, `CRON_SECRET` and `SUPABASE_SECRET_KEY` in Vercel. It has no `NEXT_PUBLIC_APP_URL`, so a password reset asks Supabase to send people back to the host you browse (the `x-forwarded-host` fallback in `src/app/forgot-password/actions.ts`). See [Emails on preview](#emails-on-preview-do-not-work-with-the-apps-links) for why those emails still do not work.
 - **Forms.** `next.config.ts` lets preview builds accept form submits (server actions) from `*.vercel.app`. Production builds accept only teachfirstbyte.com.
 
 ### Test logins
 
-| Email                         | What it is                                                     |
-| ----------------------------- | -------------------------------------------------------------- |
-| `test-admin@firstbyte.test`   | Super admin, on E-Board                                        |
-| `test-officer@firstbyte.test` | Officer, lead of CS Curricula, on E-Board                      |
-| `test-member@firstbyte.test`  | Approved member of CS Curricula and Website                    |
-| `test-pending@firstbyte.test` | Account waiting for officer review, asking to join STEM        |
+| Email                         | What it is                                              |
+| ----------------------------- | ------------------------------------------------------- |
+| `test-admin@firstbyte.test`   | Super admin, on E-Board                                 |
+| `test-officer@firstbyte.test` | Officer, lead of CS Curricula, on E-Board               |
+| `test-member@firstbyte.test`  | Approved member of CS Curricula and Website             |
+| `test-pending@firstbyte.test` | Account waiting for officer review, asking to join STEM |
 
 The passwords are **never** in the repository. Ask a Website team lead for them. They are kept:
 
@@ -256,11 +256,16 @@ To change the officer list, edit `supabase/seed/officers.json`. Then save it wit
 - **GitHub repository secret:** `KEEPALIVE_PREVIEW_DATABASE_URL` (see [Keeping the database awake](#-keeping-the-database-awake)).
 - **Vercel → firstbyte-dashboard → Settings → Environment Variables**, Preview entries: `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `CHECKIN_SECRET` and `CRON_SECRET`. All of them are for the preview project. Never give a Preview entry a production value.
 - **Supabase → preview project → Authentication → URL Configuration:**
-  - Site URL: a website preview URL ending in `/dashboard`. Signup confirmation emails open there.
+  - Site URL: one website preview URL, with no `/dashboard` at the end. Today it is the preview of the branch that set this up. Change it if that preview stops working.
   - Redirect URLs: `https://*-firstbyte-neu.vercel.app/dashboard/**`. In Supabase's patterns, `*` matches inside one part of the host name.
-- **Supabase → preview project → Authentication → Email Templates:**
-  - **Confirm signup** uses the same link as production: `{{ .SiteURL }}/dashboard/auth/confirm?token_hash={{ .TokenHash }}&type=signup`.
-  - **Reset password** uses `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=recovery`. Then the reset link opens on the preview you asked from, not on the Site URL. `{{ .RedirectTo }}` already contains `/dashboard/auth/confirm?next=/reset-password`.
+
+  To change them from the command line: run `npx supabase login`, then `npx supabase config push --project-ref kszxdakaiyispmrgicim` from a folder whose `supabase/config.toml` lists only these 2 settings under `[auth]`. Settings that the file does not list are not changed. Run `npx supabase config diff` first to see the changes.
+
+### Emails on preview do not work with the app's links
+
+The preview project is on Supabase's Free plan and uses Supabase's own email sender. On that setup, Supabase does not let you change the email templates. Production uses changed templates that point at `/dashboard/auth/confirm`, so signup confirmation and password reset emails from preview have links that the app does not understand. Supabase's own sender also sends only a few emails each hour, and only to people in the Supabase organization.
+
+So on preview, use the [test logins](#test-logins). They are confirmed already and need no email. To test the email flows, use your local stack (its emails show at http://localhost:54324). To make them work on preview, give the preview project its own email sender (Authentication → SMTP Settings), then copy production's 4 templates.
 
 ---
 
