@@ -1,9 +1,4 @@
-import {
-  AccountStatus,
-  AttendanceStatus,
-  Prisma,
-  TeamMemberStatus,
-} from "@prisma/client";
+import { AccountStatus, Prisma, TeamMemberStatus } from "@prisma/client";
 
 /**
  * Who a meeting is for, right now.
@@ -28,20 +23,3 @@ export function expectedUsersWhere(
     teamMemberships: { some: { teamId, status: TeamMemberStatus.APPROVED } },
   };
 }
-
-/**
- * The statuses that mean something happened. REGISTERED rows are left over
- * from the old model, in which every expected member got one when the meeting
- * was created; they mean nothing more than "expected", and are read as if
- * there were no record at all. Migration 2 deletes them.
- */
-export const DECIDED_STATUSES = [
-  AttendanceStatus.PRESENT,
-  AttendanceStatus.EXCUSED,
-  AttendanceStatus.ABSENT,
-] as const;
-
-/** Prisma filter for "a real record", i.e. not a leftover REGISTERED row. */
-export const decidedStatus = {
-  in: [...DECIDED_STATUSES],
-} satisfies Prisma.EnumAttendanceStatusFilter;

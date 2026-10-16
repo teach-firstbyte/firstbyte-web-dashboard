@@ -32,10 +32,9 @@ export type RoleValue = (typeof ROLE)[keyof typeof ROLE];
 
 /**
  * Mirrors `enum AttendanceStatus`. Screens offer ATTENDANCE_STATUS_OPTIONS
- * below, not this, because REGISTERED is never written any more.
+ * below, which carries the labels and the order.
  */
 export const ATTENDANCE_STATUS = {
-  REGISTERED: "REGISTERED",
   PRESENT: "PRESENT",
   ABSENT: "ABSENT",
   EXCUSED: "EXCUSED",
@@ -44,10 +43,7 @@ export const ATTENDANCE_STATUS = {
 export type AttendanceStatusValue =
   (typeof ATTENDANCE_STATUS)[keyof typeof ATTENDANCE_STATUS];
 
-/**
- * The statuses anything writes now, in the order filters show them.
- * REGISTERED is left over from the old model and is never offered.
- */
+/** Every status with its label, in the order filters show them. */
 export const ATTENDANCE_STATUS_OPTIONS = [
   { value: ATTENDANCE_STATUS.PRESENT, label: "Present" },
   { value: ATTENDANCE_STATUS.EXCUSED, label: "Excused" },

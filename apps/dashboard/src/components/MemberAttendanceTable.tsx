@@ -30,7 +30,6 @@ const BADGE_VARIANTS: Record<
   PRESENT: "default",
   EXCUSED: "outline",
   ABSENT: "destructive",
-  NOT_RECORDED: "secondary",
 };
 
 interface MemberAttendanceTableProps {

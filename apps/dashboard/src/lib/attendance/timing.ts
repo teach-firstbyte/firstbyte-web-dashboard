@@ -11,15 +11,6 @@ export const CHECK_IN_OPENS_BEFORE_MS = 30 * 60 * 1000;
  */
 export const ATTENDANCE_WINDOW_MS = 3 * 60 * 60 * 1000;
 
-/**
- * Meetings that start before this were run under the old attendance model, in
- * which every expected member got a record when the meeting was created. They
- * count as closed already: closing one now would mark today's members absent
- * at a meeting from before they joined. This is when #117 went live.
- * Migration 2a sets attendance_closed_at on them, after which this can go.
- */
-export const ATTENDANCE_CLOSING_STARTS = new Date("2026-10-16T06:12:00Z");
-
 /** Meetings that started before this are past their attendance window. */
 export function getAttendanceCutoff(now: number = Date.now()): Date {
   return new Date(now - ATTENDANCE_WINDOW_MS);
@@ -43,11 +34,7 @@ export function checkInWindow(
  * officers can still change one person, but nobody new is added to it.
  */
 export function isAttendanceClosed(meeting: {
-  scheduledAt: Date | string;
   attendanceClosedAt: Date | string | null;
 }): boolean {
-  return (
-    meeting.attendanceClosedAt !== null ||
-    new Date(meeting.scheduledAt) < ATTENDANCE_CLOSING_STARTS
-  );
+  return meeting.attendanceClosedAt !== null;
 }

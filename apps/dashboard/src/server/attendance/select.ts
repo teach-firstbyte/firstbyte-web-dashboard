@@ -33,9 +33,8 @@ export type AttendanceWithContext = Prisma.AttendanceGetPayload<
  * One row of a member's own attendance history.
  *
  * Hand-written rather than a GetPayload, because two of its fields do not exist
- * in the database: `displayStatus` is the label the status shows as (a
- * leftover REGISTERED row displays as "Not recorded"), and `hasFeedback` is
- * the answer to a second query.
+ * in the database: `displayStatus` is the key the status filter and label
+ * use, and `hasFeedback` is the answer to a second query.
  *
  * types/dashboard.ts declares the same shape for the client, and
  * props.prisma-sync.ts asserts the two agree. This one is the source of truth,

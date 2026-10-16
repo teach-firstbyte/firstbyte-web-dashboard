@@ -38,7 +38,6 @@ const EMPTY: Data = {
     allEventsRate: null,
     present: 0,
     absent: 0,
-    notRecorded: 0,
   },
   recent: [],
 };
