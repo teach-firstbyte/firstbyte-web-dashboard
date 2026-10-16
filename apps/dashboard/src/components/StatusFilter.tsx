@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ATTENDANCE_STATUS } from "@/lib/enums";
+import { ATTENDANCE_STATUS_OPTIONS } from "@/lib/enums";
 
 export function StatusFilter() {
   const router = useRouter();
@@ -37,9 +37,9 @@ export function StatusFilter() {
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="ALL">All statuses</SelectItem>
-        {Object.values(ATTENDANCE_STATUS).map((status) => (
-          <SelectItem key={status} value={status}>
-            {status}
+        {ATTENDANCE_STATUS_OPTIONS.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
           </SelectItem>
         ))}
       </SelectContent>

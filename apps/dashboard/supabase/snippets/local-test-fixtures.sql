@@ -14,17 +14,17 @@
 -- Inbucket at http://localhost:54324. Then set roles with the block at the
 -- bottom, since no code path writes users.role.
 
-INSERT INTO "public"."teams" ("name", "description", "is_active", "join_policy")
+INSERT INTO "public"."teams" ("name", "description", "is_active", "join_policy", "updated_at")
 VALUES
-  ('CS Curricula',        NULL, true, 'OPEN'),
-  ('STEM Curricula',      NULL, true, 'OPEN'),
-  ('Software Website',    NULL, true, 'OPEN'),
-  ('Software Events',     NULL, true, 'OPEN'),
-  ('Brand and Marketing', NULL, true, 'OPEN'),
+  ('CS Curricula',        NULL, true, 'OPEN', now()),
+  ('STEM Curricula',      NULL, true, 'OPEN', now()),
+  ('Software Website',    NULL, true, 'OPEN', now()),
+  ('Software Events',     NULL, true, 'OPEN', now()),
+  ('Brand and Marketing', NULL, true, 'OPEN', now()),
   -- The team this whole change exists for. Inserted as INVITE_ONLY directly,
   -- because on a fresh local database the migration runs before any team rows
   -- exist, so its UPDATE has nothing to match.
-  ('E-Board', 'Executive board. Assigned by a super admin.', true, 'INVITE_ONLY')
+  ('E-Board', 'Executive board. Assigned by a super admin.', true, 'INVITE_ONLY', now())
 ON CONFLICT DO NOTHING;
 
 SELECT id, name, join_policy FROM "public"."teams" ORDER BY id;

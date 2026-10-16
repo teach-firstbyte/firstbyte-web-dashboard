@@ -1,4 +1,5 @@
 import { CheckInDialog } from "@/components/attendance/CheckInDialog";
+import { ExcuseButton } from "@/components/attendance/ExcuseButton";
 import { EmptyState, PageHeader, RowList } from "@/components/common/Section";
 import { AppShell } from "@/components/layout/AppShell";
 import { NewMeetingButton } from "@/components/meetings/MeetingActionsMenu";
@@ -10,6 +11,7 @@ import { MeetingRow } from "@/components/meetings/MeetingRow";
 import { Banner } from "@/components/ui/banner";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { getViewMode } from "@/lib/auth/viewMode";
+import { checkInWindow } from "@/lib/attendance/timing";
 import { meetingPhase } from "@/lib/meetings";
 import { listFeedbackForViewer } from "@/server/feedback/queries";
 import { listMeetingsForViewer } from "@/server/meetings/queries";
@@ -103,9 +105,12 @@ export default async function MeetingsPage() {
               {memberMeetings.map((m) => {
                 const phase = meetingPhase(m.scheduledAt);
                 // Matched by email: an officer previewing gets the full roster.
-                const checkedIn = m.attendance.some(
-                  (a) => a.user.email === user.email && a.status === "PRESENT",
+                const mine = m.attendance.find(
+                  (a) => a.user.email === user.email,
                 );
+                const checkedIn = mine?.status === "PRESENT";
+                const canCheckIn =
+                  !checkedIn && checkInWindow(m.scheduledAt) === "open";
                 return (
                   <li key={m.id}>
                     <MeetingRow
@@ -113,10 +118,17 @@ export default async function MeetingsPage() {
                       phase={phase}
                       showAudience={false}
                       right={
-                        phase === "live" && !checkedIn ? (
+                        canCheckIn ? (
                           <CheckInDialog
                             meetingId={m.id}
                             meetingTitle={m.title}
+                          />
+                        ) : phase === "upcoming" ? (
+                          <ExcuseButton
+                            meetingId={m.id}
+                            meetingTitle={m.title}
+                            status={mine?.status ?? null}
+                            selfMarked={mine?.markedById === mine?.userId}
                           />
                         ) : undefined
                       }

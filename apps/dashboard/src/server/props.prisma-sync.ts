@@ -21,6 +21,7 @@
  */
 import type {
   AttendanceWithContext,
+  MeetingRosterPayload,
   MemberAttendanceRowPayload,
 } from "./attendance/select";
 import type { MeetingWithRoster } from "./meetings/select";
@@ -36,6 +37,7 @@ import type {
   Feedback,
   MemberAttendanceRow,
   Meeting,
+  MeetingRoster,
   MemberExportRecord,
   PendingUser,
   Team,
@@ -57,6 +59,9 @@ export type AttendancePropsInSync = Assert<
 >;
 export type MemberAttendancePropsInSync = Assert<
   Satisfies<MemberAttendanceRowPayload, MemberAttendanceRow>
+>;
+export type MeetingRosterPropsInSync = Assert<
+  Satisfies<MeetingRosterPayload, MeetingRoster>
 >;
 export type FeedbackPropsInSync = Assert<Satisfies<VisibleFeedback, Feedback>>;
 export type UserPropsInSync = Assert<Satisfies<UserWithTeams, User>>;

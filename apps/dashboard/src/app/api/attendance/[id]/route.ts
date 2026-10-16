@@ -32,19 +32,22 @@ export async function GET(request: Request, { params }: RouteContext) {
 }
 
 /**
- * Updates an attendance record's status, check-in/out times, and/or notes.
+ * Updates an attendance record's status, check-in time, and/or notes.
  *
- * Returns the bare row. AttendanceToggle reads `updated.status` off this to
- * reconcile its optimistic update.
+ * Returns the bare row.
  */
 export async function PUT(request: Request, { params }: RouteContext) {
-  const { error } = await requireOfficerApi();
+  const { user, error } = await requireOfficerApi();
   if (error) return error;
 
   try {
     const { id } = await params;
     const input = await parseJsonBody(request, updateAttendanceSchema);
-    const updated = await updateAttendance(requireId(id, "attendance"), input);
+    const updated = await updateAttendance(
+      user,
+      requireId(id, "attendance"),
+      input,
+    );
     return NextResponse.json(updated, { status: 200 });
   } catch (e) {
     return toErrorResponse(

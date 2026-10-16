@@ -1,9 +1,10 @@
-import { AttendanceStatus } from "@prisma/client";
 import { z } from "zod";
 import { dateField, idParam } from "@/server/validation";
+import { DECIDED_STATUSES } from "./expected";
 
-const attendanceStatus = z.enum(AttendanceStatus, {
-  error: `Invalid status. Must be one of: ${Object.values(AttendanceStatus).join(", ")}`,
+// REGISTERED is not accepted: nothing writes it any more.
+const attendanceStatus = z.enum(DECIDED_STATUSES, {
+  error: `Invalid status. Must be one of: ${DECIDED_STATUSES.join(", ")}`,
 });
 
 /**
@@ -25,7 +26,6 @@ export const createAttendanceSchema = z.object({
   meetingId: idParam,
   status: attendanceStatus,
   checkedInAt: dateField.nullish().transform((v) => v ?? null),
-  checkedOutAt: dateField.nullish().transform((v) => v ?? null),
   notes: z
     .string()
     .nullish()
@@ -38,13 +38,12 @@ export const updateAttendanceSchema = z
   .object({
     status: attendanceStatus,
     checkedInAt: dateField.nullable(),
-    checkedOutAt: dateField.nullable(),
     notes: z.string().nullable(),
   })
   .partial()
   .refine(
     (v) => Object.keys(v).length > 0,
-    "Provide at least one of: status, checkedInAt, checkedOutAt, notes",
+    "Provide at least one of: status, checkedInAt, notes",
   );
 
 export type UpdateAttendanceInput = z.infer<typeof updateAttendanceSchema>;
@@ -56,19 +55,23 @@ export const checkInSchema = z.object({
 });
 
 /**
- * PATCH /api/attendance/bulk. Several rows of ONE meeting to one status: how
- * "Mark the rest absent" and its Undo work. meetingId is required so a request
- * can never reach rows from another meeting by passing their ids.
+ * PUT /api/meetings/:id/roster/:userId. An officer marking one person. null
+ * clears them back to "not marked", which deletes their record.
  */
-export const bulkAttendanceStatusSchema = z.object({
-  meetingId: idParam,
-  attendanceIds: z
-    .array(idParam)
-    .min(1, "Pick at least one person")
-    .max(500, "Too many rows in one request"),
-  status: attendanceStatus,
+export const rosterMarkSchema = z.object({
+  status: attendanceStatus.nullable(),
 });
 
-export type BulkAttendanceStatusInput = z.infer<
-  typeof bulkAttendanceStatusSchema
->;
+export type RosterMarkInput = z.infer<typeof rosterMarkSchema>;
+
+/** POST /api/meetings/:id/excuse. "I can't make it", with an optional reason. */
+export const excuseSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .max(500, "Keep the reason under 500 characters")
+    .nullish()
+    .transform((v) => v || null),
+});
+
+export type ExcuseInput = z.infer<typeof excuseSchema>;

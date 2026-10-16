@@ -63,9 +63,11 @@ A dashboard for tracking FirstByte club participation, attendance, projects, and
 **Never run `prisma db push` or `prisma migrate dev` against the production database.** Both can wipe its data. To change it, see [Applying migrations to production](#-applying-migrations-to-production).
 
 1. **Generate the Prisma Client**
+
    ```bash
    npx prisma generate
    ```
+
    This creates the client code used by the app to interact with the database.
 
 2. **Adding a new table? Turn on row-level security (RLS) in the same migration.**
@@ -218,6 +220,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - Some form of Jira board integration for task management
 - Admin dashboard for content management
 - Individual user workspaces
+- iOS app with push notifications (for example, officers told when a member says they can't make it)
 
 ---
 

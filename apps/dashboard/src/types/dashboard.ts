@@ -78,12 +78,15 @@ export interface Meeting {
   type: string;
   teamId: number | null;
   scheduledAt: Date;
-  startedAt: Date | null;
-  endedAt: Date | null;
   location: string | null;
   isRequired: boolean;
   maxCapacity: number | null;
+  // Set by Close attendance, by an officer or automatically. Null = still open.
+  attendanceClosedAt: Date | null;
   createdAt: Date;
+  // How many people the meeting is for right now: every approved member, or
+  // the team's approved members. Worked out on each read, not stored.
+  expectedCount: number;
   // Nullable, not optional: `include: { team: { select: { name: true } } }`
   // yields `{ name } | null` for a club-wide meeting, and `| undefined` is not
   // the same type. Making it optional is what let OfficerDashboard ship a query
@@ -92,19 +95,21 @@ export interface Meeting {
   team: {
     name: string;
   } | null;
-  // The dashboard's Prisma query already selects whole Attendance rows, so the
-  // check-in/out timestamps and notes come along for free -- the detail panel's
-  // roster reads them from here rather than issuing its own query.
+  // The real records only: Present, Excused or Absent. Nobody gets a record
+  // just for being expected, so before a meeting this is mostly excuses.
+  // A member reading their own meetings gets only their own row.
   attendance: Array<{
     id: number;
+    userId: number;
     user: {
       name: string | null;
       email: string;
     };
     status: string;
     checkedInAt: Date | null;
-    checkedOutAt: Date | null;
     notes: string | null;
+    // Who set the status. Equal to userId when the member did it themselves.
+    markedById: number | null;
   }>;
 }
 
@@ -114,7 +119,6 @@ export interface Attendance {
   meetingId: number;
   status: string;
   checkedInAt: Date | null;
-  checkedOutAt: Date | null;
   notes: string | null;
   createdAt: Date;
   user: {
@@ -125,6 +129,30 @@ export interface Attendance {
     title: string;
     scheduledAt: Date;
   };
+}
+
+export type RosterStatus = "PRESENT" | "EXCUSED" | "ABSENT";
+
+/** One person on a meeting's officer roster, marked or not. */
+export interface RosterRow {
+  userId: number;
+  name: string | null;
+  email: string;
+  // Null = not marked yet: no record.
+  status: RosterStatus | null;
+  checkedInAt: Date | null;
+  // The reason a member gave when they excused themselves.
+  notes: string | null;
+  // The member set this themselves (QR check-in or "I can't make it").
+  selfMarked: boolean;
+  // False for a walk-in the meeting wasn't for.
+  expected: boolean;
+}
+
+export interface MeetingRoster {
+  closed: boolean;
+  closedAt: Date | null;
+  rows: RosterRow[];
 }
 
 export interface Feedback {

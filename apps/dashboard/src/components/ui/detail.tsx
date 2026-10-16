@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 // Building blocks for the record detail panels. DetailField is the single place
 // that decides how a missing value renders, so a null `description`, `notes`,
-// `checkedOutAt`, `rating`, or `location` shows a placeholder instead of
+// `checkedInAt`, `rating`, or `location` shows a placeholder instead of
 // leaking "null" or "N/A" into the panel.
 
 const EMPTY_PLACEHOLDER = "—";

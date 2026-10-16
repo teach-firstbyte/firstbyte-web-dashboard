@@ -42,12 +42,12 @@ export async function GET(request: Request): Promise<NextResponse> {
  * Creates an attendance record for a user at a meeting. Officers only.
  */
 export async function POST(request: Request): Promise<NextResponse> {
-  const { error } = await requireOfficerApi();
+  const { user, error } = await requireOfficerApi();
   if (error) return error;
 
   try {
     const input = await parseJsonBody(request, createAttendanceSchema);
-    const attendance = await createAttendance(input);
+    const attendance = await createAttendance(user, input);
     return NextResponse.json(attendance, { status: 201 });
   } catch (e) {
     return toErrorResponse(

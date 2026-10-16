@@ -1,4 +1,4 @@
-import { TWO_HOURS_MS } from "@/lib/attendance/cutoff";
+import { ATTENDANCE_WINDOW_MS } from "@/lib/attendance/timing";
 
 // Meeting rules the UI needs on both the server and in the browser. No
 // @prisma/client here (see lib/enums.ts): client components import this file.
@@ -28,9 +28,10 @@ export function meetingTypeLabel(type: string): string {
 export type MeetingPhase = "upcoming" | "live" | "past";
 
 /**
- * Where a meeting is in its life. "Live" is the same two-hour window the server
- * uses for check-in and for showing a meeting to members (getAttendanceCutoff),
- * so the UI never calls a meeting live that check-in has already closed.
+ * Where a meeting is in its life. "Live" is the same three-hour window the
+ * server uses for check-in and for showing a meeting to members
+ * (getAttendanceCutoff), so the UI never calls a meeting live that check-in
+ * has already closed.
  */
 export function meetingPhase(
   scheduledAt: Date | string,
@@ -38,7 +39,7 @@ export function meetingPhase(
 ): MeetingPhase {
   const start = new Date(scheduledAt).getTime();
   if (now < start) return "upcoming";
-  if (now < start + TWO_HOURS_MS) return "live";
+  if (now < start + ATTENDANCE_WINDOW_MS) return "live";
   return "past";
 }
 
@@ -53,14 +54,22 @@ export function countPresent(attendance: RosterLike): number {
   return attendance.filter((a) => a.status === "PRESENT").length;
 }
 
+export function countExcused(attendance: RosterLike): number {
+  return attendance.filter((a) => a.status === "EXCUSED").length;
+}
+
 /**
- * Share of the roster that came, 0-100, or null for a meeting with no roster.
- * The roster is everyone the meeting was for, so this is "how many of the
- * people we expected showed up".
+ * Present / (Present + Absent), 0-100, or null when nobody is marked either
+ * way. Excused people count neither way, the same rule as a member's rate.
+ * Once attendance is closed every expected member has a record, so this is
+ * "how many of the people we expected showed up".
  */
 export function attendancePercent(attendance: RosterLike): number | null {
-  if (attendance.length === 0) return null;
-  return Math.round((countPresent(attendance) / attendance.length) * 100);
+  const present = countPresent(attendance);
+  const decided =
+    present + attendance.filter((a) => a.status === "ABSENT").length;
+  if (decided === 0) return null;
+  return Math.round((present / decided) * 100);
 }
 
 /**

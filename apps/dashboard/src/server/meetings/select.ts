@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { decidedStatus } from "@/server/attendance/expected";
 
 /**
  * The query shapes every meeting read uses, plus the types they produce.
@@ -15,13 +16,17 @@ import { Prisma } from "@prisma/client";
  * name and an email.
  */
 
+// Real records only. Leftover REGISTERED rows (see attendance/expected.ts)
+// mean "expected", which is worked out live now, so they never leave the server.
 const rosterEntry = {
+  where: { status: decidedStatus },
   select: {
     id: true,
+    userId: true,
     status: true,
     checkedInAt: true,
-    checkedOutAt: true,
     notes: true,
+    markedById: true,
     user: { select: { name: true, email: true } },
   },
   orderBy: { id: "asc" },
@@ -38,7 +43,10 @@ export const meetingWithRosterArgs =
 
 export type MeetingWithRoster = Prisma.MeetingGetPayload<
   typeof meetingWithRosterArgs
->;
+> & {
+  /** How many people the meeting is for right now. See expectedUsersWhere. */
+  expectedCount: number;
+};
 
 /** One meeting with its roster and its feedback. For the officer detail read. */
 export const meetingDetailArgs = Prisma.validator<Prisma.MeetingDefaultArgs>()({
