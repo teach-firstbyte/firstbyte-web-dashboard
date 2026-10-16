@@ -1,5 +1,4 @@
 import { Prisma } from "@prisma/client";
-import { decidedStatus } from "@/server/attendance/expected";
 
 /**
  * The query shapes every meeting read uses, plus the types they produce.
@@ -16,10 +15,7 @@ import { decidedStatus } from "@/server/attendance/expected";
  * name and an email.
  */
 
-// Real records only. Leftover REGISTERED rows (see attendance/expected.ts)
-// mean "expected", which is worked out live now, so they never leave the server.
 const rosterEntry = {
-  where: { status: decidedStatus },
   select: {
     id: true,
     userId: true,

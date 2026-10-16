@@ -10,9 +10,6 @@ export function AttendanceStatusBadge({ status }: { status: string }) {
       return <Badge variant="destructive">Absent</Badge>;
     case "EXCUSED":
       return <Badge variant="secondary">Excused</Badge>;
-    case "REGISTERED":
-      // Left over from before the attendance rework: nobody recorded them.
-      return <Badge variant="outline">Not recorded</Badge>;
     default:
       return <Badge variant="secondary">{status}</Badge>;
   }

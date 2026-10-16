@@ -113,8 +113,6 @@ model Meeting {
   type               MeetingType
   teamId             Int?        @map("team_id")
   scheduledAt        DateTime    @map("scheduled_at")
-  startedAt          DateTime?   @map("started_at")
-  endedAt            DateTime?   @map("ended_at")
   location           String?
   isRequired         Boolean     @default(false) @map("is_required")
   maxCapacity        Int?        @map("max_capacity")
@@ -134,18 +132,17 @@ model Meeting {
 
 model Attendance {
   //fields
-  id           Int              @id @default(autoincrement())
-  userId       Int              @map("user_id")
-  meetingId    Int              @map("meeting_id")
-  status       AttendanceStatus
-  checkedInAt  DateTime?        @map("checked_in_at")
-  checkedOutAt DateTime?        @map("checked_out_at")
-  notes        String?
+  id          Int              @id @default(autoincrement())
+  userId      Int              @map("user_id")
+  meetingId   Int              @map("meeting_id")
+  status      AttendanceStatus
+  checkedInAt DateTime?        @map("checked_in_at")
+  notes       String?
   // Who last set the status: the member themselves (check-in, "I can't make
   // it") or an officer. Null for rows from before this column existed.
-  markedById   Int?             @map("marked_by_id")
-  createdAt    DateTime         @default(now()) @map("created_at")
-  updatedAt    DateTime         @updatedAt @map("updated_at")
+  markedById  Int?             @map("marked_by_id")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
 
   //relationships
   user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -203,7 +200,6 @@ enum MeetingType {
 }
 
 enum AttendanceStatus {
-  REGISTERED
   PRESENT
   ABSENT
   EXCUSED

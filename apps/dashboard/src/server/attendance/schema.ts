@@ -1,10 +1,9 @@
+import { AttendanceStatus } from "@prisma/client";
 import { z } from "zod";
 import { dateField, idParam } from "@/server/validation";
-import { DECIDED_STATUSES } from "./expected";
 
-// REGISTERED is not accepted: nothing writes it any more.
-const attendanceStatus = z.enum(DECIDED_STATUSES, {
-  error: `Invalid status. Must be one of: ${DECIDED_STATUSES.join(", ")}`,
+const attendanceStatus = z.enum(AttendanceStatus, {
+  error: `Invalid status. Must be one of: ${Object.values(AttendanceStatus).join(", ")}`,
 });
 
 /**

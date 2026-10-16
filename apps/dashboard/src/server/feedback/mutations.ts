@@ -9,7 +9,7 @@ import type { CreateFeedbackInput, UpdateFeedbackInput } from "./schema";
  * Records one person's feedback on one meeting.
  *
  * Both rules live here rather than at the call site:
- *   you must have attended  -- REGISTERED is not enough, signing up for a
+ *   you must have attended  -- an excuse or an absence is not enough, signing up for a
  *                              meeting is not the same as going to it
  *   one per meeting         -- app-level only, there is no unique constraint
  *

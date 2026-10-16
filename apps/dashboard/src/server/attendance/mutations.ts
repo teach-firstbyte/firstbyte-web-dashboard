@@ -1,6 +1,5 @@
 import { AttendanceStatus, type Prisma } from "@prisma/client";
 import {
-  ATTENDANCE_CLOSING_STARTS,
   checkInWindow,
   getAttendanceCutoff,
   isAttendanceClosed,
@@ -281,25 +280,16 @@ export async function closeAttendance(
       }),
       tx.attendance.findMany({
         where: { meetingId },
-        select: { userId: true, status: true },
+        select: { userId: true },
       }),
     ]);
 
-    const decided = new Set(
-      records
-        .filter((r) => r.status !== AttendanceStatus.REGISTERED)
-        .map((r) => r.userId),
-    );
+    const decided = new Set(records.map((r) => r.userId));
     const absentIds = expected
       .map((u) => u.id)
       .filter((id) => !decided.has(id));
     const markedById = officer?.id ?? null;
 
-    // Leftover REGISTERED rows (see expected.ts) are replaced, not kept: the
-    // people still expected become Absent below, the rest just go.
-    await tx.attendance.deleteMany({
-      where: { meetingId, status: AttendanceStatus.REGISTERED },
-    });
     await tx.attendance.createMany({
       data: absentIds.map((userId) => ({
         userId,
@@ -328,10 +318,7 @@ export async function closeOverdueMeetings() {
   const overdue = await prisma.meeting.findMany({
     where: {
       attendanceClosedAt: null,
-      scheduledAt: {
-        gte: ATTENDANCE_CLOSING_STARTS,
-        lt: getAttendanceCutoff(),
-      },
+      scheduledAt: { lt: getAttendanceCutoff() },
     },
     select: { id: true },
   });

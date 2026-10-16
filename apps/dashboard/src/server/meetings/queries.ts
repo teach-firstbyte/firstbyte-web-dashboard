@@ -6,10 +6,7 @@ import {
 import { prisma } from "@/server/db";
 import { getAttendanceCutoff } from "@/lib/attendance/timing";
 import { isOfficer } from "@/lib/auth/roles";
-import {
-  decidedStatus,
-  expectedUsersWhere,
-} from "@/server/attendance/expected";
+import { expectedUsersWhere } from "@/server/attendance/expected";
 import { ServiceError } from "@/server/errors";
 import { listApprovedTeamIds } from "@/server/teams/queries";
 import type { Viewer } from "@/server/viewer";
@@ -56,7 +53,7 @@ export async function listMeetingsForViewer(
         ...meetingWithRosterArgs.include,
         attendance: {
           ...meetingWithRosterArgs.include.attendance,
-          where: { userId: viewer.id, status: decidedStatus },
+          where: { userId: viewer.id },
         },
       },
       where: {
