@@ -41,6 +41,10 @@ function dashboardOrigin() {
       // Shape: [{ "project": { "name": ... }, "production": { "host": ... },
       //           "preview": { "branch": ..., "host": ... } }, ...]
       const projects = JSON.parse(related);
+      // TEMP: debugging preview routing, remove before merge.
+      console.log(
+        `Related projects: ${JSON.stringify(projects.map((p) => ({ name: p?.project?.name, keys: Object.keys(p ?? {}), production: p?.production, preview: p?.preview })))}`,
+      );
       const dashboard = projects.find((p) =>
         p?.project?.name?.includes("dashboard"),
       );
