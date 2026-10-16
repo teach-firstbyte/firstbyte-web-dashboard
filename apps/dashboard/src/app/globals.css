@@ -158,3 +158,69 @@
     text-wrap: balance;
   }
 }
+
+/*
+ * TerminalBoot, the dashboard home's loading screen. Plain CSS rather than a
+ * client component so it animates before JavaScript loads. Each piece starts
+ * hidden and appears on a delay: --at for a line, --ok for its "ok".
+ */
+@keyframes boot-show {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes boot-hide {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes boot-type {
+  from {
+    width: 0;
+  }
+}
+@keyframes boot-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+/* A short wait before anything shows, so a fast load does not flash it. */
+.boot-card {
+  animation: boot-show 200ms ease-out 150ms both;
+}
+.boot-type {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  width: calc(var(--chars) * 1ch);
+  animation: boot-type 400ms steps(var(--chars)) 150ms both;
+}
+.boot-in {
+  animation: boot-show 150ms ease-out var(--at) both;
+}
+.boot-wait {
+  animation: boot-hide 0s var(--ok) both;
+}
+.boot-ok {
+  animation: boot-show 150ms ease-out var(--ok) both;
+}
+.boot-pulse {
+  animation: boot-pulse 1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .boot-card,
+  .boot-type,
+  .boot-in,
+  .boot-ok,
+  .boot-pulse {
+    animation: none;
+  }
+  .boot-wait {
+    display: none;
+  }
+}
