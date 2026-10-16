@@ -158,3 +158,26 @@
     text-wrap: balance;
   }
 }
+
+/*
+ * The typing effect in TerminalBoot, the dashboard home's loading screen.
+ * tw-animate-css covers its fades; it has nothing that reveals text one
+ * character at a time. --chars is the command's length, set inline.
+ */
+@keyframes boot-type {
+  from {
+    width: 0;
+  }
+}
+.boot-type {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  width: calc(var(--chars) * 1ch);
+  animation: boot-type 400ms steps(var(--chars)) 150ms both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .boot-type {
+    animation: none;
+  }
+}
