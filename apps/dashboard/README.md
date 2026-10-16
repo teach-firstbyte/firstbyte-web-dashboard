@@ -175,8 +175,9 @@ A **preview deployment** is a temporary copy of the site that Vercel builds for 
 
 ### How it works
 
-- **Where to open it.** Open the **website** preview, not the dashboard one, and add `/dashboard`. Find the website preview link in the pull request's Vercel comment. It looks like `https://firstbyte-website-git-<branch>-firstbyte-neu.vercel.app/dashboard`. The website sends `/dashboard` to the matching dashboard preview by itself (`VERCEL_RELATED_PROJECTS`, see `apps/web/next.config.mjs`).
-- **Login wall.** Vercel asks you to log in to Vercel first. Only people on the Vercel team can open previews.
+- **Where to open it.** Open the **website** preview, not the dashboard one, and add `/dashboard`. Find the website preview link in the pull request's Vercel comment. It looks like `https://firstbyte-website-git-<branch>-firstbyte-neu.vercel.app/dashboard`. The website sends `/dashboard` to the dashboard preview of the same branch (`VERCEL_RELATED_PROJECTS`, set up by `apps/web/vercel.json` and read in `apps/web/next.config.mjs`). The build log of the website preview prints a `Dashboard zone:` line about it.
+  - If your branch never changes `apps/dashboard`, Vercel skips the dashboard preview, and `/dashboard` on the website preview shows a 404. To fix it, redeploy the dashboard project from your branch: Vercel → firstbyte-dashboard → Deployments → **Create Deployment** → your branch.
+- **Login wall.** Vercel asks you to log in to Vercel first. Only people on the Vercel team can open previews. The dashboard preview has its own login wall, so after you log in, the browser usually lands on the dashboard preview's own address (`https://firstbyte-dashboard-git-<branch>-firstbyte-neu.vercel.app/dashboard`). That is the same deployment, and everything works there. Only "Back to main site" does not lead back to the website preview.
 - **One shared database.** Every preview uses the same Supabase project, `kszxdakaiyispmrgicim` (production is `bohtlovxpytpylfaievn`). What you change on one preview shows on all of them. It never holds real member data. The officers' names and emails are copied from production, and every other member is made up.
 - **Login.** Preview uses that project's own Supabase Auth, so production passwords do not work there. Use a [test login](#test-logins).
 - **Google sign-in is off on preview.** The login page hides the Google button and shows a note instead. The check is `isPreviewDeployment()` in `src/lib/deployment.ts`.
@@ -254,7 +255,7 @@ To change the officer list, edit `supabase/seed/officers.json`. Then save it wit
 
 - **GitHub → Settings → Environments → Preview database** (no reviewers, any branch): `DATABASE_URL` (Transaction pooler, port 6543), `DIRECT_URL` (Session pooler, port 5432), `SUPABASE_SECRET_KEY` (the preview project's secret key), `PREVIEW_SEED_OFFICERS` and `PREVIEW_TEST_ACCOUNTS`.
 - **GitHub repository secret:** `KEEPALIVE_PREVIEW_DATABASE_URL` (see [Keeping the database awake](#-keeping-the-database-awake)).
-- **Vercel → firstbyte-dashboard → Settings → Environment Variables**, Preview entries: `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `CHECKIN_SECRET` and `CRON_SECRET`. All of them are for the preview project. Never give a Preview entry a production value.
+- **Vercel → firstbyte-dashboard → Settings → Environment Variables**, Preview entries: `DATABASE_URL` (the Transaction pooler string with `?pgbouncer=true`; without it every page fails with `prepared statement "s1" does not exist`), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `CHECKIN_SECRET` and `CRON_SECRET`. All of them are for the preview project. Never give a Preview entry a production value.
 - **Supabase → preview project → Authentication → URL Configuration:**
   - Site URL: one website preview URL, with no `/dashboard` at the end. Today it is the preview of the branch that set this up. Change it if that preview stops working.
   - Redirect URLs: `https://*-firstbyte-neu.vercel.app/dashboard/**`. In Supabase's patterns, `*` matches inside one part of the host name.
