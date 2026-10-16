@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 /**
  * A Supabase client with the project's secret key, for the few things the
- * anon key cannot do -- today, only removing a login when an account is
+ * publishable key cannot do -- today, only removing a login when an account is
  * deleted.
  *
  * Use a secret key (sb_secret_...) from Settings -> API Keys. Supabase is
