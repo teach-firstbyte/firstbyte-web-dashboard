@@ -122,6 +122,31 @@ Both strings must use the shared pooler, whose host looks like `aws-0-us-east-2.
 
 The migration and the new code never go live at exactly the same moment, so each migration must work with **both** the code that's running now and the code that's coming. For example, to rename a column: add the new column in one PR, switch the code to it in the next, and drop the old column in a later one.
 
+## 💤 Keeping the database awake
+
+The production database is on Supabase's Free plan, which **pauses a project after about 7 days of low activity**. While it is paused, the dashboard can't load any data. To prevent that, the **Keep database awake** workflow (`.github/workflows/keep-database-awake.yml`) runs one small query every day.
+
+If the database pauses anyway, open the project in the Supabase dashboard and click **Resume project**. You have 90 days to do this before the one-click restore stops working.
+
+The workflow logs in as `keepalive`, a Postgres role that can connect but **has no access to any table**, so its password can't read or change club data. To set it up again (for example, for a new Supabase project):
+
+1. Make a password and copy it to the clipboard. Hex characters are safe in a URL, so the password needs no escaping. `tr` removes the line break at the end; without it, the pasted password in step 2 would include it:
+   ```bash
+   openssl rand -hex 24 | tr -d '\n' | pbcopy
+   ```
+2. In Supabase → SQL Editor, run this with the password pasted in:
+   ```sql
+   create role keepalive with login password 'PASTE_PASSWORD_HERE' connection limit 2;
+   alter role keepalive set statement_timeout = '5s';
+   ```
+3. Without copying anything else first, save the connection string as a **repository** secret named `KEEPALIVE_DATABASE_URL`. `$(pbpaste)` puts the password from the clipboard into the **Session pooler** string, so the password itself never lands in your shell history. Replace `<project-ref>` with the id in the project's URL:
+   ```bash
+   gh secret set KEEPALIVE_DATABASE_URL --repo teach-firstbyte/firstbyte-web-dashboard --body "postgresql://keepalive.<project-ref>:$(pbpaste)@aws-0-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require"
+   ```
+4. Test it: GitHub → Actions → Keep database awake → Run workflow. The log should print the database's current time.
+
+GitHub turns off scheduled workflows in a public repository after 60 days without a commit, and emails first. After a long break, turn it back on from the workflow's page in the Actions tab.
+
 ---
 
 ## 🛠️ Starting the App
