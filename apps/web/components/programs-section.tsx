@@ -73,44 +73,88 @@ const programs: ProgramFeature[] = [
   },
 ];
 
-// Bento layout and entry direction for each card, by position in `programs`.
+// Bento layout, entry direction and image `sizes` for each card, by position
+// in `programs`. Without `sizes`, next/image serves a 1080px file to every 2x
+// screen. The small cards are shown at most 320px wide (4-column grid inside
+// max-w-7xl from md up), so they ask for a smaller file. On phones they keep
+// the old 500px width, and the large cards keep the old behavior, so no image
+// gets bigger than before.
+const SMALL_CARD_SIZES =
+  "(min-width: 1280px) 320px, (min-width: 768px) 25vw, 500px";
 const cardLayouts = [
   // Large 2x2 card
-  { className: "md:col-span-2 md:row-span-2", initialX: -20, initialY: -20 },
+  {
+    className: "md:col-span-2 md:row-span-2",
+    initialX: -20,
+    initialY: -20,
+  },
   // Small 1x1 card
-  { className: "md:col-span-1 md:row-span-1", initialX: 20, initialY: -20 },
+  {
+    className: "md:col-span-1 md:row-span-1",
+    initialX: 20,
+    initialY: -20,
+    sizes: SMALL_CARD_SIZES,
+  },
   // Small 1x1 card
-  { className: "md:col-span-1 md:row-span-1", initialX: -20, initialY: 20 },
+  {
+    className: "md:col-span-1 md:row-span-1",
+    initialX: -20,
+    initialY: 20,
+    sizes: SMALL_CARD_SIZES,
+  },
   // Large 2x2 card
-  { className: "md:col-span-2 md:row-span-2", initialX: 20, initialY: 20 },
+  {
+    className: "md:col-span-2 md:row-span-2",
+    initialX: 20,
+    initialY: 20,
+  },
   // Small 1x1 card
-  { className: "md:col-span-1 md:row-span-1", initialX: -20, initialY: -20 },
+  {
+    className: "md:col-span-1 md:row-span-1",
+    initialX: -20,
+    initialY: -20,
+    sizes: SMALL_CARD_SIZES,
+  },
   // Small 1x1 card
-  { className: "md:col-span-1 md:row-span-1", initialX: 20, initialY: -20 },
+  {
+    className: "md:col-span-1 md:row-span-1",
+    initialX: 20,
+    initialY: -20,
+    sizes: SMALL_CARD_SIZES,
+  },
 ];
 
 // Built once at module load, so each BentoCard gets the same props (including
 // the `background` element) on every render and its memo can skip re-renders.
-const programCards = programs.map((program, index) => ({
-  name: program.title,
-  Icon: program.icon,
-  description: program.description,
-  href: program.link,
-  cta: "Learn more",
-  ...(cardLayouts[index] ?? { className: "", initialX: 0, initialY: 0 }),
-  background: (
-    <div className="absolute inset-0 h-full w-full">
-      <div className="absolute inset-0 bg-linear-to-b from-black/40 via-black/20 to-black/40 z-20 transition-opacity duration-300 group-hover:opacity-75" />
-      <Image
-        src={program.image}
-        alt={program.title}
-        width={500}
-        height={300}
-        className="object-cover object-center absolute inset-0 h-full w-full transition-transform duration-300 will-change-transform group-hover:scale-105"
-      />
-    </div>
-  ),
-}));
+const programCards = programs.map((program, index) => {
+  const { sizes, ...layout } = cardLayouts[index] ?? {
+    className: "",
+    initialX: 0,
+    initialY: 0,
+    sizes: undefined,
+  };
+  return {
+    name: program.title,
+    Icon: program.icon,
+    description: program.description,
+    href: program.link,
+    cta: "Learn more",
+    ...layout,
+    background: (
+      <div className="absolute inset-0 h-full w-full">
+        <div className="absolute inset-0 bg-linear-to-b from-black/40 via-black/20 to-black/40 z-20 transition-opacity duration-300 group-hover:opacity-75" />
+        <Image
+          src={program.image}
+          alt={program.title}
+          width={500}
+          height={300}
+          sizes={sizes}
+          className="object-cover object-center absolute inset-0 h-full w-full transition-transform duration-300 will-change-transform group-hover:scale-105"
+        />
+      </div>
+    ),
+  };
+});
 
 export const ProgramsSection = forwardRef<HTMLElement>((props, ref) => {
   return (

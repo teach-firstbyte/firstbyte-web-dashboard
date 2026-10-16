@@ -32,8 +32,13 @@ import { DialogTitle } from "@/components/ui/dialog";
 import teamData from "@/data/team.json";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-export function CommandMenu() {
-  const [open, setOpen] = useState(false);
+export function CommandMenu({
+  defaultOpen = false,
+}: {
+  // True when CommandMenuLoader mounts this in answer to the first ⌘K press
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   const [search, setSearch] = useState("");
   const { setTheme, resolvedTheme } = useTheme();
   const router = useRouter();
