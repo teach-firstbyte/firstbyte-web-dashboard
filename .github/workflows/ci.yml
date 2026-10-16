@@ -101,6 +101,10 @@ jobs:
 
       - run: npm ci
 
+      # Files in public/ are served as-is, so a phone photo's GPS metadata
+      # would let anyone see where it was taken.
+      - run: npm run verify:no-image-location:web
+
       - run: npm run format:check:web
 
       - run: npm run lint:web

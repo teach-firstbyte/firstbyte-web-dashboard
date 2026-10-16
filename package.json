@@ -17,6 +17,7 @@
     "format:check:dashboard": "npm run format:check -w @firstbyte/dashboard",
     "lint:web": "npm run lint -w @firstbyte/web",
     "typecheck:web": "npm run typecheck -w @firstbyte/web",
-    "format:check:web": "npm run format:check -w @firstbyte/web"
+    "format:check:web": "npm run format:check -w @firstbyte/web",
+    "verify:no-image-location:web": "npm run verify:no-image-location -w @firstbyte/web"
   }
 }
