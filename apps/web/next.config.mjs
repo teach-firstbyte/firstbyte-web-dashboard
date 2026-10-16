@@ -7,6 +7,11 @@
  * production URL would make cross-app changes impossible to preview.
  *
  * Falls back to DASHBOARD_URL, then to the local dev port.
+ *
+ * Vercel sets VERCEL_RELATED_PROJECTS only because apps/web/vercel.json lists
+ * the dashboard project under `relatedProjects`. Without that file, every
+ * preview fell through to DASHBOARD_URL, which is the production dashboard,
+ * so preview logins and data were production's.
  */
 
 /**
@@ -105,6 +110,9 @@ const nextConfig = {
    */
   async rewrites() {
     const origin = dashboardOrigin();
+    // Printed in the build log, so a preview that proxies to the wrong
+    // dashboard is easy to spot.
+    console.log(`Dashboard zone: ${origin}`);
     return [
       /**
        * Client-side navigations inside the dashboard zone fetch RSC payloads,
