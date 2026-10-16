@@ -1,5 +1,6 @@
 import { AttendanceTable } from "@/components/AttendanceTable";
-import { BackLink } from "@/components/BackLink";
+import { PageHeader } from "@/components/common/Section";
+import { AppShell } from "@/components/layout/AppShell";
 import { PaginationControls } from "@/components/PaginationControls";
 import { SearchInput } from "@/components/SearchInput";
 import { StatusFilter } from "@/components/StatusFilter";
@@ -17,7 +18,7 @@ export async function OfficerAttendanceView({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  await requireOfficer();
+  const user = await requireOfficer();
 
   let result: Page<AttendanceWithContext> = emptyPage();
   let dbUnavailable = false;
@@ -36,33 +37,32 @@ export async function OfficerAttendanceView({
     : "No attendance records yet.";
 
   return (
-    <div className="container mx-auto p-6">
+    <AppShell viewer={user} mode="officer">
       {dbUnavailable && (
-        <Banner variant="warning" className="mb-4">
+        <Banner variant="warning">
           Could not load attendance right now. Showing an empty view until the
           connection is restored.
         </Banner>
       )}
-      <BackLink />
-      <div className="mt-4 mb-4">
-        <Suspense fallback={<div className="h-9" />}>
-          <div className="flex gap-3 items-center">
-            <div className="flex-1">
-              <SearchInput />
-            </div>
-            <StatusFilter />
+      <PageHeader
+        title="Attendance records"
+        description="Every check-in and mark, across all meetings."
+      />
+      <Suspense fallback={<div className="h-9" />}>
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <SearchInput />
           </div>
-        </Suspense>
-      </div>
-      <div className="mt-4">
-        <AttendanceTable attendance={result.rows} emptyMessage={emptyMessage} />
-      </div>
+          <StatusFilter />
+        </div>
+      </Suspense>
+      <AttendanceTable attendance={result.rows} emptyMessage={emptyMessage} />
       <PaginationControls
         page={result.page}
         totalPages={result.totalPages}
         hasPrev={result.hasPrev}
         hasNext={result.hasNext}
       />
-    </div>
+    </AppShell>
   );
 }

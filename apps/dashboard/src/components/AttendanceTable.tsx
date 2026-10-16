@@ -16,7 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Attendance } from "@/types/dashboard";
-import { TableEmptyState } from "./ui/TableEmptyState";
+import { TableEmptyState } from "@/components/ui/TableEmptyState";
 import { AttendanceStatusBadge } from "./AttendanceStatusBadge";
 
 interface AttendanceTableProps {
@@ -42,13 +42,12 @@ export function AttendanceTable({
               <TableHead>Meeting</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Checked In</TableHead>
-              <TableHead>Checked Out</TableHead>
               <TableHead>Notes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {attendance.length === 0 ? (
-              <TableEmptyState colSpan={6} message={emptyMessage} />
+              <TableEmptyState colSpan={5} message={emptyMessage} />
             ) : (
               attendance.map((record) => (
                 <TableRow key={record.id}>
@@ -76,11 +75,6 @@ export function AttendanceTable({
                   <TableCell>
                     {record.checkedInAt
                       ? new Date(record.checkedInAt).toLocaleString()
-                      : "N/A"}
-                  </TableCell>
-                  <TableCell>
-                    {record.checkedOutAt
-                      ? new Date(record.checkedOutAt).toLocaleString()
                       : "N/A"}
                   </TableCell>
                   <TableCell>{record.notes || "N/A"}</TableCell>

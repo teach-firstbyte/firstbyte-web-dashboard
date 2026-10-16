@@ -1,7 +1,6 @@
-import { BackLink } from "@/components/BackLink";
+import { ProjectorScreen } from "@/components/meetings/ProjectorScreen";
 import { requireOfficer } from "@/lib/auth/requireOfficer";
-import { FeedbackQR } from "./FeedbackQR";
-import { findMeetingTitle } from "@/server/meetings/queries";
+import { findMeetingCheckInSummary } from "@/server/meetings/queries";
 import { parseId } from "@/server/validation";
 
 export default async function FeedbackDisplayPage({
@@ -12,22 +11,23 @@ export default async function FeedbackDisplayPage({
   await requireOfficer();
   const { meetingId } = await params;
 
-  const parsedMeetingId = parseId(meetingId);
-  if (parsedMeetingId === null) {
+  const id = parseId(meetingId);
+  if (id === null) {
     return <p className="p-6 text-center">Invalid meeting.</p>;
   }
-
-  const meetingTitle = await findMeetingTitle(parsedMeetingId);
-  if (meetingTitle === null) {
+  const meeting = await findMeetingCheckInSummary(id);
+  if (meeting === null) {
     return <p className="p-6 text-center">Meeting not found.</p>;
   }
 
-  const path = `/feedback/${parsedMeetingId}`;
-
   return (
-    <div className="container mx-auto max-w-md p-6 space-y-6">
-      <BackLink />
-      <FeedbackQR meetingTitle={meetingTitle} path={path} />
-    </div>
+    <ProjectorScreen
+      meetingId={id}
+      screen="feedback"
+      title={meeting.title}
+      scheduledAt={meeting.scheduledAt}
+      path={`/feedback/${id}`}
+      count={meeting.responses}
+    />
   );
 }

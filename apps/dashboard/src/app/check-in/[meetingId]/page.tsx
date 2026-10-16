@@ -1,9 +1,12 @@
+import { CheckInForm } from "@/components/attendance/CheckInForm";
+import { PageHeader } from "@/components/common/Section";
+import { AppShell } from "@/components/layout/AppShell";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
+import { getViewMode } from "@/lib/auth/viewMode";
 import { findMeetingTitle } from "@/server/meetings/queries";
 import { parseId } from "@/server/validation";
-import { CheckInForm } from "./CheckInForm";
-import { BackLink } from "@/components/BackLink";
 
+/** Where the projector's QR code lands, with the code already filled in. */
 export default async function CheckInPage({
   params,
   searchParams,
@@ -18,7 +21,7 @@ export default async function CheckInPage({
   // likely way an un-approved account reaches a dashboard route, so this needs
   // the same gate as everything else rather than a bare session check.
   const returnPath = `/check-in/${meetingId}${code ? `?code=${code}` : ""}`;
-  await requireApprovedUser(returnPath);
+  const user = await requireApprovedUser(returnPath);
 
   const parsedMeetingId = parseId(meetingId);
   if (parsedMeetingId === null) {
@@ -30,15 +33,18 @@ export default async function CheckInPage({
     return <p className="p-6 text-center">Meeting not found.</p>;
   }
 
-  // Hand off to the Client Component for the interactive part
   return (
-    <div className="container mx-auto max-w-md p-6 space-y-6">
-      <BackLink />
-      <CheckInForm
-        meetingId={parsedMeetingId}
-        meetingTitle={meetingTitle}
-        initialCode={code ?? ""}
-      />
-    </div>
+    <AppShell viewer={user} mode={await getViewMode(user)}>
+      <div className="mx-auto flex w-full max-w-sm flex-col gap-5">
+        <PageHeader title="Check in" description={meetingTitle} />
+        <div className="rounded-2xl border bg-card p-5">
+          <CheckInForm
+            meetingId={parsedMeetingId}
+            meetingTitle={meetingTitle}
+            initialCode={code ?? ""}
+          />
+        </div>
+      </div>
+    </AppShell>
   );
 }

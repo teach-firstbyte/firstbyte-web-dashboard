@@ -36,3 +36,12 @@ SELECT id, name, join_policy FROM "public"."teams" ORDER BY id;
 --  WHERE "email" = 'admin@example.com';
 -- UPDATE "public"."users" SET "role" = 'SUPER_ADMIN', "status" = 'APPROVED'
 --  WHERE "email" = 'super@example.com';
+
+-- UI redesign test accounts (local Supabase only), created through the local
+-- auth admin API with email already confirmed. Sign in at
+-- http://localhost:3001/dashboard/login. Role and status are set by
+-- local-ui-sample-data.sql. Passwords are kept out of the repo, in the
+-- gitignored apps/dashboard/supabase/.env.test-accounts.
+--
+--   officer: ui-test-officer@firstbyte.test
+--   member:  ui-test-member@firstbyte.test

@@ -4,6 +4,7 @@ import { ServiceError } from "@/server/errors";
 import { isSuperAdmin } from "@/lib/auth/roles";
 import { getUserById } from "@/server/users/queries";
 import { getTeamById } from "@/server/teams/queries";
+import { JOINABLE_TEAM_WHERE } from "@/server/teams/select";
 import { assertCanManageTeamMembership } from "@/server/teams/policy";
 import type { Viewer } from "@/server/viewer";
 import { findMembership, getTeamMemberById } from "./queries";
@@ -157,4 +158,81 @@ export async function deleteTeamMember(officer: Viewer, teamMemberId: number) {
   assertCanManageTeamMembership(officer, member.team);
   await prisma.teamMember.delete({ where: { id: teamMemberId } });
   return member;
+}
+
+/**
+ * A member asks to join a team from their Settings page.
+ *
+ * Only JOINABLE teams (active and open), the same rule onboarding applies, so
+ * invite-only teams stay a super admin's to hand out. An existing row decides
+ * the rest:
+ *
+ *   APPROVED -> already on it
+ *   PENDING  -> already asked; a second row would break @@unique anyway
+ *   REJECTED -> asking again is allowed. The row goes back to PENDING with the
+ *               old decision cleared, so it lands in the officer queue as a
+ *               fresh request rather than looking already decided.
+ */
+export async function requestToJoinTeam(viewer: Viewer, teamId: number) {
+  const team = await prisma.team.findFirst({
+    where: { id: teamId, ...JOINABLE_TEAM_WHERE },
+    select: { id: true, name: true },
+  });
+  if (!team) {
+    throw new ServiceError("INVALID", "That team isn't taking join requests.");
+  }
+
+  const existing = await findMembership(viewer.id, teamId);
+  if (existing?.status === TeamMemberStatus.APPROVED) {
+    throw new ServiceError("CONFLICT", `You're already on ${team.name}.`);
+  }
+  if (existing?.status === TeamMemberStatus.PENDING) {
+    throw new ServiceError(
+      "CONFLICT",
+      `You've already asked to join ${team.name}.`,
+    );
+  }
+
+  if (existing) {
+    return prisma.teamMember.update({
+      where: { id: existing.id },
+      data: {
+        status: TeamMemberStatus.PENDING,
+        decidedAt: null,
+        decidedById: null,
+      },
+    });
+  }
+
+  return prisma.teamMember.create({
+    data: { userId: viewer.id, teamId, status: TeamMemberStatus.PENDING },
+  });
+}
+
+/**
+ * A member cancels their own join request, or leaves a team they're on.
+ *
+ * Someone else's membership answers NOT_FOUND, the same as one that does not
+ * exist, so the id can't be used to probe who is on which team. Invite-only
+ * teams are refused: a super admin put them there, so a super admin takes them
+ * off. A REJECTED row is left alone, since deleting it would quietly erase an
+ * officer's decision.
+ */
+export async function withdrawFromTeam(viewer: Viewer, teamMemberId: number) {
+  const member = await getTeamMemberById(teamMemberId);
+  if (member.userId !== viewer.id) {
+    throw new ServiceError("NOT_FOUND", "Team member not found");
+  }
+  if (member.team.joinPolicy === TeamJoinPolicy.INVITE_ONLY) {
+    throw new ServiceError(
+      "FORBIDDEN",
+      "Ask a super admin to take you off an invite-only team.",
+    );
+  }
+  if (member.status === TeamMemberStatus.REJECTED) {
+    throw new ServiceError("INVALID", "That request was already declined.");
+  }
+
+  await prisma.teamMember.delete({ where: { id: teamMemberId } });
+  return { status: member.status, teamName: member.team.name };
 }

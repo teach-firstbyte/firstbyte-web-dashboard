@@ -54,3 +54,21 @@ export const checkInSchema = z.object({
   meetingId: idParam,
   code: z.string().min(1, "meetingId and code are required"),
 });
+
+/**
+ * PATCH /api/attendance/bulk. Several rows of ONE meeting to one status: how
+ * "Mark the rest absent" and its Undo work. meetingId is required so a request
+ * can never reach rows from another meeting by passing their ids.
+ */
+export const bulkAttendanceStatusSchema = z.object({
+  meetingId: idParam,
+  attendanceIds: z
+    .array(idParam)
+    .min(1, "Pick at least one person")
+    .max(500, "Too many rows in one request"),
+  status: attendanceStatus,
+});
+
+export type BulkAttendanceStatusInput = z.infer<
+  typeof bulkAttendanceStatusSchema
+>;

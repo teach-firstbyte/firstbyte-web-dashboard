@@ -13,6 +13,10 @@ export const STATUS_HOME: Record<AccountStatus, string> = {
   // Denied users land on the same page, which renders a denied variant.
   [AccountStatus.DENIED]: "/pending",
   [AccountStatus.APPROVED]: "/",
+  // No session can reach a deleted row: deleteOwnAccount replaces its email,
+  // and every session is looked up by email. Listed only to keep the Record
+  // total. /login has no status gate, so this cannot loop either.
+  [AccountStatus.DELETED]: "/login",
 };
 
 export function isApproved(user: { status: AccountStatus }): boolean {
@@ -29,6 +33,7 @@ export function isApproved(user: { status: AccountStatus }): boolean {
  *   PENDING    -> /pending    (allowed there, and on /onboarding for edits)
  *   DENIED     -> /pending    (allowed there)
  *   APPROVED   -> /           (requireApprovedUser lets it through)
+ *   DELETED    -> /login      (no gate there)
  * so every redirect lands somewhere that accepts the user, in exactly one hop.
  * Breaking that pairing is the only way to reintroduce a loop.
  */

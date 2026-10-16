@@ -4,8 +4,10 @@ import { isOfficer, OFFICER_ROLES } from "@/lib/auth/roles";
 import { ServiceError } from "@/server/errors";
 import type { Viewer } from "@/server/viewer";
 import {
+  memberExportArgs,
   pendingUserArgs,
   userWithTeamsArgs,
+  type MemberExportPayload,
   type PendingUserPayload,
   type UserWithTeams,
 } from "./select";
@@ -69,6 +71,39 @@ export function listUsers(
     where,
     ...userWithTeamsArgs,
     orderBy,
+  });
+}
+
+/** How many approved accounts there are. For the officer home's numbers row. */
+export function countApprovedUsers(): Promise<number> {
+  return prisma.user.count({ where: { status: AccountStatus.APPROVED } });
+}
+
+/**
+ * Every approved member with the fields the roster export can write, for an
+ * officer.
+ *
+ * All members rather than one team: the export dialog lets the officer switch
+ * between teams and "everyone" without a round trip per choice, and the team
+ * filter is a membership lookup the browser can do on rows it already has.
+ * Nothing here is new to an officer -- the Members page and the approval panel
+ * already show every field.
+ *
+ * The route is officer-only as well. This checks again because the service is
+ * what a future caller will reach for, and the export holds more about each
+ * person than any single screen does.
+ */
+export function listMembersForExport(
+  viewer: Viewer,
+): Promise<MemberExportPayload[]> {
+  if (!isOfficer(viewer)) {
+    throw new ServiceError("FORBIDDEN", "Only officers can export members");
+  }
+
+  return prisma.user.findMany({
+    ...memberExportArgs,
+    where: { status: AccountStatus.APPROVED },
+    orderBy: [{ name: "asc" }, { email: "asc" }],
   });
 }
 
