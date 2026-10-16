@@ -182,7 +182,7 @@ export function MeetingFormDialog({
       switch (type) {
         case "GENERAL_MEETING":
           return { ...prev, type, teamId: "", isRequired: true };
-        case "BOARD_MEETING":
+        case "EBOARD_MEETING":
           return {
             ...prev,
             type,

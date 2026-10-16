@@ -193,13 +193,10 @@ enum TeamJoinPolicy {
 
 enum MeetingType {
   GENERAL_MEETING
-  BOARD_MEETING
-  SOCIAL_EVENT
+  EBOARD_MEETING
   FIRSTBITES
-  //for CS Cirricula team
-  CHV_WORKSHOP
 
-  ///for club-wide workshops
+  /// Workshops. Can be club-wide, or for a single team (set the meeting's team).
   WORKSHOP
 
   @@map("meeting_type")
