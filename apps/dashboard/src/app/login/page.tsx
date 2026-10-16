@@ -1,14 +1,19 @@
 import Image from "next/image";
 import { AuthForm } from "./AuthForm";
 import { BackLink } from "@/components/BackLink";
+import { Banner } from "@/components/ui/banner";
 import { safeInternalPath, withBasePath } from "@/lib/paths";
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; redirect?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    redirect?: string;
+    deleted?: string;
+  }>;
 }) {
-  const { error, redirect } = await searchParams;
+  const { error, redirect, deleted } = await searchParams;
 
   // Set by requireSignedInUser when a signed-out visitor hits a deep link --
   // the QR flows (/feedback/:id, /check-in/:id) are the reason this exists.
@@ -33,6 +38,12 @@ export default async function LoginPage({
         <h1 className="text-3xl font-bold">FirstByte Dashboard</h1>
         <p className="text-muted-foreground">Sign in to continue</p>
       </div>
+      {/* Set by the Settings "Delete account" action after it signs you out. */}
+      {deleted && (
+        <Banner variant="success" className="mb-4">
+          Your account was deleted. Thanks for being part of FirstByte.
+        </Banner>
+      )}
       <AuthForm error={error} returnTo={returnTo} />
     </div>
   );

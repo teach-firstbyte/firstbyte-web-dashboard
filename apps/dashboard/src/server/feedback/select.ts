@@ -20,7 +20,9 @@ export const feedbackWithContextArgs =
       isAnonymous: true,
       createdAt: true,
       meeting: { select: { title: true, scheduledAt: true } },
-      author: { select: { name: true, email: true } },
+      // status only so redact() can spot a deleted author. It never reaches
+      // the browser: redact() rebuilds `author` with name and email alone.
+      author: { select: { name: true, email: true, status: true } },
     },
   });
 

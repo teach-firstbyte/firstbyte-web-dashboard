@@ -10,6 +10,13 @@ import { asViewer, type Viewer } from "@/server/viewer";
  * taking the email from supabase.auth.getUser(), which round-trips the token to
  * the Supabase auth server for verification -- not from getSession(), which
  * only reads the cookie and believes it.
+ *
+ * That round trip is also what locks out a deleted account at once. Deleting a
+ * Supabase login does not cancel the access token the person already holds:
+ * it stays valid for up to an hour. getUser() asks the server, which answers
+ * "user does not exist". getSession() and getClaims() check the token locally,
+ * so switching to either would let a deleted person keep using the dashboard
+ * until their token expires.
  */
 export async function getCurrentUser(): Promise<Viewer | null> {
   const supabase = await createClient();

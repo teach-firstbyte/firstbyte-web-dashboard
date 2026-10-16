@@ -12,6 +12,8 @@ export function AccountStatusBadge({ status }: { status: string }) {
       return <Badge variant="destructive">Denied</Badge>;
     case "ONBOARDING":
       return <Badge variant="secondary">Onboarding</Badge>;
+    case "DELETED":
+      return <Badge variant="secondary">Deleted</Badge>;
     default:
       return <Badge variant="secondary">{status}</Badge>;
   }

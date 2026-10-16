@@ -1,3 +1,4 @@
+import { AccountStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { isOfficer } from "@/lib/auth/roles";
 import { ServiceError } from "@/server/errors";
@@ -9,7 +10,8 @@ import {
 } from "./select";
 
 /**
- * Blanks the author of an anonymous row unless the reader wrote it.
+ * Blanks the author of an anonymous row unless the reader wrote it, and the
+ * placeholder email of a deleted author.
  *
  * Not exported. The only way to get a row out of this module is through a
  * function that has already applied this, so no caller can forget it -- which
@@ -21,8 +23,20 @@ import {
  * that is the one that survives.
  */
 function redact(row: FeedbackWithContext, viewerId: number): VisibleFeedback {
-  if (!row.isAnonymous || row.authorId === viewerId) return row;
-  return { ...row, authorId: null, author: { name: null, email: null } };
+  const { author, ...rest } = row;
+
+  if (row.isAnonymous && row.authorId !== viewerId) {
+    return { ...rest, authorId: null, author: { name: null, email: null } };
+  }
+
+  // A deleted account keeps its name, "Former member", but its email is a
+  // placeholder (see deleteOwnAccount). Showing it would only invite a
+  // mailto: link to an address that cannot exist.
+  if (author.status === AccountStatus.DELETED) {
+    return { ...rest, author: { name: author.name, email: null } };
+  }
+
+  return { ...rest, author: { name: author.name, email: author.email } };
 }
 
 /**

@@ -12,17 +12,22 @@ import { formatDateTime } from "@/lib/format";
 import type { User } from "@/types/dashboard";
 import { OfficerBadge } from "@/components/OfficerBadge";
 import { isOfficerRole } from "@/lib/auth/roles";
+import { DeleteMemberAccount } from "./DeleteMemberAccount";
 
 interface UserDetailSheetProps {
   user: User | null;
+  viewer: { id: number; role: string };
   onOpenChange: (open: boolean) => void;
   onCloseAutoFocus: (event: Event) => void;
+  onDeleted: () => void;
 }
 
 export function UserDetailSheet({
   user,
+  viewer,
   onOpenChange,
   onCloseAutoFocus,
+  onDeleted,
 }: UserDetailSheetProps) {
   return (
     <DetailSheet
@@ -83,6 +88,8 @@ export function UserDetailSheet({
               </ul>
             )}
           </DetailSection>
+
+          <DeleteMemberAccount viewer={viewer} user={u} onDeleted={onDeleted} />
         </>
       )}
     </DetailSheet>

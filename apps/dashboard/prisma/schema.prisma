@@ -21,10 +21,15 @@ model User {
   // Approval lifecycle: ONBOARDING -> PENDING -> APPROVED | DENIED.
   // A row enters the officer review queue only once it reaches PENDING, so an
   // abandoned onboarding stays invisible to officers.
+  //
+  // APPROVED -> DELETED when a person deletes their own account. The row stays,
+  // with its personal fields cleared, so past attendance and feedback still
+  // count -- see deleteOwnAccount in server/users/mutations.ts.
   status      AccountStatus @default(ONBOARDING)
   submittedAt DateTime?     @map("submitted_at")
   decidedAt   DateTime?     @map("decided_at")
   decidedById Int?          @map("decided_by_id")
+  deletedAt   DateTime?     @map("deleted_at")
 
   // Collected during onboarding. All optional -- only the team selection is
   // required to submit.
@@ -221,6 +226,7 @@ enum AccountStatus {
   PENDING
   APPROVED
   DENIED
+  DELETED
 
   @@map("account_status")
 }
