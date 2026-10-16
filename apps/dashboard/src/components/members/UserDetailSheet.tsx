@@ -8,7 +8,7 @@ import {
   DetailGrid,
   DetailSection,
 } from "@/components/ui/detail";
-import { formatDateTime } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import type { User } from "@/types/dashboard";
 import { OfficerBadge } from "@/components/OfficerBadge";
 import { isOfficerRole } from "@/lib/auth/roles";
@@ -40,9 +40,10 @@ export function UserDetailSheet({
       {(u) => (
         <>
           <DetailSection title="Account">
+            {/* The name is already the panel title, and ids and update times
+                are bookkeeping, so the grid keeps only what a reader acts on. */}
             <DetailGrid>
-              <DetailField label="Name" value={u.name} />
-              <DetailField label="Email">
+              <DetailField label="Email" className="sm:col-span-2">
                 <a
                   href={`mailto:${u.email}`}
                   className="text-primary hover:underline"
@@ -57,12 +58,7 @@ export function UserDetailSheet({
                   <Badge variant="secondary">Member</Badge>
                 )}
               </DetailField>
-              <DetailField label="User ID" value={u.id} />
-              <DetailField label="Joined" value={formatDateTime(u.createdAt)} />
-              <DetailField
-                label="Last updated"
-                value={formatDateTime(u.updatedAt)}
-              />
+              <DetailField label="Joined" value={formatDate(u.createdAt)} />
             </DetailGrid>
           </DetailSection>
 
