@@ -6,10 +6,8 @@ import { TWO_HOURS_MS } from "@/lib/attendance/cutoff";
 /** Mirrors `enum MeetingType` in prisma/schema.prisma, in form order. */
 export const MEETING_TYPES = [
   "GENERAL_MEETING",
-  "BOARD_MEETING",
-  "SOCIAL_EVENT",
+  "EBOARD_MEETING",
   "FIRSTBITES",
-  "CHV_WORKSHOP",
   "WORKSHOP",
 ] as const;
 
@@ -17,10 +15,8 @@ export type MeetingTypeValue = (typeof MEETING_TYPES)[number];
 
 const TYPE_LABELS: Record<MeetingTypeValue, string> = {
   GENERAL_MEETING: "General meeting",
-  BOARD_MEETING: "Board meeting",
-  SOCIAL_EVENT: "Social",
+  EBOARD_MEETING: "E-board meeting",
   FIRSTBITES: "FirstBites",
-  CHV_WORKSHOP: "CHV workshop",
   WORKSHOP: "Workshop",
 };
 
