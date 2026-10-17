@@ -14,6 +14,7 @@ import {
 import { RateMeetingButton } from "@/components/feedback/RateMeetingButton";
 import { AppShell } from "@/components/layout/AppShell";
 import { LivePill, MeetingRow } from "@/components/meetings/MeetingRow";
+import { NewsletterHomeCard } from "@/components/newsletter/SmallActions";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { getViewMode } from "@/lib/auth/viewMode";
@@ -25,7 +26,9 @@ import {
 } from "@/lib/format";
 import { checkInWindow } from "@/lib/attendance/timing";
 import { pickCurrentMeeting, upcomingMeetings } from "@/lib/meetings";
+import { isNewsletterEnabled } from "@/lib/newsletter/enabled";
 import { getMemberDashboard } from "@/server/dashboard/queries";
+import { getHomeCardIssue } from "@/server/newsletter/queries";
 import type { Viewer } from "@/server/viewer";
 
 type Data = Awaited<ReturnType<typeof getMemberDashboard>>;
@@ -47,6 +50,16 @@ function percent(rate: number | null) {
   return rate === null ? "–" : `${Math.round(rate * 100)}%`;
 }
 
+/** "Updates from Website, Events and 2 more teams." */
+function newsletterSummary(teams: string[]) {
+  if (teams.length === 0) return "What's coming up at FirstByte.";
+  const shown = teams.slice(0, 2).join(teams.length === 2 ? " and " : ", ");
+  const more = teams.length - 2;
+  return more > 0
+    ? `Updates from ${shown} and ${more} more team${more === 1 ? "" : "s"}.`
+    : `Updates from ${shown}.`;
+}
+
 /** Feedback is asked for meetings in the last two weeks only. */
 const RATE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -59,9 +72,15 @@ const RATE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
  */
 export async function MemberDashboard({ user }: { user: Viewer }) {
   let data = EMPTY;
+  let newsletter: Awaited<ReturnType<typeof getHomeCardIssue>> = null;
   let dbUnavailable = false;
   try {
-    data = await getMemberDashboard(user);
+    [data, newsletter] = await Promise.all([
+      getMemberDashboard(user),
+      isNewsletterEnabled()
+        ? getHomeCardIssue(user, new Date())
+        : Promise.resolve(null),
+    ]);
   } catch (error) {
     dbUnavailable = true;
     console.error("Member dashboard query failed:", error);
@@ -117,6 +136,15 @@ export async function MemberDashboard({ user }: { user: Viewer }) {
         title={firstName ? `Hi, ${firstName}` : "Welcome"}
         description={summary}
       />
+
+      {newsletter && (
+        <NewsletterHomeCard
+          issueId={newsletter.id}
+          summary={newsletterSummary(
+            newsletter.updates.map((u) => u.team.name),
+          )}
+        />
+      )}
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-5">

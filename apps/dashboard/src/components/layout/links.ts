@@ -21,3 +21,12 @@ export const MEMBER_LINKS: NavLink[] = [
   { href: "/meetings", label: "Meetings" },
   { href: "/attendance", label: "My attendance" },
 ];
+
+/**
+ * Added to either list while the newsletter prototype is switched on (see
+ * lib/newsletter/enabled.ts). Off in production until it launches.
+ */
+export const NEWSLETTER_LINK: NavLink = {
+  href: "/newsletter",
+  label: "Newsletter",
+};

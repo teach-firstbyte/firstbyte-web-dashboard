@@ -2,6 +2,7 @@ import { isOfficer } from "@/lib/auth/roles";
 import type { ViewMode } from "@/lib/auth/viewMode";
 import type { Viewer } from "@/server/viewer";
 import { SUGGESTION_BOX_URL } from "@/components/layout/links";
+import { isNewsletterEnabled } from "@/lib/newsletter/enabled";
 import { AppNav } from "./AppNav";
 import { MemberPreviewBanner } from "./MemberPreviewBanner";
 
@@ -34,6 +35,7 @@ export function AppShell({
       <AppNav
         mode={mode}
         canSwitchView={officer}
+        showNewsletter={isNewsletterEnabled()}
         account={{
           name: viewer.preferredName || viewer.name,
           fullName: viewer.name,

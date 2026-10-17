@@ -38,6 +38,13 @@ model User {
   gradYear      Int?    @map("grad_year")
   major         String?
 
+  // Newsletter. newsletterApprover is who may give an issue its final
+  // approval; it is its own flag rather than a role because SUPER_ADMIN also
+  // covers the website lead, who must not approve. Only a SUPER_ADMIN can set
+  // it, and never on themselves -- see server/newsletter/mutations.ts.
+  newsletterApprover Boolean @default(false) @map("newsletter_approver")
+  newsletterOptOut   Boolean @default(false) @map("newsletter_opt_out")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -52,6 +59,10 @@ model User {
   decidedBy               User?        @relation("UserDecisions", fields: [decidedById], references: [id], onDelete: SetNull)
   accountDecisions        User[]       @relation("UserDecisions")
   teamMembershipDecisions TeamMember[] @relation("TeamMemberDecisions")
+
+  newsletterApprovals     NewsletterIssue[]      @relation("NewsletterApprovedBy")
+  newsletterUpdateChanges NewsletterTeamUpdate[] @relation("NewsletterUpdateDecidedBy")
+  newsletterReads         NewsletterRead[]
 
   @@index([status, submittedAt])
   @@map("users")
@@ -73,8 +84,9 @@ model Team {
   joinPolicy TeamJoinPolicy @default(OPEN) @map("join_policy")
 
   //relationships
-  members  TeamMember[]
-  meetings Meeting[]
+  members           TeamMember[]
+  meetings          Meeting[]
+  newsletterUpdates NewsletterTeamUpdate[]
 
   @@map("teams")
 }
@@ -173,7 +185,107 @@ model Feedback {
   @@map("feedback")
 }
 
-//ENUMS 
+// One newsletter issue per week. See docs/superpowers/specs for the design.
+model NewsletterIssue {
+  id     Int                   @id @default(autoincrement())
+  // The Monday (UTC date) of the week the issue belongs to. Unique, so the
+  // draft job can never make a second issue for the same week.
+  weekOf DateTime              @unique @map("week_of") @db.Date
+  status NewsletterIssueStatus @default(COLLECTING)
+  // A short line the final approver may add, for collabs that are not
+  // meetings in the dashboard.
+  note   String?
+
+  approvedAt   DateTime? @map("approved_at")
+  approvedById Int?      @map("approved_by_id")
+  sentAt       DateTime? @map("sent_at")
+  sentCount    Int?      @map("sent_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  approvedBy User?                  @relation("NewsletterApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  updates    NewsletterTeamUpdate[]
+  reads      NewsletterRead[]
+
+  @@map("newsletter_issues")
+}
+
+// One team's part of an issue. `lines` is what the lead has now; `aiLines` is
+// what the AI first wrote, kept so the club can see how much the drafts get
+// edited. Both are arrays of { text, sources[], flagged }; see
+// server/newsletter/lines.ts for the shape. Raw Slack messages are never
+// stored -- only each line's source links.
+model NewsletterTeamUpdate {
+  id      Int              @id @default(autoincrement())
+  issueId Int              @map("issue_id")
+  teamId  Int              @map("team_id")
+  status  TeamUpdateStatus @default(DRAFT)
+  lines   Json             @default("[]")
+  aiLines Json             @default("[]") @map("ai_lines")
+  // What the safeguards removed, as counts and short reasons, never the text.
+  checks  Json             @default("{}")
+  // Set when the AI could not run, so the lead knows to write it by hand.
+  aiError String?          @map("ai_error")
+  // A sample photo's key for now. Becomes a Drive file id once photos move
+  // to Google Drive.
+  photo   String?
+
+  decidedAt   DateTime? @map("decided_at")
+  decidedById Int?      @map("decided_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  issue     NewsletterIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  team      Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  decidedBy User?           @relation("NewsletterUpdateDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@unique([issueId, teamId])
+  @@map("newsletter_team_updates")
+}
+
+// That a member opened (or dismissed the home card for) a sent issue. `via`
+// is where they came from: "email" for the tagged links in the email,
+// "dashboard" otherwise. This is how newsletter clicks are counted.
+model NewsletterRead {
+  id          Int       @id @default(autoincrement())
+  userId      Int       @map("user_id")
+  issueId     Int       @map("issue_id")
+  via         String?
+  readAt      DateTime? @map("read_at")
+  dismissedAt DateTime? @map("dismissed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  issue NewsletterIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, issueId])
+  @@index([issueId])
+  @@map("newsletter_reads")
+}
+
+//ENUMS
+enum NewsletterIssueStatus {
+  /// Drafts are out; leads are still editing.
+  COLLECTING
+  /// Every team has approved or skipped. A signal, not a gate.
+  READY
+  APPROVED
+  SENT
+  /// Never approved in time. Never sends.
+  NOT_SENT
+
+  @@map("newsletter_issue_status")
+}
+
+enum TeamUpdateStatus {
+  DRAFT
+  APPROVED
+  SKIPPED
+
+  @@map("team_update_status")
+}
+
 enum TeamRole {
   LEAD
   MEMBER

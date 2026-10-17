@@ -40,6 +40,14 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  // The newsletter email attaches its sample photos from public/, which
+  // Vercel does not put in server functions by default. Only the newsletter
+  // pages (whose server actions send the email) need them.
+  outputFileTracingIncludes: {
+    "/newsletter": ["./public/newsletter-samples/**"],
+    "/newsletter/[issueId]": ["./public/newsletter-samples/**"],
+  },
+
   experimental: {
     // Requests arrive proxied through apps/web, so the Origin header is the
     // marketing domain rather than this deployment's own host. Next rejects

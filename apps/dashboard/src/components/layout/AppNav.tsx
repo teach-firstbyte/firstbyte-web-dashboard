@@ -9,7 +9,7 @@ import type { ViewMode } from "@/lib/auth/viewMode";
 import { withBasePath } from "@/lib/paths";
 import { cn } from "@/lib/utils";
 import { AccountMenu, type AccountSummary } from "./AccountMenu";
-import { MEMBER_LINKS, OFFICER_LINKS } from "./links";
+import { MEMBER_LINKS, NEWSLETTER_LINK, OFFICER_LINKS } from "./links";
 
 /**
  * The floating pill bar from the marketing site's navbar: logo, the links for
@@ -19,13 +19,17 @@ export function AppNav({
   mode,
   canSwitchView,
   account,
+  showNewsletter = false,
 }: {
   mode: ViewMode;
   canSwitchView: boolean;
   account: AccountSummary;
+  /** Decided on the server; see lib/newsletter/enabled.ts. */
+  showNewsletter?: boolean;
 }) {
   const pathname = usePathname();
-  const links = mode === "officer" ? OFFICER_LINKS : MEMBER_LINKS;
+  const base = mode === "officer" ? OFFICER_LINKS : MEMBER_LINKS;
+  const links = showNewsletter ? [...base, NEWSLETTER_LINK] : base;
 
   // "/" only matches itself; every other link also lights up on its sub-pages,
   // so /meetings/12/attendance keeps "Meetings" active.

@@ -268,6 +268,77 @@ The preview project is on Supabase's Free plan and uses Supabase's own email sen
 
 So on preview, use the [test logins](#test-logins). They are confirmed already and need no email. To test the email flows, use your local stack (its emails show at http://localhost:54324). To make them work on preview, give the preview project its own email sender (Authentication → SMTP Settings), then copy production's 4 templates.
 
+## 📰 Newsletter (prototype)
+
+A weekly email to members: what's coming up, and what each team is working on. An AI writes each team's first draft from that week's GitHub, Slack and meetings. The team lead edits and approves it, a final approver signs off, and then it is emailed. The full design is in [`docs/superpowers/specs/2026-10-17-newsletter-design.md`](../../docs/superpowers/specs/2026-10-17-newsletter-design.md).
+
+### Where it is switched on
+
+- **Preview deployments and `npm run dev`:** on.
+- **Production:** off. The Newsletter tab, pages and home card don't appear until `NEWSLETTER_ENABLED=true` is set in Vercel. So merging this changes nothing on teachfirstbyte.com.
+
+### What is real and what is sample
+
+| Part | In the prototype |
+|---|---|
+| GitHub | Real. Merged pull requests from this repo in the past 7 days, read through GitHub's public API with no key. |
+| Slack | **Sample messages**, in `src/lib/newsletter/sampleSlack.ts`. They include traps on purpose (a phone number, a private channel, a DM, someone's GPA), so you can see the safeguards work. |
+| Dashboard | Real. Each team's meetings and how many came. Totals only. |
+| Claude | Real, if `ANTHROPIC_API_KEY` is set. Without it, each draft is empty and says why. |
+| Email | Real, through Resend, but **only to `NEWSLETTER_TEST_RECIPIENTS`**. |
+| Photos | Sample photos in `public/newsletter-samples/`. Google Drive comes later. |
+
+### The safeguards
+
+All in `src/lib/newsletter/safeguards.ts`, and all plain code, not AI:
+
+1. **Collect:** only the channels and repos in `src/lib/newsletter/sources.ts`. Never DMs or private channels.
+2. **Clean:** phone numbers, emails, Google Docs links and the names of people outside the club are removed before the AI sees anything. Messages about one person's grades or attendance are left out.
+3. **Write:** Claude has to list the source of every line.
+4. **Check:** a line whose sources weren't really collected is deleted. A line based only on Slack talk is highlighted for the lead.
+5. **Save:** only the lines and their source links are stored. Raw Slack messages are not.
+
+Then the team lead approves their part, and a final approver approves the issue. **The send step refuses anything without final approval.**
+
+### Who can do what
+
+- **Team leads** (`TeamRole.LEAD`) edit, approve or skip their own team's draft. Officers can edit any team's draft.
+- **Final approvers** (`users.newsletter_approver`) give the whole issue final approval. Only a super admin can choose them (Newsletter page → Final approvers), and nobody can change their own setting. That's how the website lead, who is also a super admin, is kept from approving.
+- **Everyone** can read sent issues, see "What the AI can see", and unsubscribe.
+
+### Trying it on a preview
+
+Vercel only runs scheduled jobs on production, so on a preview the Newsletter page has officer-only buttons that run the same code by hand.
+
+1. Log in as `test-admin@firstbyte.test`. On **Newsletter → Final approvers**, turn on `test-officer`.
+2. Press **Run draft job now**. It takes up to a minute: the AI drafts every team at once.
+3. Open a team, edit the lines, pick a photo, and press **Approve update**. Skip or approve the others.
+4. Log in as `test-officer@firstbyte.test`, open **Preview and approve**, and press **Give final approval**.
+5. Press **Send now**. The email goes to `NEWSLETTER_TEST_RECIPIENTS` only.
+6. As `test-member@firstbyte.test`, the home page shows the "new issue" card.
+
+**Start over** deletes this week's issue so you can run it again. Remember that every preview shares one database (see [Database migrations on preview](#database-migrations-on-preview)).
+
+### Settings
+
+Set these in **Vercel → firstbyte-dashboard → Settings → Environment Variables**, on **Preview** only for now:
+
+| Name | What it is |
+|---|---|
+| `ANTHROPIC_API_KEY` | A Claude Console API key. Use a separate key named "preview". |
+| `RESEND_API_KEY` | A Resend API key with sending access only. Use a separate key for preview. |
+| `NEWSLETTER_FROM` | The sender, e.g. `FirstByte <news@teachfirstbyte.com>`. The domain must be verified in Resend. |
+| `NEWSLETTER_TEST_RECIPIENTS` | Comma-separated emails that get the test sends, e.g. yours and the president's. |
+| `NEWSLETTER_MODEL` | Optional. Defaults to `claude-opus-5-5`. `claude-haiku-5-5` costs much less. |
+| `GITHUB_TOKEN` | Optional. Without it GitHub allows about 60 requests an hour, shared with everything else on Vercel's servers. If a draft says GitHub couldn't be reached, add a fine-grained token with read-only access to public repos. |
+
+At rollout, production also needs `NEWSLETTER_ENABLED=true`, and `NEWSLETTER_SEND_TO_MEMBERS=true` to email members instead of the test list. Emailing members is never possible on a preview, even with that set.
+
+### Not built yet
+
+- The weekly schedule (Monday draft, Thursday send) in `vercel.json`. Today the jobs run only from the buttons.
+- Real Slack and Google Drive connections. The design document has the setup for both.
+
 ---
 
 ## 🛠️ Starting the App

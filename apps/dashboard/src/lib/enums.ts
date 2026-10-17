@@ -68,3 +68,25 @@ export const TEAM_JOIN_POLICY = {
 
 export type TeamJoinPolicyValue =
   (typeof TEAM_JOIN_POLICY)[keyof typeof TEAM_JOIN_POLICY];
+
+/** Mirrors `enum NewsletterIssueStatus`. */
+export const NEWSLETTER_ISSUE_STATUS = {
+  COLLECTING: "COLLECTING",
+  READY: "READY",
+  APPROVED: "APPROVED",
+  SENT: "SENT",
+  NOT_SENT: "NOT_SENT",
+} as const;
+
+export type NewsletterIssueStatusValue =
+  (typeof NEWSLETTER_ISSUE_STATUS)[keyof typeof NEWSLETTER_ISSUE_STATUS];
+
+/** Mirrors `enum TeamUpdateStatus`. */
+export const TEAM_UPDATE_STATUS = {
+  DRAFT: "DRAFT",
+  APPROVED: "APPROVED",
+  SKIPPED: "SKIPPED",
+} as const;
+
+export type TeamUpdateStatusValue =
+  (typeof TEAM_UPDATE_STATUS)[keyof typeof TEAM_UPDATE_STATUS];
