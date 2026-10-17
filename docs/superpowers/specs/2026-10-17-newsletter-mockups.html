@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Newsletter Mockups</title>
+<style>
+  :root {
+    --background: oklch(0.972 0.014 84);
+    --foreground: oklch(0.145 0.005 286);
+    --card: oklch(1 0 0);
+    --primary: oklch(0.527 0.137 150);
+    --primary-foreground: oklch(0.99 0 0);
+    --muted: oklch(0.945 0.012 84);
+    --muted-foreground: oklch(0.5 0.014 286);
+    --border: oklch(0.905 0.014 84);
+    --input: oklch(0.88 0.014 84);
+    --warning: oklch(0.62 0.14 75);
+    --warning-foreground: oklch(0.42 0.1 70);
+    --guess: oklch(0.62 0.14 75);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --background: oklch(0.147 0.004 49);
+      --foreground: oklch(0.961 0 0);
+      --card: oklch(0.216 0.006 56);
+      --primary: oklch(0.723 0.192 150);
+      --primary-foreground: oklch(0.266 0.065 153);
+      --muted: oklch(0.268 0.007 34);
+      --muted-foreground: oklch(0.705 0.015 286);
+      --border: oklch(1 0 0 / 10%);
+      --input: oklch(1 0 0 / 15%);
+      --warning: oklch(0.75 0.15 80);
+      --warning-foreground: oklch(0.88 0.08 85);
+    }
+  }
+  :root[data-theme="dark"] {
+    --background: oklch(0.147 0.004 49);
+    --foreground: oklch(0.961 0 0);
+    --card: oklch(0.216 0.006 56);
+    --primary: oklch(0.723 0.192 150);
+    --primary-foreground: oklch(0.266 0.065 153);
+    --muted: oklch(0.268 0.007 34);
+    --muted-foreground: oklch(0.705 0.015 286);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --warning: oklch(0.75 0.15 80);
+    --warning-foreground: oklch(0.88 0.08 85);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--background);
+    background-image: radial-gradient(60rem 20rem at 15% -6rem, color-mix(in oklch, var(--primary) 16%, transparent), transparent 70%);
+    background-repeat: no-repeat;
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 16px 16px 64px; display: grid; gap: 24px; }
+  .intro h1 { font-size: clamp(1.6rem, 3vw, 2rem); letter-spacing: -0.02em; margin: 8px 0 4px; }
+  .intro p { margin: 0; color: var(--muted-foreground); font-size: 15px; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: var(--muted-foreground); margin-top: 12px; }
+  .flow .step { background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; color: var(--foreground); font-weight: 500; }
+  .flow .step.guess { border-style: dashed; border-color: var(--guess); }
+  .label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted-foreground); margin: 16px 0 8px; }
+  .label .n { display: inline-grid; place-content: center; width: 20px; height: 20px; border-radius: 999px; background: var(--primary); color: var(--primary-foreground); margin-right: 6px; font-size: 11px; }
+  .guess-note { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--warning-foreground); background: color-mix(in oklch, var(--warning) 15%, transparent); border-radius: 999px; padding: 2px 10px; font-weight: 500; }
+
+  /* Dashboard chrome */
+  .frame { border: 1px solid var(--border); border-radius: 20px; padding: 16px; background: var(--background); display: grid; gap: 20px; }
+  nav.pill { display: flex; align-items: center; gap: 8px; border: 1px solid color-mix(in oklch, var(--border) 70%, transparent); background: color-mix(in oklch, var(--background) 85%, transparent); border-radius: 999px; padding: 6px 8px 6px 16px; box-shadow: 0 4px 12px rgb(0 0 0 / .06); overflow-x: auto; }
+  nav.pill .logo { font-weight: 700; display: flex; align-items: center; gap: 8px; margin-right: 4px; white-space: nowrap; }
+  nav.pill .logo i { width: 22px; height: 22px; border-radius: 6px; background: var(--primary); display: inline-block; }
+  nav.pill a { font-size: 14px; font-weight: 500; color: color-mix(in oklch, var(--foreground) 75%, transparent); text-decoration: none; padding: 8px 12px; border-radius: 999px; white-space: nowrap; position: relative; }
+  nav.pill a.on { color: var(--primary); }
+  nav.pill a.on::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 4px; height: 2px; border-radius: 2px; background: var(--primary); }
+  nav.pill a.new::before { content: "new"; position: absolute; top: -2px; right: -4px; font-size: 9px; font-weight: 700; color: var(--warning-foreground); }
+  nav.pill .sp { flex: 1; }
+  nav.pill .av { width: 30px; height: 30px; border-radius: 999px; background: var(--muted); flex-shrink: 0; }
+  .ph h2 { font-size: clamp(1.4rem, 2.6vw, 1.75rem); margin: 4px 0 4px; letter-spacing: -0.02em; }
+  .ph p { margin: 0; font-size: 15px; color: var(--muted-foreground); }
+  .ph { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px; }
+  .grid2 { display: grid; gap: 20px; align-items: start; }
+  @media (min-width: 900px) { .grid2 { grid-template-columns: minmax(0,1.35fr) minmax(0,1fr); } }
+  section.card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  section.card h3 { margin: 0; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .row-between { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+  .b-success { background: color-mix(in oklch, var(--primary) 12%, transparent); color: var(--primary); }
+  .b-warning { background: color-mix(in oklch, var(--warning) 15%, transparent); color: var(--warning-foreground); }
+  .b-muted { background: var(--muted); color: var(--muted-foreground); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 10px; font-size: 14px; font-weight: 500; border: 1px solid var(--border); background: var(--card); color: var(--foreground); cursor: pointer; font-family: inherit; }
+  .btn.primary { background: var(--primary); color: var(--primary-foreground); border-color: transparent; }
+  .btn.ghost { border-color: transparent; background: transparent; color: var(--primary); padding: 0 6px; }
+  .muted { color: var(--muted-foreground); }
+  .small { font-size: 13px; }
+  ul.rows { list-style: none; margin: -4px 0; padding: 0; }
+  ul.rows > li { padding: 10px 0; border-top: 1px solid var(--border); display: flex; gap: 12px; align-items: center; }
+  ul.rows > li:first-child { border-top: 0; }
+  .grow { flex: 1; min-width: 0; }
+  .t { font-weight: 500; font-size: 14px; }
+  .date { display: grid; place-content: center; text-align: center; width: 48px; height: 48px; border-radius: 12px; background: var(--muted); flex-shrink: 0; }
+  .date b { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; line-height: 1; }
+  .date span { font-size: 18px; font-weight: 700; line-height: 1.2; }
+
+  /* Draft editor */
+  .draft { border: 1px solid var(--input); border-radius: 12px; padding: 12px 14px; font-size: 14px; background: var(--card); }
+  .draft p { margin: 0 0 8px; }
+  .draft ul { margin: 0; padding-left: 18px; }
+  .draft li { margin: 4px 0; }
+  .src { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; border-radius: 6px; padding: 1px 6px; background: var(--muted); color: var(--muted-foreground); vertical-align: 1px; margin-left: 4px; }
+  .flagged { background: color-mix(in oklch, var(--warning) 14%, transparent); border-radius: 4px; padding: 0 2px; }
+  .sources li { font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--primary); flex-shrink: 0; }
+  .dot.off { background: var(--input); }
+  .photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .photos div { aspect-ratio: 4/3; border-radius: 8px; background: linear-gradient(135deg, var(--muted), color-mix(in oklch, var(--primary) 20%, var(--muted))); position: relative; }
+  .photos div.sel { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .photos div.sel::after { content: "✓"; position: absolute; top: 4px; right: 6px; font-size: 12px; font-weight: 700; color: var(--primary); }
+
+  /* Eboard status */
+  .meter { height: 6px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 60%; background: var(--primary); border-radius: 999px; }
+
+  /* Email */
+  .mail-shell { border: 1px solid var(--border); border-radius: 20px; overflow: hidden; background: var(--muted); }
+  .mail-head { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid var(--border); background: var(--card); display: grid; gap: 2px; }
+  .mail { max-width: 600px; margin: 20px auto; background: var(--card); border-radius: 16px; overflow: hidden; border: 1px solid var(--border); }
+  .mail-hero { padding: 24px; background: radial-gradient(30rem 10rem at 10% -2rem, color-mix(in oklch, var(--primary) 22%, transparent), transparent 70%); }
+  .mail-hero .kick { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; color: var(--primary); }
+  .mail-hero h2 { margin: 6px 0 4px; font-size: 24px; letter-spacing: -0.02em; }
+  .mail-sec { padding: 4px 24px 20px; }
+  .mail-sec h4 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted-foreground); margin: 12px 0 8px; }
+  .ev { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); }
+  .ev:first-of-type { border-top: 0; }
+  .team-up { padding: 10px 0; border-top: 1px solid var(--border); font-size: 14px; }
+  .team-up:first-of-type { border-top: 0; }
+  .team-up b { display: block; margin-bottom: 2px; }
+  .mail-foot { padding: 16px 24px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted-foreground); display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .mail-foot a, .link { color: var(--primary); font-weight: 500; text-decoration: none; }
+  .callout { border: 1px dashed var(--guess); border-radius: 12px; padding: 10px 14px; font-size: 13px; color: var(--foreground); background: color-mix(in oklch, var(--warning) 8%, transparent); }
+  .callout b { color: var(--warning-foreground); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="intro">
+    <h1>Weekly newsletter: second look</h1>
+    <p>Updated from your notes: final sign-off by Brand and Marketing, the President or the VP; no RSVP; photos from Google Drive; plus meeting photos and a home page card. Amber dashed borders are still my guesses.</p>
+    <div class="flow">
+      <span class="step">Mon: AI drafts each team's update</span> →
+      <span class="step">Team lead edits &amp; approves</span> →
+      <span class="step">Brand and Marketing, President or VP gives final approval</span> →
+      <span class="step guess">Thu: emailed to members</span> →
+      <span class="step">Card on members' home page</span>
+    </div>
+  </header>
+
+  <!-- 1. Team lead -->
+  <div>
+    <div class="label"><span class="n">1</span>Team lead · reviewing this week's draft</div>
+    <div class="frame">
+      <nav class="pill">
+        <span class="logo"><i></i>FirstByte</span>
+        <a href="#">Home</a><a href="#">Meetings</a><a href="#">Attendance</a><a href="#">Members</a><a href="#">Teams</a><a href="#" class="on new">Newsletter</a><a href="#">Feedback</a>
+        <span class="sp"></span><span class="av"></span>
+      </nav>
+
+      <div class="ph">
+        <div>
+          <h2>Website: update for Oct 22</h2>
+          <p>Drafted from this week's activity. Fix anything that's off, then approve.</p>
+        </div>
+        <span class="badge b-warning">Due Wed 11:59 PM</span>
+      </div>
+
+      <div class="grid2">
+        <section class="card">
+          <div class="row-between">
+            <h3>Draft <span class="badge b-muted">AI written</span></h3>
+            <button class="btn ghost small">↻ Redraft</button>
+          </div>
+          <div class="draft" contenteditable="true">
+            <p><b>Website</b></p>
+            <ul>
+              <li>Shipped a faster loading screen so the dashboard opens quicker on slow Wi-Fi.<span class="src">GitHub · 3 PRs</span></li>
+              <li>Members can now see their own attendance history on the dashboard.<span class="src">GitHub</span></li>
+              <li><span class="flagged">Started planning a members-only events page.</span><span class="src">Slack #website</span></li>
+            </ul>
+          </div>
+          <p class="small muted" style="margin:0">The highlighted line came from a Slack conversation, not shipped work. Check it's ready to share.</p>
+
+          <div>
+            <div class="small" style="font-weight:600;margin-bottom:6px">Photo (optional)</div>
+            <div class="photos"><div class="sel"></div><div></div><div></div></div>
+            <p class="small muted" style="margin:6px 0 0">From photos Brand and Marketing attached to this week's meetings, in Google Drive.</p>
+          </div>
+
+          <div class="row-between" style="padding-top:4px">
+            <button class="btn">Skip this week</button>
+            <button class="btn primary">Approve update</button>
+          </div>
+        </section>
+
+        <div style="display:grid;gap:20px">
+          <section class="card">
+            <h3>Where this came from</h3>
+            <ul class="rows sources">
+              <li><span class="dot"></span><span class="grow">GitHub: 5 merged pull requests</span><span class="muted small">Website repo</span></li>
+              <li><span class="dot"></span><span class="grow">Slack: #website, 42 messages</span><span class="muted small">Mon–Sun</span></li>
+              <li><span class="dot"></span><span class="grow">Dashboard: 1 team meeting, 8 attended</span></li>
+              <li><span class="dot"></span><span class="grow">Google Drive: 6 meeting photos</span><span class="muted small">FirstByte Photos</span></li>
+            </ul>
+          </section>
+          <div class="callout"><b>My guess:</b> the "Where this came from" list. The idea is that a lead can see why the AI wrote what it wrote, and catch anything private before it goes out.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. E-Board -->
+  <div>
+    <div class="label"><span class="n">2</span>Final approval · Brand and Marketing lead, President or VP</div>
+    <div class="frame">
+      <nav class="pill">
+        <span class="logo"><i></i>FirstByte</span>
+        <a href="#">Home</a><a href="#">Meetings</a><a href="#">Attendance</a><a href="#">Members</a><a href="#">Teams</a><a href="#" class="on new">Newsletter</a><a href="#">Feedback</a>
+        <span class="sp"></span><span class="av"></span>
+      </nav>
+      <div class="ph">
+        <div>
+          <h2>Issue for Thu, Oct 22</h2>
+          <p>3 of 5 teams have approved. Sends Thursday at 9:00 AM once you approve.</p>
+        </div>
+        <div style="display:flex;gap:8px"><button class="btn">Preview email</button><button class="btn primary">Approve &amp; schedule</button></div>
+      </div>
+      <div class="grid2">
+        <section class="card">
+          <div class="row-between"><h3>Team updates <span class="badge b-warning">2</span></h3><span class="small muted">3 / 5 approved</span></div>
+          <div class="meter"><i></i></div>
+          <ul class="rows">
+            <li><span class="grow t">Website</span><span class="badge b-success">Approved</span></li>
+            <li><span class="grow t">Events</span><span class="badge b-success">Approved</span></li>
+            <li><span class="grow t">Brand and Marketing</span><span class="badge b-success">Approved</span></li>
+            <li><span class="grow t">CS Curricula</span><span class="badge b-warning">Draft waiting</span><button class="btn ghost small">Nudge lead</button></li>
+            <li><span class="grow t">STEM Curricula</span><span class="badge b-warning">Draft waiting</span><button class="btn ghost small">Nudge lead</button></li>
+          </ul>
+        </section>
+        <section class="card">
+          <div class="row-between"><h3>Coming up</h3><span class="small muted">from Meetings</span></div>
+          <ul class="rows">
+            <li><span class="date"><b>Oct</b><span>27</span></span><span class="grow"><span class="t">General Meeting</span><br><span class="small muted">Tue 7:00 PM · All members</span></span></li>
+            <li><span class="date"><b>Oct</b><span>30</span></span><span class="grow"><span class="t">FirstBites</span><br><span class="small muted">Fri 6:00 PM · All members</span></span></li>
+            <li><span class="date"><b>Nov</b><span>2</span></span><span class="grow"><span class="t">Collab: workshop with a partner club</span><br><span class="small muted">Added by E-Board</span></span><span class="badge b-muted">Collab</span></li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Email -->
+  <div>
+    <div class="label"><span class="n">3</span>Member · the email in their inbox</div>
+    <div class="mail-shell">
+      <div class="mail-head">
+        <span><b>FirstByte</b> &lt;news@teachfirstbyte.com&gt;</span>
+        <span class="muted">This week at FirstByte: FirstBites Friday, and a faster dashboard</span>
+      </div>
+      <div class="mail">
+        <div class="mail-hero">
+          <div class="kick">$ firstbyte --this-week</div>
+          <h2>This week at FirstByte</h2>
+          <p class="muted" style="margin:0;font-size:14px">Thursday, Oct 22 · 2 events coming up · 5 team updates</p>
+        </div>
+        <div class="mail-sec">
+          <h4>Coming up</h4>
+          <div class="ev"><span class="date"><b>Oct</b><span>27</span></span><span class="grow"><span class="t">General Meeting</span><br><span class="small muted">Tue 7:00 PM · Required</span></span><a class="link small" href="#">Details →</a></div>
+          <div class="ev"><span class="date"><b>Oct</b><span>30</span></span><span class="grow"><span class="t">FirstBites</span><br><span class="small muted">Fri 6:00 PM</span></span><a class="link small" href="#">Details →</a></div>
+          <div class="ev"><span class="date"><b>Nov</b><span>2</span></span><span class="grow"><span class="t">Workshop with a partner club</span><br><span class="small muted">Sun 2:00 PM · Collab</span></span><a class="link small" href="#">Details →</a></div>
+        </div>
+        <div class="mail-sec">
+          <h4>What the teams are up to</h4>
+          <div class="team-up"><b>Website</b>Shipped a faster loading screen and a page where you can see your own attendance.</div>
+          <div class="team-up"><b>Events</b>Booked the room for FirstBites and picked this month's food.</div>
+          <div class="team-up"><b>Brand and Marketing</b>Posted recap photos from last week's general meeting.<div class="photos" style="margin-top:8px;grid-template-columns:repeat(2,1fr)"><div></div><div></div></div></div>
+          <div class="team-up"><b>CS Curricula</b>Finished lesson 3 of the intro Python unit.</div>
+          <div class="team-up"><b>STEM Curricula</b>Tested the circuits activity with a pilot group.</div>
+          <p style="margin:12px 0 0"><a class="link" href="#">Read more and reply on the dashboard →</a></p>
+        </div>
+        <div class="mail-foot"><span>FirstByte · CS &amp; STEM education</span><a href="#">Unsubscribe</a></div>
+      </div>
+    </div>
+    <div class="callout" style="margin-top:12px"><b>My guesses on this screen:</b> no RSVP. Each event just links to its page on the dashboard, where the existing "I can't make it" button already lives. Thursday as send day, and "Read more and reply" leading to the forum later, are also mine.</div>
+  </div>
+
+  <!-- 4. Meeting photos -->
+  <div>
+    <div class="label"><span class="n">4</span>Brand and Marketing · adding photos to a meeting afterwards</div>
+    <div class="frame">
+      <nav class="pill">
+        <span class="logo"><i></i>FirstByte</span>
+        <a href="#">Home</a><a href="#" class="on">Meetings</a><a href="#">Attendance</a><a href="#">Members</a><a href="#">Teams</a><a href="#">Newsletter</a><a href="#">Feedback</a>
+        <span class="sp"></span><span class="av"></span>
+      </nav>
+      <div class="ph">
+        <div>
+          <h2>General Meeting · Oct 20</h2>
+          <p>Tue 7:00 PM · All members · 34 present</p>
+        </div>
+        <span class="badge b-muted">Attendance closed</span>
+      </div>
+      <div class="grid2">
+        <section class="card">
+          <div class="row-between">
+            <h3>Photos <span class="badge b-success">6</span></h3>
+            <button class="btn primary">+ Add from Google Drive</button>
+          </div>
+          <div class="photos"><div></div><div></div><div></div><div></div><div></div><div></div></div>
+          <p class="small muted" style="margin:0">Saved to the club's Google Drive, in a folder for this meeting. Photos added here can go into the next newsletter.</p>
+        </section>
+        <div class="callout"><b>My guess:</b> photos are added only once the meeting is over, and only by Brand and Marketing and officers. Members don't see this section yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Home page card -->
+  <div>
+    <div class="label"><span class="n">5</span>Member · dashboard home when a new issue drops</div>
+    <div class="frame">
+      <nav class="pill">
+        <span class="logo"><i></i>FirstByte</span>
+        <a href="#" class="on">Home</a><a href="#">Meetings</a><a href="#">My attendance</a>
+        <span class="sp"></span><span class="av"></span>
+      </nav>
+      <div class="ph">
+        <div>
+          <h2>Hi, Sam</h2>
+          <p>Next up: General Meeting, Tue 7:00 PM.</p>
+        </div>
+      </div>
+      <section class="card" style="border-color:color-mix(in oklch, var(--primary) 35%, var(--border));background:linear-gradient(90deg, color-mix(in oklch, var(--primary) 7%, var(--card)), var(--card))">
+        <div class="row-between">
+          <div style="display:flex;gap:12px;align-items:center;min-width:0">
+            <span class="date" style="background:color-mix(in oklch, var(--primary) 12%, transparent);color:var(--primary)"><b>New</b><span>✉</span></span>
+            <div class="grow">
+              <div class="t">This week at FirstByte is out</div>
+              <div class="small muted">FirstBites Friday, a faster dashboard, and 5 team updates.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px"><button class="btn ghost">Dismiss</button><button class="btn primary">Read it</button></div>
+        </div>
+      </section>
+      <div class="grid2">
+        <section class="card"><h3>Coming up</h3>
+          <ul class="rows">
+            <li><span class="date"><b>Oct</b><span>27</span></span><span class="grow"><span class="t">General Meeting</span><br><span class="small muted">Tue 7:00 PM</span></span><button class="btn small">I can't make it</button></li>
+            <li><span class="date"><b>Oct</b><span>30</span></span><span class="grow"><span class="t">FirstBites</span><br><span class="small muted">Fri 6:00 PM</span></span></li>
+          </ul>
+        </section>
+        <div class="callout"><b>My guess:</b> the card sits at the top of the home page until the member opens it or dismisses it, and is replaced by next week's issue.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

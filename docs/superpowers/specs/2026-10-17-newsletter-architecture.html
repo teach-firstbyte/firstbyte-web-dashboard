@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Newsletter Architecture</title>
+<style>
+  :root {
+    --background: oklch(0.972 0.014 84);
+    --foreground: oklch(0.145 0.005 286);
+    --card: oklch(1 0 0);
+    --primary: oklch(0.527 0.137 150);
+    --primary-soft: oklch(0.527 0.137 150 / 0.10);
+    --muted: oklch(0.945 0.012 84);
+    --muted-foreground: oklch(0.5 0.014 286);
+    --border: oklch(0.905 0.014 84);
+    --line: oklch(0.145 0.005 286 / 0.38);
+    --warning: oklch(0.62 0.14 75);
+    --warning-foreground: oklch(0.42 0.1 70);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --background: oklch(0.147 0.004 49);
+      --foreground: oklch(0.961 0 0);
+      --card: oklch(0.216 0.006 56);
+      --primary: oklch(0.723 0.192 150);
+      --primary-soft: oklch(0.723 0.192 150 / 0.12);
+      --muted: oklch(0.268 0.007 34);
+      --muted-foreground: oklch(0.705 0.015 286);
+      --border: oklch(1 0 0 / 10%);
+      --line: oklch(0.961 0 0 / 0.38);
+      --warning: oklch(0.75 0.15 80);
+      --warning-foreground: oklch(0.88 0.08 85);
+    }
+  }
+  :root[data-theme="dark"] {
+    --background: oklch(0.147 0.004 49);
+    --foreground: oklch(0.961 0 0);
+    --card: oklch(0.216 0.006 56);
+    --primary: oklch(0.723 0.192 150);
+    --primary-soft: oklch(0.723 0.192 150 / 0.12);
+    --muted: oklch(0.268 0.007 34);
+    --muted-foreground: oklch(0.705 0.015 286);
+    --border: oklch(1 0 0 / 10%);
+    --line: oklch(0.961 0 0 / 0.38);
+    --warning: oklch(0.75 0.15 80);
+    --warning-foreground: oklch(0.88 0.08 85);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--background);
+    background-image: radial-gradient(60rem 20rem at 15% -6rem, color-mix(in oklch, var(--primary) 16%, transparent), transparent 70%);
+    background-repeat: no-repeat;
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 16px 16px 64px; display: grid; gap: 24px; }
+  header h1 { font-size: clamp(1.6rem, 3vw, 2rem); letter-spacing: -0.02em; margin: 8px 0 4px; }
+  header p { margin: 0; color: var(--muted-foreground); font-size: 15px; max-width: 70ch; }
+  section.card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; min-width: 0; }
+  section.card h2 { margin: 0 0 4px; font-size: 17px; letter-spacing: -0.01em; }
+  section.card > p.lead { margin: 0 0 12px; color: var(--muted-foreground); font-size: 14px; max-width: 75ch; }
+  .label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--primary); margin-bottom: 4px; }
+  figure { margin: 0; }
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  svg { display: block; width: 100%; min-width: 720px; height: auto; color: var(--foreground); }
+  figcaption { font-size: 13px; color: var(--muted-foreground); margin-top: 10px; max-width: 80ch; }
+
+  /* Diagram vocabulary */
+  svg text { fill: currentColor; font-family: inherit; }
+  .t { font-size: 14px; font-weight: 600; }
+  .s { font-size: 12px; fill: var(--muted-foreground); }
+  .lbl { font-size: 12px; fill: var(--muted-foreground); }
+  .lbl-p { font-size: 12px; fill: var(--primary); font-weight: 600; }
+  .box { fill: var(--card); stroke: var(--line); stroke-width: 1.2; }
+  .box-new { fill: var(--primary-soft); stroke: var(--primary); stroke-width: 1.6; }
+  .zone { fill: none; stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 5 5; }
+  .arrow { stroke: currentColor; stroke-width: 1.4; fill: none; opacity: .75; }
+  .arrow-p { stroke: var(--primary); stroke-width: 1.8; fill: none; }
+  .dash { stroke-dasharray: 5 4; }
+  .life { stroke: var(--line); stroke-dasharray: 3 5; stroke-width: 1.2; }
+  .bar { stroke: var(--primary); stroke-width: 3; stroke-linecap: round; }
+  .chip { fill: var(--muted); stroke: var(--line); stroke-width: 1; }
+  .chip-p { fill: var(--primary-soft); stroke: var(--primary); stroke-width: 1.4; }
+  .chip-w { fill: none; stroke: var(--warning); stroke-width: 1.4; stroke-dasharray: 5 4; }
+  .head-fill { fill: currentColor; opacity: .75; }
+  .head-p { fill: var(--primary); }
+
+  .grid2 { display: grid; gap: 16px; }
+  @media (min-width: 860px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px 8px 0; border-top: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted-foreground); font-weight: 600; border-top: 0; }
+  .muted { color: var(--muted-foreground); }
+  .guess { display: inline-block; font-size: 12px; color: var(--warning-foreground); background: color-mix(in oklch, var(--warning) 15%, transparent); border-radius: 999px; padding: 1px 8px; font-weight: 500; }
+  ul.tight { margin: 0; padding-left: 18px; font-size: 14px; }
+  ul.tight li { margin: 4px 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--muted-foreground); margin-bottom: 8px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 18px; height: 12px; border-radius: 3px; display: inline-block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>How the newsletter would work</h1>
+    <p>The newsletter is added to the dashboard you already run. The website, Vercel and Supabase stay as they are; green boxes are the new parts. Days and times are my calls and easy to change.</p>
+  </header>
+
+  <!-- 1. System map -->
+  <section class="card">
+    <div class="label">1 · The pieces</div>
+    <h2>What talks to what</h2>
+    <p class="lead">Three outside services feed in, the dashboard does the work, and two services go out: Claude writes the drafts, Resend sends the email.</p>
+    <div class="legend"><span><i class="sw" style="background:var(--primary-soft);border:1.6px solid var(--primary)"></i>New</span><span><i class="sw" style="border:1.2px solid var(--line)"></i>Exists today or outside service</span></div>
+    <figure>
+      <div class="scroll">
+      <svg viewBox="0 0 1000 550" role="img" aria-label="System map: Slack, GitHub and Google Drive feed four new parts inside the existing dashboard on Vercel. The draft job sends text to the Claude API and gets drafts back. The dashboard reads and saves to the existing Supabase database. The send job hands the approved issue to Resend, which emails about 60 members; members also see a home page card in the dashboard.">
+        <defs>
+          <marker id="h1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="head-fill"/></marker>
+        </defs>
+
+        <!-- Sources -->
+        <rect class="box" x="20" y="50" width="190" height="74" rx="12"/>
+        <text class="t" x="36" y="76">Slack</text>
+        <text class="s" x="36" y="96">bot reads only channels</text>
+        <text class="s" x="36" y="112">it's been invited into</text>
+
+        <rect class="box" x="20" y="170" width="190" height="74" rx="12"/>
+        <text class="t" x="36" y="196">GitHub</text>
+        <text class="s" x="36" y="216">read-only app on</text>
+        <text class="s" x="36" y="232">the repos you pick</text>
+
+        <rect class="box" x="20" y="290" width="190" height="74" rx="12"/>
+        <text class="t" x="36" y="316">Google Drive</text>
+        <text class="s" x="36" y="336">can open only the</text>
+        <text class="s" x="36" y="352">FirstByte Photos folder</text>
+
+        <!-- Vercel zone -->
+        <rect class="zone" x="260" y="20" width="390" height="410" rx="16"/>
+        <text class="t" x="280" y="44">FirstByte dashboard</text>
+        <text class="s" x="430" y="44">on Vercel · exists today</text>
+
+        <rect class="box-new" x="285" y="60" width="340" height="64" rx="12"/>
+        <text class="t" x="301" y="86">Weekly draft job</text>
+        <text class="s" x="301" y="106">runs by itself Monday morning</text>
+
+        <rect class="box-new" x="285" y="150" width="340" height="64" rx="12"/>
+        <text class="t" x="301" y="176">Newsletter pages</text>
+        <text class="s" x="301" y="196">leads edit · final approver signs off</text>
+
+        <rect class="box-new" x="285" y="240" width="340" height="64" rx="12"/>
+        <text class="t" x="301" y="266">Meeting photos</text>
+        <text class="s" x="301" y="286">upload from a meeting's page</text>
+
+        <rect class="box-new" x="285" y="330" width="340" height="64" rx="12"/>
+        <text class="t" x="301" y="356">Send job</text>
+        <text class="s" x="301" y="376">runs Thursday · sends only if approved</text>
+
+        <!-- Sources -> dashboard -->
+        <line class="arrow" x1="210" y1="87" x2="283" y2="87" marker-end="url(#h1)"/>
+        <text class="lbl" x="236" y="80" text-anchor="middle">reads</text>
+        <line class="arrow" x1="210" y1="207" x2="283" y2="110" marker-end="url(#h1)"/>
+        <text class="lbl" x="230" y="160" text-anchor="middle">reads</text>
+        <line class="arrow" x1="283" y1="280" x2="212" y2="322" marker-end="url(#h1)" marker-start="url(#h1)"/>
+        <text class="lbl" x="234" y="290" text-anchor="middle">stores</text>
+
+        <!-- Claude -->
+        <rect class="box" x="720" y="50" width="250" height="74" rx="12"/>
+        <text class="t" x="736" y="76">Claude API</text>
+        <text class="s" x="736" y="96">writes the drafts</text>
+        <text class="s" x="736" y="112">about $2 a month</text>
+        <line class="arrow" x1="625" y1="80" x2="718" y2="80" marker-end="url(#h1)"/>
+        <text class="lbl" x="685" y="72" text-anchor="middle">text in</text>
+        <line class="arrow" x1="718" y1="104" x2="627" y2="104" marker-end="url(#h1)"/>
+        <text class="lbl" x="685" y="120" text-anchor="middle">draft out</text>
+
+        <!-- Supabase -->
+        <rect class="box" x="720" y="160" width="250" height="160" rx="12"/>
+        <text class="t" x="736" y="186">Supabase database</text>
+        <text class="s" x="736" y="204">exists today</text>
+        <text class="s" x="736" y="230">today: members, teams,</text>
+        <text class="s" x="736" y="246">meetings, attendance</text>
+        <text class="lbl-p" x="736" y="274">new: drafts, issues,</text>
+        <text class="lbl-p" x="736" y="290">photo links, AI sources</text>
+        <line class="arrow" x1="652" y1="240" x2="718" y2="240" marker-end="url(#h1)" marker-start="url(#h1)"/>
+        <text class="lbl" x="685" y="232" text-anchor="middle">saves</text>
+
+        <!-- Resend -->
+        <rect class="box" x="720" y="345" width="250" height="64" rx="12"/>
+        <text class="t" x="736" y="371">Resend (email)</text>
+        <text class="s" x="736" y="391">free plan · up to 100 a day</text>
+        <line class="arrow" x1="625" y1="365" x2="718" y2="372" marker-end="url(#h1)"/>
+        <text class="lbl" x="685" y="360" text-anchor="middle">issue</text>
+
+        <!-- Members -->
+        <rect class="box" x="285" y="470" width="685" height="60" rx="12"/>
+        <text class="t" x="301" y="496">Members (about 60)</text>
+        <text class="s" x="301" y="516">email in their inbox · "new issue" card on dashboard home · meeting pages</text>
+        <line class="arrow" x1="845" y1="409" x2="845" y2="468" marker-end="url(#h1)"/>
+        <text class="lbl" x="855" y="444">weekly email</text>
+        <line class="arrow" x1="455" y1="430" x2="455" y2="468" marker-end="url(#h1)"/>
+        <text class="lbl" x="465" y="454">home card</text>
+      </svg>
+      </div>
+      <figcaption>Nothing outside the dashboard can reach the database. Keys for Slack, GitHub, Google, Claude and Resend live in Vercel's settings, next to the secret the hourly attendance job already uses.</figcaption>
+    </figure>
+  </section>
+
+  <!-- 2. Safeguards pipeline -->
+  <section class="card">
+    <div class="label">2 · Inside the draft job</div>
+    <h2>How a draft is made, and where each safeguard sits</h2>
+    <p class="lead">The two failures you named, sharing private things and making things up, are each stopped by code before a person ever sees the draft. Then two people check it anyway.</p>
+    <figure>
+      <div class="scroll">
+      <svg viewBox="0 0 1000 300" role="img" aria-label="Draft pipeline in five steps: collect from switched-on sources only, clean out private details, Claude writes each line with source IDs, check drops any line whose source was not collected, save the draft and links and discard raw messages. Steps one and two stop sharing private things; steps three and four stop made-up lines; step five keeps as little as possible. Then the team lead and the final approver check it.">
+        <defs>
+          <marker id="h2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="head-fill"/></marker>
+        </defs>
+        <rect class="box-new" x="20" y="20" width="170" height="116" rx="12"/>
+        <text class="lbl-p" x="36" y="44">1</text><text class="t" x="50" y="44">Collect</text>
+        <text class="s" x="36" y="68">Only switched-on</text>
+        <text class="s" x="36" y="84">channels, repos and</text>
+        <text class="s" x="36" y="100">folders. Never DMs</text>
+        <text class="s" x="36" y="116">or private channels.</text>
+
+        <rect class="box-new" x="215" y="20" width="170" height="116" rx="12"/>
+        <text class="lbl-p" x="231" y="44">2</text><text class="t" x="245" y="44">Clean</text>
+        <text class="s" x="231" y="68">Strip phone numbers,</text>
+        <text class="s" x="231" y="84">emails, outsiders'</text>
+        <text class="s" x="231" y="100">names, anyone's</text>
+        <text class="s" x="231" y="116">grades or attendance.</text>
+
+        <rect class="box-new" x="410" y="20" width="170" height="116" rx="12"/>
+        <text class="lbl-p" x="426" y="44">3</text><text class="t" x="440" y="44">Write</text>
+        <text class="s" x="426" y="68">Claude writes each</text>
+        <text class="s" x="426" y="84">line and must list</text>
+        <text class="s" x="426" y="100">which messages or</text>
+        <text class="s" x="426" y="116">PRs it came from.</text>
+
+        <rect class="box-new" x="605" y="20" width="170" height="116" rx="12"/>
+        <text class="lbl-p" x="621" y="44">4</text><text class="t" x="635" y="44">Check</text>
+        <text class="s" x="621" y="68">Drop any line whose</text>
+        <text class="s" x="621" y="84">source wasn't really</text>
+        <text class="s" x="621" y="100">collected. Highlight</text>
+        <text class="s" x="621" y="116">talk-only lines.</text>
+
+        <rect class="box-new" x="800" y="20" width="170" height="116" rx="12"/>
+        <text class="lbl-p" x="816" y="44">5</text><text class="t" x="830" y="44">Save</text>
+        <text class="s" x="816" y="68">Keep the draft and</text>
+        <text class="s" x="816" y="84">its source links.</text>
+        <text class="s" x="816" y="100">Throw away the raw</text>
+        <text class="s" x="816" y="116">Slack messages.</text>
+
+        <line class="arrow" x1="190" y1="78" x2="213" y2="78" marker-end="url(#h2)"/>
+        <line class="arrow" x1="385" y1="78" x2="408" y2="78" marker-end="url(#h2)"/>
+        <line class="arrow" x1="580" y1="78" x2="603" y2="78" marker-end="url(#h2)"/>
+        <line class="arrow" x1="775" y1="78" x2="798" y2="78" marker-end="url(#h2)"/>
+
+        <line class="bar" x1="24" y1="166" x2="381" y2="166"/>
+        <text class="t" x="202" y="190" text-anchor="middle">Stops sharing private things</text>
+        <line class="bar" x1="414" y1="166" x2="771" y2="166"/>
+        <text class="t" x="592" y="190" text-anchor="middle">Stops making things up</text>
+        <line class="bar" x1="804" y1="166" x2="966" y2="166"/>
+        <text class="t" x="885" y="190" text-anchor="middle">Keeps as little as possible</text>
+
+        <rect class="box" x="20" y="222" width="950" height="58" rx="12"/>
+        <text class="t" x="36" y="247">Then people check it</text>
+        <text class="s" x="36" y="266">Team lead edits and approves their team's part → Brand and Marketing lead, President or VP gives final approval → only then can it send.</text>
+      </svg>
+      </div>
+      <figcaption>Step 4 is plain code, not AI: it compares the source IDs Claude cites against the list the job actually collected, so a line that points at nothing never reaches a lead.</figcaption>
+    </figure>
+  </section>
+
+  <!-- 3. Week timeline -->
+  <section class="card">
+    <div class="label">3 · One week</div>
+    <h2>When things happen, and what stops a send</h2>
+    <p class="lead">The send job checks one thing: has this week's issue been given final approval? If not, nothing goes out.</p>
+    <figure>
+      <div class="scroll">
+      <svg viewBox="0 0 1000 270" role="img" aria-label="Weekly timeline. Monday 9 AM the draft job writes five drafts and the issue is Collecting. Monday to Wednesday leads edit, approve or skip, and the issue becomes Ready for approval. By Wednesday night the final approver signs off and it becomes Approved. Thursday 9 AM the send job emails it and the home card appears, so it is Sent. If there is no final approval by Thursday, the issue holds and nothing sends.">
+        <defs>
+          <marker id="h3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="head-fill"/></marker>
+          <marker id="h3w" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--warning)"/></marker>
+        </defs>
+        <text class="lbl-p" x="125" y="20" text-anchor="middle">Mon 9 AM</text>
+        <text class="lbl-p" x="375" y="20" text-anchor="middle">Mon – Wed</text>
+        <text class="lbl-p" x="625" y="20" text-anchor="middle">by Wed night</text>
+        <text class="lbl-p" x="875" y="20" text-anchor="middle">Thu 9 AM</text>
+
+        <rect class="box-new" x="15" y="30" width="220" height="74" rx="12"/>
+        <text class="t" x="125" y="60" text-anchor="middle">Draft job runs</text>
+        <text class="s" x="125" y="80" text-anchor="middle">one draft per team</text>
+
+        <rect class="box" x="265" y="30" width="220" height="74" rx="12"/>
+        <text class="t" x="375" y="60" text-anchor="middle">Leads edit</text>
+        <text class="s" x="375" y="80" text-anchor="middle">approve, or skip the week</text>
+
+        <rect class="box" x="515" y="30" width="220" height="74" rx="12"/>
+        <text class="t" x="625" y="60" text-anchor="middle">Final approval</text>
+        <text class="s" x="625" y="80" text-anchor="middle">B&amp;M lead, President or VP</text>
+
+        <rect class="box-new" x="765" y="30" width="220" height="74" rx="12"/>
+        <text class="t" x="875" y="60" text-anchor="middle">Send job runs</text>
+        <text class="s" x="875" y="80" text-anchor="middle">email + home page card</text>
+
+        <text class="s" x="15" y="146">Issue status</text>
+        <rect class="chip" x="45" y="158" width="160" height="36" rx="18"/>
+        <text class="t" x="125" y="181" text-anchor="middle">Collecting</text>
+        <rect class="chip" x="285" y="158" width="180" height="36" rx="18"/>
+        <text class="t" x="375" y="181" text-anchor="middle">Ready for approval</text>
+        <rect class="chip" x="545" y="158" width="160" height="36" rx="18"/>
+        <text class="t" x="625" y="181" text-anchor="middle">Approved</text>
+        <rect class="chip-p" x="795" y="158" width="160" height="36" rx="18"/>
+        <text class="t" x="875" y="181" text-anchor="middle">Sent</text>
+
+        <line class="arrow" x1="205" y1="176" x2="283" y2="176" marker-end="url(#h3)"/>
+        <line class="arrow" x1="465" y1="176" x2="543" y2="176" marker-end="url(#h3)"/>
+        <line class="arrow" x1="705" y1="176" x2="793" y2="176" marker-end="url(#h3)"/>
+
+        <path d="M375,194 L375,236 L793,236" fill="none" stroke="var(--warning)" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#h3w)"/>
+        <text class="lbl" x="580" y="228" text-anchor="middle">no final approval by Thursday</text>
+        <rect class="chip-w" x="795" y="218" width="190" height="36" rx="18"/>
+        <text class="t" x="890" y="241" text-anchor="middle">Holds · nothing sends</text>
+      </svg>
+      </div>
+      <figcaption>A team whose lead never approves is simply left out of that week's issue <span class="guess">my call</span>. The final approver gets a reminder Wednesday if the issue is still waiting <span class="guess">my call</span>.</figcaption>
+    </figure>
+  </section>
+
+  <!-- 4. Photo upload -->
+  <section class="card">
+    <div class="label">4 · Meeting photos</div>
+    <h2>Uploading a photo without filling up Supabase</h2>
+    <p class="lead">The photo itself travels from the browser straight to Google Drive. The dashboard only arranges the trip and keeps a link.</p>
+    <figure>
+      <div class="scroll">
+      <svg viewBox="0 0 1000 360" role="img" aria-label="Photo upload sequence between Brand and Marketing's browser, the dashboard, Google Drive and Supabase. One: the browser removes location data. Two: it asks the dashboard to upload photos to a meeting. Three: the dashboard finds or creates that meeting's Drive folder and gets upload links. Four: the dashboard hands the links to the browser. Five: the photos go straight from the browser to Drive. Six: the browser tells the dashboard it is done. Seven: the dashboard saves only the photo IDs in Supabase.">
+        <defs>
+          <marker id="h4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="head-fill"/></marker>
+          <marker id="h4p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="head-p"/></marker>
+        </defs>
+        <rect class="box" x="20" y="16" width="190" height="46" rx="12"/>
+        <text class="t" x="115" y="44" text-anchor="middle">B&amp;M's browser</text>
+        <rect class="box-new" x="285" y="16" width="190" height="46" rx="12"/>
+        <text class="t" x="380" y="44" text-anchor="middle">Dashboard</text>
+        <rect class="box" x="555" y="16" width="190" height="46" rx="12"/>
+        <text class="t" x="650" y="44" text-anchor="middle">Google Drive</text>
+        <rect class="box" x="790" y="16" width="190" height="46" rx="12"/>
+        <text class="t" x="885" y="44" text-anchor="middle">Supabase</text>
+
+        <line class="life" x1="115" y1="62" x2="115" y2="345"/>
+        <line class="life" x1="380" y1="62" x2="380" y2="345"/>
+        <line class="life" x1="650" y1="62" x2="650" y2="345"/>
+        <line class="life" x1="885" y1="62" x2="885" y2="345"/>
+
+        <rect class="chip" x="30" y="78" width="170" height="30" rx="8"/>
+        <text class="s" x="115" y="98" text-anchor="middle">1 · removes location data</text>
+
+        <line class="arrow" x1="115" y1="138" x2="378" y2="138" marker-end="url(#h4)"/>
+        <text class="lbl" x="247" y="130" text-anchor="middle">2 · "6 photos for Oct 20 meeting"</text>
+
+        <line class="arrow" x1="380" y1="178" x2="648" y2="178" marker-end="url(#h4)"/>
+        <text class="lbl" x="515" y="170" text-anchor="middle">3 · find or make folder, get upload links</text>
+
+        <line class="arrow dash" x1="380" y1="214" x2="117" y2="214" marker-end="url(#h4)"/>
+        <text class="lbl" x="247" y="206" text-anchor="middle">4 · upload links</text>
+
+        <line class="arrow-p" x1="115" y1="256" x2="648" y2="256" marker-end="url(#h4p)"/>
+        <text class="lbl-p" x="382" y="248" text-anchor="middle">5 · photos go straight to Drive</text>
+
+        <line class="arrow" x1="115" y1="292" x2="378" y2="292" marker-end="url(#h4)"/>
+        <text class="lbl" x="247" y="284" text-anchor="middle">6 · done</text>
+
+        <line class="arrow" x1="380" y1="328" x2="883" y2="328" marker-end="url(#h4)"/>
+        <text class="lbl" x="767" y="320" text-anchor="middle">7 · save photo IDs only</text>
+      </svg>
+      </div>
+      <figcaption>Folders are made by the dashboard as needed, for example <code>FirstByte Photos / 2026-27 / Oct 20 – General Meeting</code>. Sending photos straight to Drive also avoids Vercel's limit on how large a file its server can receive. Each saved ID is a few bytes. Photos dropped into Drive by hand show up too.</figcaption>
+    </figure>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <div class="label">For the president</div>
+      <h2>Access is limited by Slack, GitHub and Google, not just by our code</h2>
+      <table>
+        <tr><th>Service</th><th>What it can do</th><th>How it's limited</th></tr>
+        <tr><td>Slack</td><td>Read messages</td><td>A Slack bot can only read channels someone invites it into. Kick it out and it's blind.</td></tr>
+        <tr><td>GitHub</td><td>Read merged PRs</td><td>A GitHub App with read-only permission, installed on chosen repos only.</td></tr>
+        <tr><td>Google Drive</td><td>Add and read photos</td><td>Google account for the dashboard (a "service account") that can open only folders shared with it.</td></tr>
+        <tr><td>Claude</td><td>Write drafts</td><td>Sees only the cleaned text for one team at a time; nothing is sent without two people approving.</td></tr>
+      </table>
+      <p class="muted" style="font-size:13px;margin:10px 0 0">The "What the AI can see" page simply lists what each of these is currently allowed to read.</p>
+    </section>
+
+    <section class="card">
+      <div class="label">What gets built</div>
+      <h2>New code, on the dashboard's existing setup</h2>
+      <ul class="tight">
+        <li><b>Two scheduled jobs</b> on Vercel, set up like the hourly attendance one.</li>
+        <li><b>New database tables</b> for sources, drafts, issues and photo links, added with the same migration process as today.</li>
+        <li><b>Newsletter pages</b>, a photos section on meeting pages, and the home page card, built from the components the dashboard already uses.</li>
+        <li><b>Who can approve</b>: a new rule naming the Brand and Marketing lead, President and VP, separate from today's top-level access, so the website lead can't approve.</li>
+        <li><b>Running cost</b>: about $2 a month for Claude; Resend, Slack, GitHub and Drive are free at 60 members.</li>
+      </ul>
+    </section>
+  </div>
+</div>
+</body>
+</html>
