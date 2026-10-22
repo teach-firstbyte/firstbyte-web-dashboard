@@ -7,7 +7,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { requireApprovedUser } from "@/lib/auth/requireApprovedUser";
 import { getViewMode } from "@/lib/auth/viewMode";
 import { isNewsletterEnabled } from "@/lib/newsletter/enabled";
-import { SLACK_IS_SAMPLE, sourcesForTeam } from "@/lib/newsletter/sources";
+import { SOURCES_ARE_SAMPLE, sourcesForTeam } from "@/lib/newsletter/sources";
 import { listNewsletterTeams } from "@/server/newsletter/queries";
 
 /**
@@ -43,13 +43,15 @@ export default async function NewsletterSourcesPage() {
                         <span className="text-muted-foreground">
                           {" "}
                           · read-only
+                          {SOURCES_ARE_SAMPLE &&
+                            ", sample pull requests for now"}
                         </span>
                       </li>
                     ))}
                     {s.slack.map((c) => (
                       <li key={c}>
                         Slack: {c}
-                        {SLACK_IS_SAMPLE && (
+                        {SOURCES_ARE_SAMPLE && (
                           <span className="text-muted-foreground">
                             {" "}
                             · sample messages for now

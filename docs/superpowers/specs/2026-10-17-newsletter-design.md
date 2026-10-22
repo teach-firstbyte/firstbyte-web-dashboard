@@ -424,7 +424,7 @@ What's real and what's sample in the prototype **(my call)**:
 |---|---|
 | Dashboard pages | Real: Newsletter tab, lead's draft editor, final approval page, member issue page, home page card. |
 | Final approver rule | Real, using preview's test accounts. |
-| GitHub | Real: read-only, from this repo's merged pull requests. The repo is public, so no GitHub App is needed yet. |
+| GitHub | Sample: made-up merged pull requests for the Website and CS Curricula teams. Everything the AI reads is sample data in the prototype. |
 | Slack | Sample: realistic example messages from files in the repo, including the trap messages (a phone number, a private-sounding message, a claim with no source), so the president can watch the safeguards catch them. |
 | Claude | Real: drafts are written by the API, with the citation check. |
 | Email | Real send, but only to an allowlist (for example, you and the president). |

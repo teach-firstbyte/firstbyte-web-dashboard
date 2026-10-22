@@ -92,9 +92,9 @@ export default async function NewsletterPage() {
       )}
       {byHand && (
         <Banner variant="success">
-          <strong>Prototype on a preview.</strong> Slack messages are made-up
-          samples; GitHub is this repo&apos;s real pull requests. Emails go only
-          to{" "}
+          <strong>Prototype.</strong> Everything the AI reads is sample data:
+          made-up Slack messages and pull requests, and the test meetings.
+          Emails go only to{" "}
           {mayEmailMembers()
             ? "members"
             : recipients.length

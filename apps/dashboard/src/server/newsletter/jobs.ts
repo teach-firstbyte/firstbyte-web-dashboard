@@ -8,7 +8,6 @@ import { formatShortDate } from "@/lib/format";
 import { writeDraft } from "@/lib/newsletter/draft";
 import { sendIssueEmails, type EmailIssue } from "@/lib/newsletter/email";
 import { mayEmailMembers, testRecipients } from "@/lib/newsletter/enabled";
-import { mergedPullRequests } from "@/lib/newsletter/github";
 import {
   addCounts,
   checkLines,
@@ -18,6 +17,7 @@ import {
   toCountList,
   type CollectedItem,
 } from "@/lib/newsletter/safeguards";
+import { samplePullRequestsForTeam } from "@/lib/newsletter/sampleGitHub";
 import { sampleMessagesForTeam } from "@/lib/newsletter/sampleSlack";
 import { sourcesForTeam } from "@/lib/newsletter/sources";
 import { draftWindowStart, weekOf } from "@/lib/newsletter/week";
@@ -48,24 +48,18 @@ async function collectForTeam(
   const items: CollectedItem[] = [];
   const removed: Record<string, number> = {};
   const dropped: Record<string, number> = {};
-  const notes: string[] = [];
 
-  // GitHub: real, read-only.
-  for (const repo of sources.github) {
-    const pulls = await mergedPullRequests(repo, since);
-    if (pulls === null) {
-      notes.push(`GitHub (${repo}) couldn't be reached`);
-      continue;
-    }
-    for (const pr of pulls) {
+  // GitHub and Slack are sample data in the prototype (see
+  // lib/newsletter/sources.ts), and go through the same safeguards the real
+  // pull requests and messages will.
+  if (sources.github.length > 0) {
+    for (const pr of samplePullRequestsForTeam(team.name)) {
       const cleaned = cleanText(pr.text, memberNames);
       addCounts(removed, cleaned.removed);
       items.push({ ...pr, text: cleaned.text });
     }
   }
 
-  // Slack: sample messages in the prototype, through the same safeguards the
-  // real messages will go through.
   const { kept, privateSkipped } = keepSwitchedOn(
     sampleMessagesForTeam(team.name),
     sources.slack,
@@ -98,7 +92,7 @@ async function collectForTeam(
     });
   }
 
-  return { items, removed, dropped, privateSkipped, notes };
+  return { items, removed, dropped, privateSkipped };
 }
 
 export type DraftJobResult = {
@@ -177,9 +171,7 @@ export async function runDraftJob(now: Date): Promise<DraftJobResult> {
         ...(draft.ok ? { model: draft.model } : {}),
       };
       const lines = checked?.lines ?? [];
-      const aiError = draft.ok
-        ? collected.notes.join(". ") || null
-        : [draft.error, ...collected.notes].join(" ");
+      const aiError = draft.ok ? null : draft.error;
 
       await prisma.newsletterTeamUpdate.upsert({
         where: { issueId_teamId: { issueId: issue.id, teamId: team.id } },

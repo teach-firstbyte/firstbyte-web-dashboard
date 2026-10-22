@@ -281,9 +281,9 @@ A weekly email to members: what's coming up, and what each team is working on. A
 
 | Part | In the prototype |
 |---|---|
-| GitHub | Real. Merged pull requests from this repo in the past 7 days, read through GitHub's public API with no key. |
+| GitHub | **Sample pull requests**, in `src/lib/newsletter/sampleGitHub.ts`, for the Website and CS Curricula teams. One includes an email address on purpose. |
 | Slack | **Sample messages**, in `src/lib/newsletter/sampleSlack.ts`. They include traps on purpose (a phone number, a private channel, a DM, someone's GPA), so you can see the safeguards work. |
-| Dashboard | Real. Each team's meetings and how many came. Totals only. |
+| Dashboard | Each team's meetings and how many came, from the database. On a preview or your own computer that's the seeded test data. Totals only. |
 | Claude | Real, if `ANTHROPIC_API_KEY` is set. Without it, each draft is empty and says why. |
 | Email | Real, through Resend, but **only to `NEWSLETTER_TEST_RECIPIENTS`**. |
 | Photos | Sample photos in `public/newsletter-samples/`. Google Drive comes later. |
@@ -393,14 +393,13 @@ Set these in **Vercel → firstbyte-dashboard → Settings → Environment Varia
 | `NEWSLETTER_FROM` | The sender, e.g. `FirstByte <news@teachfirstbyte.com>`. The domain must be verified in Resend. |
 | `NEWSLETTER_TEST_RECIPIENTS` | Comma-separated emails that get the test sends, e.g. yours and the president's. |
 | `NEWSLETTER_MODEL` | Optional. Defaults to `claude-opus-5-5`. `claude-haiku-5-5` costs much less. |
-| `GITHUB_TOKEN` | Optional. Without it GitHub allows about 60 requests an hour, shared with everything else on Vercel's servers. If a draft says GitHub couldn't be reached, add a fine-grained token with read-only access to public repos. |
 
 At rollout, production also needs `NEWSLETTER_ENABLED=true`, and `NEWSLETTER_SEND_TO_MEMBERS=true` to email members instead of the test list. Emailing members is never possible on a preview, even with that set.
 
 ### Not built yet
 
 - The weekly schedule (Monday draft, Thursday send) in `vercel.json`. Today the jobs run only from the buttons.
-- Real Slack and Google Drive connections. The design document has the setup for both.
+- Real GitHub, Slack and Google Drive connections. Everything the AI reads is sample data for now, so the prototype works the same everywhere, even offline. The design document has the setup for each.
 
 ---
 

@@ -70,7 +70,10 @@ export default async function TeamUpdatePage({
               {sources.github.map((r) => (
                 <li key={r}>
                   <span className="font-semibold">GitHub</span> · merged pull
-                  requests in {r}, read-only
+                  requests in {r}, read-only{" "}
+                  <span className="text-muted-foreground">
+                    (sample pull requests in the prototype)
+                  </span>
                 </li>
               ))}
               {sources.slack.map((c) => (
@@ -83,7 +86,8 @@ export default async function TeamUpdatePage({
               ))}
               <li>
                 <span className="font-semibold">Dashboard</span> · this
-                team&apos;s meetings and how many came (totals only)
+                team&apos;s meetings and how many came (totals only, from the
+                test data on previews)
               </li>
             </ul>
             <p className="text-xs text-muted-foreground">
