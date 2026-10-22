@@ -195,7 +195,10 @@ export async function sendIssueEmails(
         return content
           ? {
               filename: `${key}.jpg`,
-              content,
+              // Base64, not the Buffer: the SDK JSON-encodes a Buffer as
+              // {type: "Buffer", data: [...]}, while a base64 string is the
+              // documented shape of the API.
+              content: content.toString("base64"),
               contentType: "image/jpeg",
               contentId: key,
             }

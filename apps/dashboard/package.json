@@ -19,7 +19,8 @@
     "db:migrate:preview": "node scripts/require-env-file.mjs .env.preview && dotenv -e .env.preview -- prisma migrate deploy",
     "db:seed:preview": "node scripts/require-env-file.mjs .env.preview && dotenv -e .env.preview -e supabase/seed/.env.test-accounts -- node scripts/seed/seed.mjs",
     "db:reset:preview": "node scripts/require-env-file.mjs .env.preview && dotenv -e .env.preview -- node scripts/seed/wipe.mjs && npm run db:migrate:preview && npm run db:seed:preview",
-    "db:seed:local": "dotenv -e .env.local -e .env -e supabase/seed/.env.test-accounts -- node scripts/seed/seed.mjs"
+    "db:seed:local": "dotenv -e .env.local -e .env -e supabase/seed/.env.test-accounts -- node scripts/seed/seed.mjs",
+    "newsletter:fake-apis": "node scripts/newsletter-fake-apis.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

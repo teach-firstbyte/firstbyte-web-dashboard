@@ -319,6 +319,69 @@ Vercel only runs scheduled jobs on production, so on a preview the Newsletter pa
 
 **Start over** deletes this week's issue so you can run it again. Remember that every preview shares one database (see [Database migrations on preview](#database-migrations-on-preview)).
 
+### Trying it on your own computer, with a local AI
+
+No Claude key and no real email needed. `scripts/newsletter-fake-apis.mjs` stands in for both: it answers the dashboard's Claude requests with a model running in [Ollama](https://ollama.com), and saves emails as files instead of sending them. It talks to Ollama through Ollama's own API, because Ollama's Claude-compatible API doesn't support the JSON shape the draft step asks for.
+
+You need Node.js 24 (see `.nvmrc`), [Docker Desktop](https://www.docker.com/products/docker-desktop/) for the local database, and Ollama.
+
+1. **Get a model.** On a Mac with 32 GB of memory, `qwen2.5:14b` (about 9 GB) runs comfortably. `qwen2.5:7b` is faster and rougher.
+   ```bash
+   ollama pull qwen2.5:14b
+   ```
+2. **Get the code.**
+   ```bash
+   git clone https://github.com/teach-firstbyte/firstbyte-web-dashboard
+   cd firstbyte-web-dashboard
+   git checkout feat/newsletter-prototype
+   npm install
+   ```
+3. **Start the local Supabase stack** (database and logins, in Docker). It prints the keys you need next. `npx supabase status` prints them again.
+   ```bash
+   cd apps/dashboard
+   npx supabase start
+   ```
+4. **Make `apps/dashboard/.env.local`:**
+   ```bash
+   DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+   DIRECT_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres
+   NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=   # "Publishable" from supabase status
+   SUPABASE_SECRET_KEY=                    # "Secret" from supabase status
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
+   CHECKIN_SECRET=                         # openssl rand -hex 32
+
+   # The fake APIs. The keys only need to be non-empty.
+   ANTHROPIC_API_KEY=fake
+   ANTHROPIC_BASE_URL=http://127.0.0.1:4010
+   RESEND_API_KEY=fake
+   RESEND_BASE_URL=http://127.0.0.1:4010
+   NEWSLETTER_FROM=FirstByte <news@teachfirstbyte.com>
+   NEWSLETTER_TEST_RECIPIENTS=you@example.com
+   ```
+5. **Make the tables and the test data.** Copy `supabase/seed/officers.example.json` to `officers.json` and `supabase/seed/.env.test-accounts.example` to `.env.test-accounts`, and put a password after each `=` in the second one. Then:
+   ```bash
+   npx dotenv -e .env.local -- npx prisma migrate deploy
+   npm run db:seed:local
+   ```
+6. **Run three things, each in its own terminal, from the repo root:**
+   ```bash
+   npm run newsletter:fake-apis -w @firstbyte/dashboard
+   npm run dev:dashboard
+   npm run dev:web
+   ```
+7. Open http://localhost:3000/dashboard, log in with a test account, and follow [Trying it on a preview](#trying-it-on-a-preview). The by-hand buttons show up in development too.
+8. Emails you "send" are listed at http://127.0.0.1:4010/, with the photos in place.
+
+Useful switches for the fake APIs:
+
+- `-- --canned` skips Ollama and answers with fixed lines that cite real sources, plus one made-up source that the check step should drop. Handy for checking the safeguards quickly.
+- `OLLAMA_MODEL=qwen2.5:7b` picks another model. `OLLAMA_URL`, `FAKE_PORT` and `OUTBOX_DIR` are there too.
+
+To use a real Claude key instead, set `ANTHROPIC_API_KEY` to it and delete the `ANTHROPIC_BASE_URL` line. Do the same with Resend to send real email. Test sends still go only to `NEWSLETTER_TEST_RECIPIENTS`.
+
+Never set `ANTHROPIC_BASE_URL` or `RESEND_BASE_URL` in Vercel. The fake APIs are for your own computer only.
+
 ### Settings
 
 Set these in **Vercel → firstbyte-dashboard → Settings → Environment Variables**, on **Preview** only for now:
