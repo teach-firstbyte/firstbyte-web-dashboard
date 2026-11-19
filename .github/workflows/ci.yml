@@ -78,7 +78,7 @@ jobs:
 
       - run: npm run typecheck:dashboard
 
-      # Node runs the .ts tests as they are, with no test framework installed.
+      # Node's built-in test runner on src/**/*.test.ts (no extra packages).
       - run: npm run test:dashboard
 
       - run: npm run build:dashboard

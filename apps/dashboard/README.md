@@ -272,6 +272,46 @@ So on preview, use the [test logins](#test-logins). They are confirmed already a
 
 ---
 
+## 💬 FirstByte Tasks Slack bot
+
+The e-board task board reminds people with direct messages from its own Slack app, **FirstByte Tasks**. It is a different app from the newsletter bot: it has its own token (`TASKS_SLACK_BOT_TOKEN`), and no code is shared. It only sends DMs. It never posts in channels and doesn't read messages.
+
+For now it lives only in the **FirstByte Slack Dev Sandbox** (`firstbyteslac-gtj8504.slack.com`). The president and Hector decide when it moves to the real workspace. When it does, it needs a new install, a new token, and every e-board member's Slack link set up again, because member IDs differ between workspaces.
+
+### What's where
+
+- `slack-tasks-app/manifest.json`: the app's settings. It asks for two bot scopes, `chat:write` (send a message) and `im:write` (open a DM with someone). Nothing else. Its DM window is read-only (`features.app_home`: `messages_tab_enabled: true`, `messages_tab_read_only_enabled: true`): members can read the bot's DMs but can't type back, and the app has no scopes or endpoints for reading messages.
+- `src/lib/tasks/slack.ts`: `sendSlackDm(memberId, message)`, server-only. It opens a DM with `conversations.open`, then posts with `chat.postMessage`. It never throws. It resolves to `{ ok: true }` or `{ ok: false, error, retryable }`, so a caller can retry or mark a reminder "not delivered". Without a token it logs a line and sends nothing.
+- `src/lib/tasks/slack-messages.ts`: the DM texts from the mockup's Slack DMs screen (assigned, 2 days before, due today, overdue to the owner and to the creator, due date changed, reassigned away).
+- `src/lib/tasks/slack-member-id.ts`: checks a member ID (`U` or `W`, then 8 to 11 letters or digits).
+
+### Install it in the sandbox
+
+Only a sandbox admin can do this (Hector).
+
+1. Open [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From a manifest**.
+2. Pick **FirstByte Slack Dev Sandbox**, paste the contents of `slack-tasks-app/manifest.json`, and create the app.
+3. **Install App** → **Install to FirstByte Slack Dev Sandbox** → **Allow**. Slack should list only two permissions: sending messages as the app, and starting direct messages with people.
+4. **App Home** → **Show Tabs**: check that **Messages Tab** is on and that **Allow users to send Slash commands and messages from the messages tab** is off. The manifest sets this (`messages_tab_read_only_enabled: true`), so the DM window is read-only. If that box is checked, uncheck it and save.
+5. **OAuth & Permissions** → copy the **Bot User OAuth Token** (`xoxb-...`).
+6. Put it in `apps/dashboard/.env.local` as `TASKS_SLACK_BOT_TOKEN=xoxb-...`. For previews, add it in Vercel → firstbyte-dashboard → Settings → Environment Variables as a **Preview** entry. Don't add a Production entry yet. Never commit the token or paste it in a channel.
+
+If you change the scopes in the manifest later, paste the new manifest under **App Manifest** and install the app again.
+
+### Send a test DM
+
+From `apps/dashboard`, with the token in `.env.local`:
+
+```bash
+npm run slack:tasks:test-dm -- U0CK0SKF78E
+```
+
+That DMs one sandbox member (here Maya, from the [fake e-board](../../docs/superpowers/2026-11-18-fake-eboard-users.md)) a sample "due today" reminder. The DM shows up under **Apps → FirstByte Tasks** in their Slack. Only Maya, Daniel and Jordan have joined the sandbox, so only they can get DMs. The others fail with an error such as `user_not_found` or `channel_not_found`.
+
+To find someone's member ID: in Slack, open their profile, click **⋮**, then **Copy member ID**.
+
+---
+
 ## 🛠️ Starting the App
 
 ```bash
@@ -299,6 +339,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - UI components use shadcn/ui and Tailwind CSS
 - Dashboard is responsive and accessible
 - Use TypeScript throughout
+- Tests use Node's built-in test runner, with no extra packages. Put a `*.test.ts` file next to the code under `src/` and run `npm test`. Import other files by relative path with the `.ts` extension (`./slack.ts`), since Node runs the TypeScript directly and doesn't know the `@/` alias. CI runs the tests on every pull request.
 
 ---
 

@@ -1,0 +1,33 @@
+{
+  "_metadata": {
+    "major_version": 1,
+    "minor_version": 1
+  },
+  "display_information": {
+    "name": "FirstByte Tasks",
+    "description": "Reminds e-board members about their tasks on the FirstByte dashboard.",
+    "long_description": "FirstByte Tasks sends direct messages about e-board tasks from the FirstByte dashboard: when a task is assigned to you, before it's due, on the due date, when it's overdue, and when its due date or owner changes. It never posts in channels and doesn't read messages. This is a separate app from the FirstByte newsletter bot.",
+    "background_color": "#2e7d4f"
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": false,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": true
+    },
+    "bot_user": {
+      "display_name": "FirstByte Tasks",
+      "always_online": true
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": ["chat:write", "im:write"]
+    }
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}
