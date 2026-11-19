@@ -78,6 +78,9 @@ jobs:
 
       - run: npm run typecheck:dashboard
 
+      # Node's built-in test runner on src/**/*.test.ts (no extra packages).
+      - run: npm run test:dashboard
+
       - run: npm run build:dashboard
 
       # Must follow the build: it reads .next/static/chunks, the files actually
