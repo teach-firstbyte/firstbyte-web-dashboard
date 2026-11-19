@@ -221,7 +221,7 @@ The **Reset preview database** workflow (`.github/workflows/reset-preview.yml`) 
 
 1. It drops every app table, with migrations from closed pull requests.
 2. It applies the migrations on `main`.
-3. It seeds the officers, 50 made-up members and one semester of meetings. Past meetings have closed attendance, and future meetings have none.
+3. It seeds the officers, 50 made-up members and one semester of meetings. Past meetings have closed attendance, and future meetings have none. On a branch whose seed has them, it also adds the fake e-board, their Slack links, and e-board tasks at every reminder stage (see `seedTasks` in `scripts/seed/seed.mjs`). The workflow seeds from `main`, so for those, seed from your laptop on the branch.
 4. It creates the 4 test logins, or resets their passwords.
 
 Other login accounts are kept. **It deletes everything that people made on preview, so tell the team first.** To run it: GitHub → Actions → Reset preview database → Run workflow.
