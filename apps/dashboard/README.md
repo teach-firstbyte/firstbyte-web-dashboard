@@ -284,6 +284,9 @@ For now it lives only in the **FirstByte Slack Dev Sandbox** (`firstbyteslac-gtj
 - `src/lib/tasks/slack.ts`: `sendSlackDm(memberId, message)`, server-only. It opens a DM with `conversations.open`, then posts with `chat.postMessage`. It never throws. It resolves to `{ ok: true }` or `{ ok: false, error, retryable }`, so a caller can retry or mark a reminder "not delivered". Without a token it logs a line and sends nothing.
 - `src/lib/tasks/slack-messages.ts`: the DM texts from the mockup's Slack DMs screen (assigned, 2 days before, due today, overdue to the owner and to the creator, due date changed, reassigned away).
 - `src/lib/tasks/slack-member-id.ts`: checks a member ID (`U` or `W`, then 8 to 11 letters or digits).
+- `slack_links` table (`SlackLink` in the schema): one row per linked person, with their member ID and which super admin set it. It's a separate table, not a column on `users`, so the ID can't ride along with the many reads of whole user rows. The database refuses a badly formed ID (a CHECK constraint) and the same ID on two people (unique). RLS is on, like every table.
+- `src/server/tasks/slack-links.ts`: the only code that reads member IDs. Listing, linking and unlinking are for super admins only. `slackMemberIdForDm(userId)` is for the reminder jobs: it returns null for anyone unlinked or no longer on the e-board.
+- Everyone else gets a boolean instead: each task's `owner.slackConnected`, and `slackConnected` on `/api/tasks/owners`. False means "Not connected to Slack".
 
 ### Install it in the sandbox
 
@@ -309,6 +312,14 @@ npm run slack:tasks:test-dm -- U0CK0SKF78E
 That DMs one sandbox member (here Maya, from the [fake e-board](../../docs/superpowers/2026-11-18-fake-eboard-users.md)) a sample "due today" reminder. The DM shows up under **Apps → FirstByte Tasks** in their Slack. Only Maya, Daniel and Jordan have joined the sandbox, so only they can get DMs. The others fail with an error such as `user_not_found` or `channel_not_found`.
 
 To find someone's member ID: in Slack, open their profile, click **⋮**, then **Copy member ID**.
+
+### Link e-board members
+
+Open **Tasks → Slack setup** (`/dashboard/tasks/slack`). Only super admins (the president, VP and website lead) can open it. Anyone else is sent to Home, and its API (`GET /api/tasks/slack`, `PUT` and `DELETE /api/tasks/slack/<userId>`) answers them with a 403.
+
+The page lists every approved E-Board team member. Use **Link** to paste a member ID, **Change** to replace it and **Unlink** to remove it. A bad ID is refused with a message saying where to find the real one. An ID already linked to someone else is refused too, naming that person. Someone who isn't on the E-Board team can't be linked. Deleting an account removes its link.
+
+Unlinked people show "Not connected to Slack" on the board and get no reminders. Their next reminder after linking goes out as usual.
 
 ---
 

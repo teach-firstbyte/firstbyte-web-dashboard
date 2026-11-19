@@ -15,6 +15,7 @@ import {
   EBOARD_USER_WHERE,
   taskOwnerChoiceArgs,
   taskRowArgs,
+  toTaskOwnerOption,
   type TaskOwnerOption,
   type TaskRow,
 } from "./select";
@@ -73,6 +74,8 @@ export async function assertTaskAccess(viewer: Viewer): Promise<TaskActor> {
  *   today is not overdue yet.
  * - `needsNewOwner`: the owner is no longer an approved EBOARD member (they
  *   left, or deleted their account). Shown on the board, never stored.
+ * - `owner.slackConnected`: whether the owner is linked to Slack. False means
+ *   "Not connected to Slack" on the board, and no reminders.
  * - `can`: what this viewer may do with it, from lib/auth/taskPolicy.ts.
  */
 export type TaskView = Omit<TaskRow, "dueDate" | "owner"> & {
@@ -90,13 +93,13 @@ export function clubToday(now: Date = new Date()): string {
 
 function toTaskView(row: TaskRow, actor: TaskActor, today: string): TaskView {
   const { owner, dueDate, ...rest } = row;
-  const { status: accountStatus, teamMemberships, ...ownerPublic } = owner;
+  const { status: accountStatus, teamMemberships, ...ownerRow } = owner;
   const due = toDateOnly(dueDate);
 
   return {
     ...rest,
     dueDate: due,
-    owner: ownerPublic,
+    owner: toTaskOwnerOption(ownerRow),
     isOverdue: row.status !== TaskStatus.DONE && due < today,
     needsNewOwner:
       accountStatus !== AccountStatus.APPROVED || teamMemberships.length === 0,
@@ -180,7 +183,7 @@ export async function listTaskOwnerOptions(
     orderBy: [{ name: "asc" }, { id: "asc" }],
   });
   return rows.map(({ teamMemberships, ...person }) => ({
-    ...person,
+    ...toTaskOwnerOption(person),
     leads: teamMemberships.map((m) => m.team),
   }));
 }

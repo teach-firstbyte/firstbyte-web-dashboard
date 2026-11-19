@@ -15,6 +15,7 @@ const {
   canChangeTaskStatus,
   canDeleteTask,
   canEditTask,
+  canManageSlackLinks,
   canUpdateTaskFields,
 } = (await import(new URL("./taskPolicy.ts", import.meta.url).href)) as Policy;
 
@@ -137,5 +138,17 @@ describe("club member", () => {
     assert.equal(canEditTask(actor, theirs), false);
     assert.equal(canDeleteTask(actor, theirs), false);
     assert.equal(canUpdateTaskFields(actor, theirs, ["status"]), false);
+  });
+});
+
+describe("Slack setup", () => {
+  test("only super admins can manage Slack links", () => {
+    assert.equal(canManageSlackLinks(people.superAdmin), true);
+    assert.equal(canManageSlackLinks(people.superAdminOffBoard), true);
+    // E-board members, task owners and creators can't, nor can club members.
+    assert.equal(canManageSlackLinks(people.otherEboardMember), false);
+    assert.equal(canManageSlackLinks(people.owner), false);
+    assert.equal(canManageSlackLinks(people.creator), false);
+    assert.equal(canManageSlackLinks(people.clubMember), false);
   });
 });

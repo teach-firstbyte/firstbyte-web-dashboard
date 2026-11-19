@@ -81,6 +81,9 @@ async function anonymizeAccount(userId: number) {
 
   await prisma.$transaction([
     prisma.teamMember.deleteMany({ where: { userId } }),
+    // Their Slack member ID is personal data too, and a deleted account gets
+    // no reminders.
+    prisma.slackLink.deleteMany({ where: { userId } }),
     prisma.attendance.deleteMany({
       where: { userId, meeting: { scheduledAt: { gt: now } } },
     }),

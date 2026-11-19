@@ -86,3 +86,14 @@ export function taskPermissions(actor: TaskActor, task: TaskParties) {
 }
 
 export type TaskPermissions = ReturnType<typeof taskPermissions>;
+
+/**
+ * May this person see and change e-board members' Slack links (/tasks/slack)?
+ * Super admins only: the president, VP and website lead. A member ID is never
+ * shown to anyone else, not even the person it belongs to.
+ */
+export function canManageSlackLinks(
+  actor: Pick<TaskActor, "isSuperAdmin">,
+): boolean {
+  return actor.isSuperAdmin;
+}
