@@ -280,7 +280,7 @@ For now it lives only in the **FirstByte Slack Dev Sandbox** (`firstbyteslac-gtj
 
 ### What's where
 
-- `slack-tasks-app/manifest.json`: the app's settings. It asks for two bot scopes, `chat:write` (send a message) and `im:write` (open a DM with someone). Nothing else.
+- `slack-tasks-app/manifest.json`: the app's settings. It asks for two bot scopes, `chat:write` (send a message) and `im:write` (open a DM with someone). Nothing else. Its DM window is read-only (`features.app_home`: `messages_tab_enabled: true`, `messages_tab_read_only_enabled: true`): members can read the bot's DMs but can't type back, and the app has no scopes or endpoints for reading messages.
 - `src/lib/tasks/slack.ts`: `sendSlackDm(memberId, message)`, server-only. It opens a DM with `conversations.open`, then posts with `chat.postMessage`. It never throws. It resolves to `{ ok: true }` or `{ ok: false, error, retryable }`, so a caller can retry or mark a reminder "not delivered". Without a token it logs a line and sends nothing.
 - `src/lib/tasks/slack-messages.ts`: the DM texts from the mockup's Slack DMs screen (assigned, 2 days before, due today, overdue to the owner and to the creator, due date changed, reassigned away).
 - `src/lib/tasks/slack-member-id.ts`: checks a member ID (`U` or `W`, then 8 to 11 letters or digits).
@@ -292,8 +292,9 @@ Only a sandbox admin can do this (Hector).
 1. Open [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From a manifest**.
 2. Pick **FirstByte Slack Dev Sandbox**, paste the contents of `slack-tasks-app/manifest.json`, and create the app.
 3. **Install App** → **Install to FirstByte Slack Dev Sandbox** → **Allow**. Slack should list only two permissions: sending messages as the app, and starting direct messages with people.
-4. **OAuth & Permissions** → copy the **Bot User OAuth Token** (`xoxb-...`).
-5. Put it in `apps/dashboard/.env.local` as `TASKS_SLACK_BOT_TOKEN=xoxb-...`. For previews, add it in Vercel → firstbyte-dashboard → Settings → Environment Variables as a **Preview** entry. Don't add a Production entry yet. Never commit the token or paste it in a channel.
+4. **App Home** → **Show Tabs**: check that **Messages Tab** is on and that **Allow users to send Slash commands and messages from the messages tab** is off. The manifest sets this (`messages_tab_read_only_enabled: true`), so the DM window is read-only. If that box is checked, uncheck it and save.
+5. **OAuth & Permissions** → copy the **Bot User OAuth Token** (`xoxb-...`).
+6. Put it in `apps/dashboard/.env.local` as `TASKS_SLACK_BOT_TOKEN=xoxb-...`. For previews, add it in Vercel → firstbyte-dashboard → Settings → Environment Variables as a **Preview** entry. Don't add a Production entry yet. Never commit the token or paste it in a channel.
 
 If you change the scopes in the manifest later, paste the new manifest under **App Manifest** and install the app again.
 
