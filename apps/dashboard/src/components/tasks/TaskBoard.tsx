@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PlusIcon, TriangleAlertIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -59,6 +60,7 @@ export function TaskBoard({
   meetings,
   today,
   viewerId,
+  canManageSlack,
   initialFilters,
 }: {
   tasks: BoardTask[];
@@ -67,6 +69,8 @@ export function TaskBoard({
   meetings: BoardMeeting[];
   today: string;
   viewerId: number;
+  /** A super admin, who gets the link to Slack setup. Decided on the server. */
+  canManageSlack: boolean;
   initialFilters: BoardFilters;
 }) {
   const router = useRouter();
@@ -192,8 +196,16 @@ export function TaskBoard({
         >
           Show done
         </FilterToggle>
-        {/* SLACK: the super admins' "Slack setup →" link goes here with the
-            setup list in a later part of #137. */}
+        {canManageSlack && (
+          <Button
+            asChild
+            variant="link"
+            size="sm"
+            className="ml-auto h-auto p-0"
+          >
+            <Link href="/tasks/slack">Slack setup →</Link>
+          </Button>
+        )}
       </div>
 
       {anything ? (
@@ -345,9 +357,7 @@ function groupHead(
         name={`${name}${group.ownerId === ctx.viewerId ? " (you)" : ""}`}
         subtitle={owner?.subtitle ?? "E-board"}
       />
-      {/* SLACK: each member's link arrives with the Slack setup list in a
-          later part of #137. Pass `linked` from it. */}
-      <NotConnectedToSlack linked={undefined} />
+      <NotConnectedToSlack linked={person?.slackConnected} />
     </>
   );
 }

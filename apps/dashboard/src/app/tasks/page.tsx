@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { TaskBoard } from "@/components/tasks/TaskBoard";
 import { Banner } from "@/components/ui/banner";
 import { requireTaskAccess } from "@/lib/auth/requireTaskAccess";
+import { isSuperAdmin } from "@/lib/auth/roles";
 import { getViewMode } from "@/lib/auth/viewMode";
 import { getTaskBoard, type TaskBoardData } from "@/server/tasks/board";
 import { enumParam, firstParam } from "@/server/validation";
@@ -38,6 +39,7 @@ export default async function TasksPage({
         <TaskBoard
           {...board}
           viewerId={user.id}
+          canManageSlack={isSuperAdmin(user)}
           initialFilters={{
             groupBy: enumParam(params.group, ["team"] as const) ?? "owner",
             mine: firstParam(params.mine) === "1",

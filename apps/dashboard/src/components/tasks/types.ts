@@ -8,8 +8,14 @@ export type { BoardMeeting, BoardOwner, BoardTeam, TaskView };
 /** A task as the board holds it. */
 export type BoardTask = TaskView;
 
-/** Someone a task names: its owner or its creator. */
-export type TaskPerson = TaskView["owner"];
+/**
+ * Someone a task names: its owner or its creator. Only the naming fields, so a
+ * creator (who carries no Slack status) fits as well as an owner.
+ */
+export type TaskPerson = Pick<
+  TaskView["owner"],
+  "id" | "name" | "preferredName"
+>;
 
 /** A person's full name, for headers and labels. Names are optional on accounts. */
 export function personName(person: TaskPerson): string {
