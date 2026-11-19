@@ -1,22 +1,21 @@
-import {
-  MeetingType,
-  TeamJoinPolicy,
-  TeamMemberStatus,
-  TeamRole,
-} from "@prisma/client";
+import { MeetingType, TeamJoinPolicy } from "@prisma/client";
 import { prisma } from "@/server/db";
 import type { Viewer } from "@/server/viewer";
+import { ownerRole } from "@/lib/tasks/owners";
 import {
   assertTaskAccess,
   clubToday,
   listTaskOwnerOptions,
   listTasks,
+  type TaskOwnerChoice,
   type TaskView,
 } from "./queries";
-import type { TaskOwnerOption } from "./select";
 
-/** An e-board member as the board's group headers show them. */
-export type BoardOwner = TaskOwnerOption & {
+/**
+ * An e-board member as the board's group headers and owner picker show them:
+ * the person, their Slack status, and the teams they lead.
+ */
+export type BoardOwner = TaskOwnerChoice & {
   /** "Events lead", or "E-board" when they lead no team. */
   subtitle: string;
 };
@@ -55,19 +54,10 @@ const UPCOMING_MS = 14 * 86_400_000;
 export async function getTaskBoard(viewer: Viewer): Promise<TaskBoardData> {
   await assertTaskAccess(viewer);
 
-  const [tasks, owners, leads, teams, meetings] = await Promise.all([
+  // Owners come with the teams they lead, for the "Events lead" line.
+  const [tasks, owners, teams, meetings] = await Promise.all([
     listTasks(viewer, { includeDone: true }),
     listTaskOwnerOptions(viewer),
-    // Which teams each e-board member leads, for the "Events lead" line.
-    prisma.teamMember.findMany({
-      where: {
-        role: TeamRole.LEAD,
-        status: TeamMemberStatus.APPROVED,
-        team: { isActive: true, joinPolicy: TeamJoinPolicy.OPEN },
-      },
-      select: { userId: true, team: { select: { name: true } } },
-      orderBy: { team: { name: "asc" } },
-    }),
     // The e-board team itself isn't a label: every task is e-board work.
     prisma.team.findMany({
       where: { isActive: true, joinPolicy: TeamJoinPolicy.OPEN },
@@ -85,17 +75,9 @@ export async function getTaskBoard(viewer: Viewer): Promise<TaskBoardData> {
     }),
   ]);
 
-  const ledBy = new Map<number, string[]>();
-  for (const { userId, team } of leads) {
-    ledBy.set(userId, [...(ledBy.get(userId) ?? []), team.name]);
-  }
-
   return {
     tasks,
-    owners: owners.map((o) => {
-      const led = ledBy.get(o.id);
-      return { ...o, subtitle: led ? `${led.join(", ")} lead` : "E-board" };
-    }),
+    owners: owners.map((o) => ({ ...o, subtitle: ownerRole(o) })),
     teams,
     meetings,
     today: clubToday(),

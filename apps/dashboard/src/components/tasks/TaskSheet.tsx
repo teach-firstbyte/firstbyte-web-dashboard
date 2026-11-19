@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -34,7 +35,10 @@ import {
 } from "@/lib/enums";
 import { formatIsoDate, formatShortDate } from "@/lib/format";
 import { formatDueLong, formatDueShort } from "@/lib/tasks/board";
+import { ownerTeamId } from "@/lib/tasks/owners";
+import { DUE_HELP, describeDue, parseDue } from "@/lib/tasks/parseDue";
 import { createTask, deleteTask, updateTask, type TaskInput } from "./api";
+import { OwnerCombobox } from "./OwnerCombobox";
 import { ReminderNotDelivered } from "./SlackFlags";
 import { taskStatusLabel } from "./TaskStatusControl";
 import {
@@ -50,7 +54,12 @@ export type TaskPanel = { kind: "new" } | { kind: "task"; task: BoardTask };
 type FormState = {
   title: string;
   ownerId: string;
+  /** What's typed in the owner box. `ownerId` is who it resolved to. */
+  ownerText: string;
+  /** "YYYY-MM-DD", or "" while `dueText` can't be read. */
   dueDate: string;
+  /** What's typed in the due box: "fri", "12/4", "next week". */
+  dueText: string;
   status: TaskStatusValue;
   teamId: string;
   meetingId: string;
@@ -60,18 +69,29 @@ type FormState = {
 const BLANK: FormState = {
   title: "",
   ownerId: "",
+  ownerText: "",
   dueDate: "",
+  dueText: "",
   status: TASK_STATUS.TODO,
   teamId: "",
   meetingId: "",
   notes: "",
 };
 
+/** "2026-12-04" -> "12/4/26", which parseDue reads back as that exact day. */
+function dueTextFor(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${Number(m)}/${Number(d)}/${y.slice(2)}`;
+}
+
 function fromTask(t: BoardTask): FormState {
   return {
     title: t.title,
     ownerId: String(t.ownerId),
+    ownerText:
+      personName(t.owner) + (t.needsNewOwner ? " (left the e-board)" : ""),
     dueDate: t.dueDate,
+    dueText: dueTextFor(t.dueDate),
     status: t.status,
     teamId: t.teamId ? String(t.teamId) : "",
     meetingId: t.meetingId ? String(t.meetingId) : "",
@@ -114,9 +134,10 @@ function changesFrom(task: BoardTask, next: TaskInput, canEdit: boolean) {
  * can; the status stays a control for the owner; and Delete asks again in
  * the panel's own footer before anything is removed.
  *
- * The due date is a plain date input and the owner a plain select for now.
- * They switch to the shared due-date parser and owner combobox from #134
- * once both branches are merged.
+ * The owner and due fields are the same as on the meeting page's Action
+ * items: the owner combobox matches names and roles ("events"), and the due
+ * box reads "fri", "next week" or "12/4", with the date it picked shown
+ * underneath.
  */
 export function TaskSheet({
   panel,
@@ -205,20 +226,27 @@ function TaskForm({
 
   const titleError =
     touched && !form.title.trim() ? "Give the task a title." : null;
-  const ownerError = touched && !form.ownerId ? "Pick an owner." : null;
-  const dueError = touched && !form.dueDate ? "Pick a due date." : null;
+  const ownerError =
+    touched && !form.ownerId
+      ? form.ownerText.trim()
+        ? "Pick someone from the list."
+        : "Pick an owner."
+      : null;
+  const dueError =
+    touched && !form.dueDate
+      ? form.dueText.trim()
+        ? `Can't read that date. ${DUE_HELP}.`
+        : "Type a due date, like fri or 12/4."
+      : null;
+  const dueHint = form.dueDate
+    ? describeDue(form.dueDate)
+    : form.dueText.trim()
+      ? DUE_HELP
+      : "fri, tomorrow, next week, +3d, 12/4 or nov 30";
 
-  // A task keeps showing its owner, team and meeting even when they've
-  // dropped off the pickers' lists (left the e-board, archived, older).
-  const ownerOptions = [
-    ...options.owners.map((o) => ({ id: o.id, label: personName(o) })),
-  ];
-  if (task && !ownerOptions.some((o) => o.id === task.ownerId)) {
-    ownerOptions.unshift({
-      id: task.ownerId,
-      label: `${personName(task.owner)} (left the e-board)`,
-    });
-  }
+  // A task keeps showing its team and meeting even when they've dropped off
+  // the pickers' lists (archived, older). An owner who left the e-board stays
+  // as the typed text and id until someone picks a new one.
   const teamOptions = [...options.teams];
   if (task?.team && !teamOptions.some((t) => t.id === task.team!.id)) {
     teamOptions.push(task.team);
@@ -299,20 +327,27 @@ function TaskForm({
             <Field data-invalid={!!ownerError || undefined}>
               <FieldLabel htmlFor="task-owner">Owner</FieldLabel>
               {canEdit ? (
-                <NativeSelect
+                <OwnerCombobox
                   id="task-owner"
-                  data-full
-                  value={form.ownerId}
-                  onChange={(e) => set("ownerId", e.target.value)}
+                  owners={options.owners}
+                  value={form.ownerId ? Number(form.ownerId) : null}
+                  onValueChange={(owner) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      ownerId: owner ? String(owner.id) : "",
+                      // A new task takes the owner's team, like the meeting
+                      // page does, unless a team is already picked.
+                      teamId:
+                        isNew && owner && !prev.teamId
+                          ? String(ownerTeamId(owner) ?? "")
+                          : prev.teamId,
+                    }))
+                  }
+                  inputValue={form.ownerText}
+                  onInputValueChange={(text) => set("ownerText", text)}
+                  placeholder="Name or role, like events"
                   aria-invalid={!!ownerError}
-                >
-                  <NativeSelectOption value="">Pick someone</NativeSelectOption>
-                  {ownerOptions.map((o) => (
-                    <NativeSelectOption key={o.id} value={o.id}>
-                      {o.label}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
+                />
               ) : (
                 readOnly(task && personName(task.owner))
               )}
@@ -324,15 +359,35 @@ function TaskForm({
               {canEdit ? (
                 <Input
                   id="task-due"
-                  type="date"
-                  value={form.dueDate}
-                  onChange={(e) => set("dueDate", e.target.value)}
+                  value={form.dueText}
+                  onChange={(e) => {
+                    const dueText = e.target.value;
+                    setForm((prev) => ({
+                      ...prev,
+                      dueText,
+                      dueDate: parseDue(dueText) ?? "",
+                    }));
+                  }}
+                  placeholder="fri, 12/4, next week"
+                  autoComplete="off"
                   aria-invalid={!!dueError}
+                  aria-describedby="task-due-hint"
                 />
               ) : (
                 readOnly(task && formatDueLong(task.dueDate))
               )}
-              {dueError && <FieldError>{dueError}</FieldError>}
+              {dueError ? (
+                <FieldError>{dueError}</FieldError>
+              ) : (
+                canEdit && (
+                  <FieldDescription
+                    id="task-due-hint"
+                    className={form.dueDate ? "text-primary" : undefined}
+                  >
+                    {dueHint}
+                  </FieldDescription>
+                )
+              )}
             </Field>
           </div>
 
