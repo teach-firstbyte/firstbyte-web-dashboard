@@ -68,3 +68,19 @@ export const TEAM_JOIN_POLICY = {
 
 export type TeamJoinPolicyValue =
   (typeof TEAM_JOIN_POLICY)[keyof typeof TEAM_JOIN_POLICY];
+
+/** Mirrors `enum TaskStatus`. "Overdue" is not one: it is read off the due date. */
+export const TASK_STATUS = {
+  TODO: "TODO",
+  IN_PROGRESS: "IN_PROGRESS",
+  DONE: "DONE",
+} as const;
+
+export type TaskStatusValue = (typeof TASK_STATUS)[keyof typeof TASK_STATUS];
+
+/** Every task status with its label, in board order. */
+export const TASK_STATUS_OPTIONS = [
+  { value: TASK_STATUS.TODO, label: "To do" },
+  { value: TASK_STATUS.IN_PROGRESS, label: "In progress" },
+  { value: TASK_STATUS.DONE, label: "Done" },
+] as const;

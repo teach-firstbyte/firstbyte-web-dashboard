@@ -14,6 +14,7 @@
     "verify:no-prisma-client:dashboard": "npm run verify:no-prisma-client -w @firstbyte/dashboard",
     "lint:dashboard": "npm run lint -w @firstbyte/dashboard",
     "typecheck:dashboard": "npm run typecheck -w @firstbyte/dashboard",
+    "test:dashboard": "npm run test -w @firstbyte/dashboard",
     "format:check:dashboard": "npm run format:check -w @firstbyte/dashboard",
     "lint:web": "npm run lint -w @firstbyte/web",
     "typecheck:web": "npm run typecheck -w @firstbyte/web",

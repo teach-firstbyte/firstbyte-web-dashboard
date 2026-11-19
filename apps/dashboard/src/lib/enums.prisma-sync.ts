@@ -16,12 +16,14 @@
 import type {
   AttendanceStatus,
   Role,
+  TaskStatus,
   TeamJoinPolicy,
   TeamMemberStatus,
 } from "@prisma/client";
 import type {
   AttendanceStatusValue,
   RoleValue,
+  TaskStatusValue,
   TeamJoinPolicyValue,
   TeamMemberStatusValue,
 } from "./enums";
@@ -48,3 +50,4 @@ export type TeamMemberStatusInSync = Assert<
 export type TeamJoinPolicyInSync = Assert<
   Exact<TeamJoinPolicyValue, TeamJoinPolicy>
 >;
+export type TaskStatusInSync = Assert<Exact<TaskStatusValue, TaskStatus>>;

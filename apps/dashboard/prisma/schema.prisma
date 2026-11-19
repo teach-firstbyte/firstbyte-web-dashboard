@@ -46,6 +46,8 @@ model User {
   attendanceRecords Attendance[]
   attendanceMarked  Attendance[] @relation("AttendanceMarkedBy")
   feedbackGiven     Feedback[]   @relation("FeedbackAuthor")
+  tasksOwned        Task[]       @relation("TaskOwner")
+  tasksCreated      Task[]       @relation("TaskCreator")
 
   // Officer who decided this account. SetNull so removing an officer does not
   // cascade away the members they approved.
@@ -75,6 +77,7 @@ model Team {
   //relationships
   members  TeamMember[]
   meetings Meeting[]
+  tasks    Task[]
 
   @@map("teams")
 }
@@ -126,6 +129,7 @@ model Meeting {
   team       Team?        @relation(fields: [teamId], references: [id])
   attendance Attendance[]
   feedback   Feedback[]
+  tasks      Task[]
 
   @@map("meetings")
 }
@@ -171,6 +175,47 @@ model Feedback {
   author  User    @relation("FeedbackAuthor", fields: [authorId], references: [id], onDelete: Cascade)
 
   @@map("feedback")
+}
+
+/// An e-board action item. Only approved EBOARD members and super admins can
+/// see or change one -- the rules are in src/lib/auth/taskPolicy.ts.
+///
+/// "Overdue" and "needs a new owner" are not stored. Both are worked out when
+/// the task is read (server/tasks/queries.ts), so they can never go stale.
+model Task {
+  //fields
+  id      Int        @id @default(autoincrement())
+  title   String
+  status  TaskStatus @default(TODO)
+  // A date with no time. Read as a day in Boston time, the club's time zone.
+  dueDate DateTime   @map("due_date") @db.Date
+  notes   String?
+
+  ownerId     Int  @map("owner_id")
+  createdById Int  @map("created_by_id")
+  // A label for which team the work is for. Not who can see it.
+  teamId      Int? @map("team_id")
+  // The e-board meeting the task came from.
+  meetingId   Int? @map("meeting_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  //relationships
+  // Restrict, not Cascade: a task must outlive its owner and its creator.
+  // Accounts are never hard-deleted (deleteOwnAccount keeps the row), and if
+  // something ever tries, this makes it fail instead of erasing tasks.
+  owner     User     @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  createdBy User     @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  // Deleting the team or the meeting keeps the task and clears the link.
+  team      Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  meeting   Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
+  @@index([createdById])
+  @@index([meetingId])
+  @@index([dueDate])
+  @@map("tasks")
 }
 
 //ENUMS 
@@ -232,6 +277,14 @@ enum AccountStatus {
   DELETED
 
   @@map("account_status")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+
+  @@map("task_status")
 }
 
 enum TeamMemberStatus {
