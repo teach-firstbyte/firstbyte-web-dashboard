@@ -16,13 +16,16 @@
  *   - four test logins (admin, officer, member, pending) whose passwords come
  *     from TEST_*_PASSWORD (supabase/seed/.env.test-accounts locally, the
  *     PREVIEW_TEST_ACCOUNTS secret on GitHub)
+ *   - a fake e-board of 8 for testing the task board's Slack reminders (see
+ *     FAKE_EBOARD). They get logins too, but only when TEST_EBOARD_PASSWORD
+ *     is set.
  *
  * Re-runnable: it empties every app table first and restarts the ids, and
  * random choices come from a fixed seed, so each run gives the same club.
  * Dates are relative to the day it runs, so there is always recent history.
  *
- * Login accounts in auth.users are left alone, except the four test logins,
- * which are created or have their password reset. A public.users row is
+ * Login accounts in auth.users are left alone, except the test logins, which
+ * are created or have their password reset. A public.users row is
  * matched to its login by email alone, the same way syncUserToDb in
  * src/lib/auth/sync-user.ts does it, so a real officer who signs up on preview
  * with their email lands on their seeded row.
@@ -49,6 +52,84 @@ const TEST_ACCOUNTS = [
     key: "PENDING",
     email: "test-pending@firstbyte.test",
     name: "Test Pending",
+  },
+];
+
+/**
+ * A made-up e-board for testing the e-board task board and its Slack
+ * reminders (issue 141). They are the sample people in the mockup
+ * (docs/superpowers/specs/2026-11-18-eboard-task-board-mockup.html), and
+ * each one has a real account in the FirstByte Slack Dev Sandbox, so the
+ * Tasks bot can DM them. slackUserId is that account's member ID. Nothing
+ * reads it yet: it is here for when the task board's Slack links exist.
+ * Who they are, and how to recreate them in Slack, is in
+ * docs/superpowers/2026-11-18-fake-eboard-users.md.
+ *
+ * `leads` is the name of the team they lead, as in officers.json. Everyone is
+ * on the invite-only E-Board team, and the president is its lead.
+ */
+const FAKE_EBOARD = [
+  {
+    name: "Maya Okafor",
+    title: "President",
+    email: "maya.okafor@firstbyte.test",
+    role: "SUPER_ADMIN",
+    eboardRole: "LEAD",
+    slackUserId: "U0CK0SKF78E",
+  },
+  {
+    name: "Daniel Reyes",
+    title: "Vice president",
+    email: "daniel.reyes@firstbyte.test",
+    role: "SUPER_ADMIN",
+    slackUserId: "U0CKX75N8L8",
+  },
+  {
+    name: "Sam Patel",
+    title: "Website lead",
+    email: "sam.patel@firstbyte.test",
+    role: "SUPER_ADMIN",
+    leads: "Website",
+    slackUserId: "U0CK4NBB317",
+  },
+  {
+    name: "Priya Nair",
+    title: "Events lead",
+    email: "priya.nair@firstbyte.test",
+    role: "NORTHEASTERN_ADMIN",
+    leads: "Events",
+    slackUserId: "U0CK2L2HN3U",
+  },
+  {
+    name: "Jordan Lee",
+    title: "CS Curricula lead",
+    email: "jordan.lee@firstbyte.test",
+    role: "NORTHEASTERN_ADMIN",
+    leads: "CS Curricula",
+    slackUserId: "U0CK0SGRKML",
+  },
+  {
+    name: "Alex Kim",
+    title: "STEM Curricula lead",
+    email: "alex.kim@firstbyte.test",
+    role: "NORTHEASTERN_ADMIN",
+    leads: "STEM Curricula",
+    slackUserId: "U0CK2L2T75G",
+  },
+  {
+    name: "Riley Chen",
+    title: "Brand and Marketing lead",
+    email: "riley.chen@firstbyte.test",
+    role: "NORTHEASTERN_ADMIN",
+    leads: "Brand and Marketing",
+    slackUserId: "U0CKX75UZ9N",
+  },
+  {
+    name: "Taylor Brooks",
+    title: "Treasurer",
+    email: "taylor.brooks@firstbyte.test",
+    role: "NORTHEASTERN_ADMIN",
+    slackUserId: "U0CJWJUCYRH",
   },
 ];
 
@@ -247,6 +328,18 @@ function readPasswords() {
   });
 }
 
+/** The fake e-board's logins, all with one password, or none if it's unset. */
+function readEboardLogins() {
+  const password = process.env.TEST_EBOARD_PASSWORD;
+  if (!password) return [];
+  if (password.length < 6) {
+    throw new Error(
+      "TEST_EBOARD_PASSWORD is shorter than 6 characters. See supabase/seed/.env.test-accounts.example.",
+    );
+  }
+  return FAKE_EBOARD.map((p) => ({ email: p.email, name: p.name, password }));
+}
+
 /** Monday 00:00 UTC of the current week. */
 function startOfWeek(now) {
   const d = new Date(
@@ -273,7 +366,7 @@ run(async () => {
   }
 
   const { teams, officers } = readOfficers();
-  const testAccounts = readPasswords();
+  const testAccounts = [...readPasswords(), ...readEboardLogins()];
   const now = new Date();
 
   const prisma = new PrismaClient({
@@ -300,6 +393,11 @@ run(async () => {
   );
   console.log("✔ Seeded. Test logins:");
   for (const a of testAccounts) console.log(`  ${a.email}`);
+  if (!process.env.TEST_EBOARD_PASSWORD) {
+    console.log(
+      "  (The fake e-board has no logins. Set TEST_EBOARD_PASSWORD to add them.)",
+    );
+  }
 });
 
 async function seedDatabase(tx, { teams, officers, now }) {
@@ -367,6 +465,16 @@ async function seedDatabase(tx, { teams, officers, now }) {
         submittedAt: new Date(now.getTime() - DAY),
       },
     ],
+  });
+
+  // --- Fake e-board ------------------------------------------------------
+  const eboardRows = await tx.user.createManyAndReturn({
+    data: FAKE_EBOARD.map((p) => ({
+      email: p.email,
+      name: p.name,
+      role: p.role,
+      status: "APPROVED",
+    })),
   });
 
   // --- Made-up members ----------------------------------------------------
@@ -448,7 +556,17 @@ async function seedDatabase(tx, { teams, officers, now }) {
   if (inviteOnly) {
     add(admin.id, inviteOnly.id, "MEMBER", "APPROVED");
     add(officer.id, inviteOnly.id, "MEMBER", "APPROVED");
+  } else {
+    console.warn("  ! No invite-only team, so the fake e-board is on no team.");
   }
+  FAKE_EBOARD.forEach((p, i) => {
+    const id = eboardRows[i].id;
+    if (inviteOnly)
+      add(id, inviteOnly.id, p.eboardRole ?? "MEMBER", "APPROVED");
+    if (!p.leads) return;
+    if (teamId[p.leads]) add(id, p.leads, "LEAD", "APPROVED");
+    else console.warn(`  ! No "${p.leads}" team, so ${p.name} leads nothing.`);
+  });
   add(officer.id, openTeams[0].id, "LEAD", "APPROVED");
   add(member.id, openTeams[0].id, "MEMBER", "APPROVED");
   if (openTeams[2]) add(member.id, openTeams[2].id, "MEMBER", "APPROVED");
@@ -571,7 +689,14 @@ async function seedDatabase(tx, { teams, officers, now }) {
   // src/server/attendance/mutations.ts). Expected is worked out like
   // expectedUsersWhere: approved accounts, and for a team meeting, approved
   // members of that team.
-  const approvedIds = [...officerRows, admin, officer, member, ...memberRows]
+  const approvedIds = [
+    ...officerRows,
+    admin,
+    officer,
+    member,
+    ...eboardRows,
+    ...memberRows,
+  ]
     .filter((u) => u.status === "APPROVED")
     .map((u) => u.id);
   const onTeam = new Map();
@@ -635,6 +760,7 @@ async function seedDatabase(tx, { teams, officers, now }) {
     teams: teamRows.length,
     officers: officerRows.length,
     "test-login rows": 4,
+    "fake e-board": eboardRows.length,
     "made-up members": memberRows.length,
     "team memberships": uniqueMemberships.length,
     "meetings (past / upcoming)": `${meetingRows.filter((m) => m.attendanceClosedAt).length} / ${meetingRows.filter((m) => !m.attendanceClosedAt).length}`,

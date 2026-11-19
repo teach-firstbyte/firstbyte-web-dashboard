@@ -193,6 +193,8 @@ A **preview deployment** is a temporary copy of the site that Vercel builds for 
 | `test-member@firstbyte.test`  | Approved member of CS Curricula and Website             |
 | `test-pending@firstbyte.test` | Account waiting for officer review, asking to join STEM |
 
+The seed also makes a fake e-board of 8 (`maya.okafor@firstbyte.test` and the rest) for testing the task board's Slack reminders. They get logins only when `TEST_EBOARD_PASSWORD` is set. See [docs/superpowers/2026-11-18-fake-eboard-users.md](../../docs/superpowers/2026-11-18-fake-eboard-users.md).
+
 The passwords are **never** in the repository. Ask a Website team lead for them. They are kept:
 
 - in the club password manager's shared folder, or
