@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import { ChevronDownIcon } from "lucide-react";
 
 import { TASK_STATUS_OPTIONS, type TaskStatusValue } from "@/lib/enums";
@@ -21,10 +22,16 @@ export function TaskStatusPill({
   status,
   title,
   className,
+  leading,
+  srHint,
 }: {
   status: string;
   title?: string;
   className?: string;
+  /** An icon before the label, like the lock on a card you can't move. */
+  leading?: React.ReactNode;
+  /** Why it is read-only, for screen readers (the title is hover-only). */
+  srHint?: string;
 }) {
   return (
     <span
@@ -35,7 +42,9 @@ export function TaskStatusPill({
         className,
       )}
     >
+      {leading}
       {taskStatusLabel(status)}
+      {srHint && <span className="sr-only">. {srHint}</span>}
     </span>
   );
 }
@@ -46,13 +55,17 @@ export function TaskStatusPill({
  * Shows a plain pill instead when `canChange` is false.
  */
 export function TaskStatusControl({
+  id,
   status,
   taskTitle,
   canChange,
   readOnlyHint,
   disabled,
+  busy,
   onChange,
 }: {
+  /** For finding the control again, as the kanban does after a card moves. */
+  id?: string;
   status: string;
   /** For the screen-reader label, "Status of Book a room". */
   taskTitle: string;
@@ -60,6 +73,12 @@ export function TaskStatusControl({
   /** Why it is read-only, shown on hover. */
   readOnlyHint?: string;
   disabled?: boolean;
+  /**
+   * Saving, without disabling: a disabled select drops keyboard focus, and
+   * the kanban keeps focus on it while the card moves. A repeat change is
+   * ignored by the caller while one is in flight.
+   */
+  busy?: boolean;
   onChange: (status: TaskStatusValue) => void;
 }) {
   if (!canChange) {
@@ -75,12 +94,14 @@ export function TaskStatusControl({
       )}
     >
       <select
+        id={id}
         aria-label={`Status of ${taskTitle}`}
+        aria-busy={busy || undefined}
         value={status}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value as TaskStatusValue)}
         className={cn(
-          "w-full cursor-pointer appearance-none rounded-full border border-transparent bg-transparent py-0.5 pr-7 pl-2.5 text-[12.5px] font-semibold transition-[color,box-shadow] outline-none disabled:cursor-wait disabled:opacity-70",
+          "w-full cursor-pointer appearance-none rounded-full border border-transparent bg-transparent py-0.5 pr-7 pl-2.5 text-[12.5px] font-semibold transition-[color,box-shadow] outline-none disabled:cursor-wait disabled:opacity-70 aria-busy:cursor-wait aria-busy:opacity-70",
           "focus-visible:ring-[3px] focus-visible:ring-ring/50",
         )}
       >

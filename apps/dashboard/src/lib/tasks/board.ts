@@ -222,3 +222,116 @@ export function groupTasks<T extends BoardTaskFields>(
   }
   return groups;
 }
+
+// ---------------------------------------------------------------------------
+// The kanban view (#144): To do, In progress and Done columns.
+
+/** Board (the columns) or List (the groups). Board is the default. */
+export type BoardView = "board" | "list";
+
+/** Who the columns show. Null means everyone, or every team. */
+export type KanbanFilters = {
+  /** Only tasks the viewer owns. Wins over `ownerId`. */
+  mine: boolean;
+  ownerId: number | "needsOwner" | null;
+  teamId: number | "none" | null;
+};
+
+/** Everything the page keeps in the URL: the view, and each view's filters. */
+export type BoardSettings = BoardFilters &
+  Omit<KanbanFilters, "mine"> & { view: BoardView };
+
+/** The columns, left to right, by status value. */
+export const KANBAN_COLUMNS = ["TODO", "IN_PROGRESS", DONE] as const;
+export type KanbanColumn = (typeof KANBAN_COLUMNS)[number];
+
+/** How many Done cards show before "Show all". */
+export const DONE_SHOWN = 5;
+
+/** The fields the columns read: the board's, plus when it last changed. */
+export type KanbanTaskFields = BoardTaskFields & { updatedAt: Date | string };
+
+/** Whether any filter is narrowing the columns. */
+export function isKanbanFiltered(f: KanbanFilters): boolean {
+  return f.mine || f.ownerId !== null || f.teamId !== null;
+}
+
+/** The tasks the filters let through, in no particular order. */
+export function filterKanban<T extends BoardTaskFields>(
+  tasks: readonly T[],
+  filters: KanbanFilters,
+  viewerId: number,
+): T[] {
+  return tasks.filter((t) => {
+    if (filters.mine) {
+      if (t.ownerId !== viewerId) return false;
+    } else if (filters.ownerId === "needsOwner") {
+      if (!t.needsNewOwner) return false;
+    } else if (filters.ownerId !== null && t.ownerId !== filters.ownerId) {
+      return false;
+    }
+    if (filters.teamId === "none") return t.teamId === null;
+    if (filters.teamId !== null) return t.teamId === filters.teamId;
+    return true;
+  });
+}
+
+function changedAt(t: KanbanTaskFields): number {
+  return new Date(t.updatedAt).getTime();
+}
+
+/**
+ * The three columns. To do and In progress go soonest due first, so overdue
+ * tasks lead. Done goes most recently changed first: the task has no
+ * "finished on" date, and marking it done is almost always its last change.
+ * A status this board doesn't know lands in To do, so no task is hidden.
+ */
+export function kanbanColumns<T extends KanbanTaskFields>(
+  tasks: readonly T[],
+  filters: KanbanFilters,
+  viewerId: number,
+): Record<KanbanColumn, T[]> {
+  const columns: Record<KanbanColumn, T[]> = {
+    TODO: [],
+    IN_PROGRESS: [],
+    DONE: [],
+  };
+  for (const t of filterKanban(tasks, filters, viewerId)) {
+    const key = (KANBAN_COLUMNS as readonly string[]).includes(t.status)
+      ? (t.status as KanbanColumn)
+      : "TODO";
+    columns[key].push(t);
+  }
+  columns.TODO.sort(compareTasks);
+  columns.IN_PROGRESS.sort(compareTasks);
+  columns.DONE.sort((a, b) => changedAt(b) - changedAt(a) || b.id - a.id);
+  return columns;
+}
+
+/** The URL value for a person filter: an id, or "needs-owner". */
+export function ownerFilterParam(id: KanbanFilters["ownerId"]): string | null {
+  if (id === null) return null;
+  return id === "needsOwner" ? "needs-owner" : String(id);
+}
+
+/** Reads a person filter back from the URL. Anything else means everyone. */
+export function parseOwnerFilter(
+  raw: string | undefined,
+): KanbanFilters["ownerId"] {
+  if (raw === "needs-owner") return "needsOwner";
+  return positiveInt(raw);
+}
+
+/** Reads a team filter back from the URL: an id, or "none". */
+export function parseTeamFilter(
+  raw: string | undefined,
+): KanbanFilters["teamId"] {
+  if (raw === "none") return "none";
+  return positiveInt(raw);
+}
+
+function positiveInt(raw: string | undefined): number | null {
+  if (!raw || !/^\d+$/.test(raw)) return null;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
