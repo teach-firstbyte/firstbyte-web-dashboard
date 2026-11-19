@@ -8,8 +8,8 @@ import { createTaskSchema, listTasksSchema } from "@/server/tasks/schema";
 /**
  * Lists tasks, soonest due first. E-board members and super admins only.
  *
- * Optional filters: ?ownerId=12 for one person's tasks, ?includeDone=false
- * to leave out Done tasks.
+ * Optional filters: ?ownerId=12 for one person's tasks, ?meetingId=7 for the
+ * ones from one meeting, ?includeDone=false to leave out Done tasks.
  */
 export async function GET(request: Request): Promise<NextResponse> {
   const { user, error } = await requireTaskAccessApi();
@@ -19,6 +19,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     const { searchParams } = new URL(request.url);
     const filters = parseOrThrow(listTasksSchema, {
       ownerId: searchParams.get("ownerId") ?? undefined,
+      meetingId: searchParams.get("meetingId") ?? undefined,
       includeDone: searchParams.get("includeDone") ?? undefined,
     });
     const tasks = await listTasks(user, filters);

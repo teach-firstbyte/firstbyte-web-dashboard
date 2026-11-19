@@ -1,10 +1,16 @@
 import Link from "next/link";
-import { CalendarX2, ClipboardCheck, QrCode, Star } from "lucide-react";
+import {
+  CalendarX2,
+  ClipboardCheck,
+  ListTodo,
+  QrCode,
+  Star,
+} from "lucide-react";
 
 import { Meter } from "@/components/common/Meter";
 import { Button } from "@/components/ui/button";
 import { formatRelative, formatTime } from "@/lib/format";
-import { audienceLabel, countPresent } from "@/lib/meetings";
+import { audienceLabel, countPresent, hasActionItems } from "@/lib/meetings";
 import type { Meeting } from "@/types/dashboard";
 import { MeetingActionsMenu } from "./MeetingActionsMenu";
 import { LivePill } from "./MeetingRow";
@@ -18,11 +24,15 @@ export function CurrentMeetingCard({
   meeting,
   phase,
   locations,
+  canUseTasks = false,
 }: {
   meeting: Meeting;
   phase: "live" | "upcoming";
   locations: string[];
+  /** Offer Action items on e-board meetings. */
+  canUseTasks?: boolean;
 }) {
+  const actionItems = canUseTasks && hasActionItems(meeting.type);
   const present = countPresent(meeting.attendance);
   const invited = meeting.expectedCount;
   // Members who said "I can't make it" (or an officer excused). The in-app
@@ -53,7 +63,11 @@ export function CurrentMeetingCard({
             Next up · {formatRelative(meeting.scheduledAt)}
           </span>
         )}
-        <MeetingActionsMenu meeting={meeting} locations={locations} />
+        <MeetingActionsMenu
+          meeting={meeting}
+          locations={locations}
+          canUseTasks={canUseTasks}
+        />
       </div>
 
       <div className="relative flex flex-wrap items-end justify-between gap-4">
@@ -100,6 +114,14 @@ export function CurrentMeetingCard({
             Show check-in QR
           </Link>
         </Button>
+        {actionItems && (
+          <Button asChild variant="outline" size="lg">
+            <Link href={`/meetings/${meeting.id}/action-items`}>
+              <ListTodo data-icon="inline-start" />
+              Action items
+            </Link>
+          </Button>
+        )}
         {phase === "live" && (
           <Button asChild variant="outline" size="lg">
             <Link href={`/meetings/${meeting.id}/feedback-display`}>

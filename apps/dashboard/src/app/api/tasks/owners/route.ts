@@ -4,7 +4,8 @@ import { toErrorResponse } from "@/server/http";
 import { listTaskOwnerOptions } from "@/server/tasks/queries";
 
 /**
- * The people a task can be assigned to: approved e-board members, by name.
+ * The people a task can be assigned to: approved e-board members, by name,
+ * each with the teams they lead (`leads`, possibly empty).
  * For the owner pickers on the meeting page and the New task form.
  */
 export async function GET(): Promise<NextResponse> {

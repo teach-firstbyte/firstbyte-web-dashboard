@@ -59,9 +59,11 @@ export const updateTaskSchema = z
 
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 
-/** GET /api/tasks filters. Both optional. */
+/** GET /api/tasks filters. All optional. */
 export const listTasksSchema = z.object({
   ownerId: idParam.optional(),
+  // The tasks that came from one meeting, for its Action items section.
+  meetingId: idParam.optional(),
   // A query string, so "false" arrives as text. Anything but "false" keeps
   // Done tasks in.
   includeDone: z
