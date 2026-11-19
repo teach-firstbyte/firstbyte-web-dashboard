@@ -31,7 +31,10 @@ E-board action items are written in the agenda Google Doc during meetings, and s
 
 **The board**
 - A **Tasks** link in the nav, shown only to e-board members and `SUPER_ADMIN`s.
-- Tasks are grouped by owner, with overdue first and then by due date. You can switch to grouping by team. There's a "Mine" filter, and Done tasks are hidden unless "Show done" is on.
+- The board has two views, switched with **Board | List** and kept in the link (`?view=list`). Board is the default (#144, mockup: `2026-11-19-tasks-kanban-mockup.html`).
+  - **Board**: To do, In progress and Done columns. Each card shows the title, the owner, the due date and the team, plus "Needs a new owner" and "Reminder not delivered". Overdue cards stand out, and each open column is sorted soonest due first. Done shows the 5 most recently finished (by last change), with "Show all" for the rest. Filters: a person (or "Needs a new owner"), a team (or "No team"), and "Only mine".
+  - Status changes by dragging a card to another column (the browser's own drag and drop), or with the status menu on each card, which works with the keyboard and on phones. Both follow the rules below and go through `PATCH /api/tasks/[id]`. Cards the viewer can't change show a lock and won't drag. On narrow screens the board shows one column at a time, picked with tabs, and has no dragging.
+  - **List**: tasks grouped by owner, with overdue first and then by due date. You can switch to grouping by team. There's a "Mine" filter, and Done tasks are hidden unless "Show done" is on.
 - A **My tasks** card on each e-board member's Home page shows what's overdue and what's due this week.
 
 **Who can do what**
@@ -76,7 +79,7 @@ E-board action items are written in the agenda Google Doc during meetings, and s
 - Matching people to Slack accounts automatically, by email or any other way.
 - Tasks owned by a whole team, or by someone outside the e-board.
 - Subtasks, priorities, a "Blocked" status, comments, attachments.
-- A kanban view or drag-and-drop.
+- Reordering cards by hand within a column, columns beyond To do, In progress and Done, and dragging on phones.
 - Each person choosing their own reminder timing, or daily overdue reminders.
 - Email reminders, or Slack channel posts.
 - Owners asking for a new due date (for now they ask the creator).

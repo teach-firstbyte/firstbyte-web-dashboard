@@ -10,18 +10,26 @@ import { PersonAvatar } from "@/components/common/PersonAvatar";
 import { EmptyState, PageHeader } from "@/components/common/Section";
 import { Segmented } from "@/components/common/Segmented";
 import { Button } from "@/components/ui/button";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/components/ui/native-select";
 import { Toggle } from "@/components/ui/toggle";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { TaskStatusValue } from "@/lib/enums";
 import {
   groupTasks,
+  isKanbanFiltered,
+  ownerFilterParam,
   summarize,
-  type BoardFilters,
   type BoardGroup,
+  type BoardSettings,
+  type KanbanFilters,
 } from "@/lib/tasks/board";
 import { cn } from "@/lib/utils";
 import { updateTask } from "./api";
 import { NotConnectedToSlack } from "./SlackFlags";
+import { TaskKanban } from "./TaskKanban";
 import { TaskRow } from "./TaskRow";
 import { TaskSheet, type TaskPanel } from "./TaskSheet";
 import { taskStatusLabel } from "./TaskStatusControl";
@@ -33,12 +41,23 @@ import {
   type BoardTeam,
 } from "./types";
 
-/** The board's view settings, kept in the URL so a reload or a shared link keeps them. */
-export function filtersToQuery(f: BoardFilters): string {
+/**
+ * The board's view settings, kept in the URL so a reload or a shared link
+ * keeps them. Board is the default view; the person and team filters belong
+ * to it, and the grouping and "Show done" to List.
+ */
+export function filtersToQuery(f: BoardSettings): string {
   const q = new URLSearchParams();
-  if (f.groupBy === "team") q.set("group", "team");
+  if (f.view === "list") {
+    q.set("view", "list");
+    if (f.groupBy === "team") q.set("group", "team");
+    if (f.showDone) q.set("done", "1");
+  } else {
+    const person = ownerFilterParam(f.ownerId);
+    if (person) q.set("person", person);
+    if (f.teamId !== null) q.set("team", String(f.teamId));
+  }
   if (f.mine) q.set("mine", "1");
-  if (f.showDone) q.set("done", "1");
   const s = q.toString();
   return s ? `?${s}` : "";
 }
@@ -46,7 +65,8 @@ export function filtersToQuery(f: BoardFilters): string {
 type PanelState = { kind: "new" } | { kind: "task"; id: number } | null;
 
 /**
- * The Tasks board: the summary line, the view switches, and the groups.
+ * The Tasks board: the summary line, the Board | List switch, each view's
+ * filters, and the columns (TaskKanban) or the groups.
  *
  * Reads come from the server page; every write goes through /api/tasks and
  * then router.refresh(), so the board is always the server's answer. A
@@ -71,7 +91,7 @@ export function TaskBoard({
   viewerId: number;
   /** A super admin, who gets the link to Slack setup. Decided on the server. */
   canManageSlack: boolean;
-  initialFilters: BoardFilters;
+  initialFilters: BoardSettings;
 }) {
   const router = useRouter();
   const [filters, setFilters] = React.useState(initialFilters);
@@ -82,12 +102,15 @@ export function TaskBoard({
   const [shownTasks, setOptimisticStatus] = React.useOptimistic(
     tasks,
     (state, change: { id: number; status: TaskStatusValue }) =>
+      // updatedAt too, so a card moved to Done sorts to the top of it.
       state.map((t) =>
-        t.id === change.id ? { ...t, status: change.status } : t,
+        t.id === change.id
+          ? { ...t, status: change.status, updatedAt: new Date() }
+          : t,
       ),
   );
 
-  const updateFilters = (next: Partial<BoardFilters>) => {
+  const updateFilters = (next: Partial<BoardSettings>) => {
     const merged = { ...filters, ...next };
     setFilters(merged);
     // Not router.replace: nothing on the server changes, so there is
@@ -157,6 +180,11 @@ export function TaskBoard({
     teamIds: teams.map((t) => t.id),
   });
   const anything = groups.some((g) => g.tasks.length > 0);
+  const kanbanFilters: KanbanFilters = {
+    mine: filters.mine,
+    ownerId: filters.ownerId,
+    teamId: filters.teamId,
+  };
 
   const ownerById = new Map(owners.map((o) => [o.id, o]));
   const teamById = new Map(teams.map((t) => [t.id, t]));
@@ -176,26 +204,117 @@ export function TaskBoard({
 
       <div className="flex flex-wrap items-center gap-2">
         <Segmented
-          label="Group by"
-          value={filters.groupBy}
-          onValueChange={(groupBy) => updateFilters({ groupBy })}
+          label="View"
+          value={filters.view}
+          onValueChange={(view) => updateFilters({ view })}
           options={[
-            { value: "owner", label: "By person" },
-            { value: "team", label: "By team" },
+            { value: "board", label: "Board" },
+            { value: "list", label: "List" },
           ]}
         />
-        <FilterToggle
-          pressed={filters.mine}
-          onPressedChange={(mine) => updateFilters({ mine })}
-        >
-          Only mine
-        </FilterToggle>
-        <FilterToggle
-          pressed={filters.showDone}
-          onPressedChange={(showDone) => updateFilters({ showDone })}
-        >
-          Show done
-        </FilterToggle>
+        {filters.view === "board" ? (
+          <>
+            <FilterSelect
+              label="Person"
+              active={filters.mine || filters.ownerId !== null}
+              disabled={filters.mine}
+              value={
+                filters.mine
+                  ? "mine"
+                  : (ownerFilterParam(filters.ownerId) ?? "")
+              }
+              onChange={(value) =>
+                updateFilters({
+                  ownerId:
+                    value === ""
+                      ? null
+                      : value === "needs-owner"
+                        ? "needsOwner"
+                        : Number(value),
+                })
+              }
+            >
+              <NativeSelectOption value="">Everyone</NativeSelectOption>
+              {filters.mine && (
+                <NativeSelectOption value="mine">You</NativeSelectOption>
+              )}
+              {owners.map((o) => (
+                <NativeSelectOption key={o.id} value={String(o.id)}>
+                  {personName(o)}
+                  {o.id === viewerId ? " (you)" : ""}
+                </NativeSelectOption>
+              ))}
+              <NativeSelectOption value="needs-owner">
+                Needs a new owner
+              </NativeSelectOption>
+            </FilterSelect>
+            <FilterSelect
+              label="Team"
+              active={filters.teamId !== null}
+              value={filters.teamId === null ? "" : String(filters.teamId)}
+              onChange={(value) =>
+                updateFilters({
+                  teamId:
+                    value === ""
+                      ? null
+                      : value === "none"
+                        ? "none"
+                        : Number(value),
+                })
+              }
+            >
+              <NativeSelectOption value="">All teams</NativeSelectOption>
+              {teams.map((t) => (
+                <NativeSelectOption key={t.id} value={String(t.id)}>
+                  {t.name}
+                </NativeSelectOption>
+              ))}
+              <NativeSelectOption value="none">No team</NativeSelectOption>
+            </FilterSelect>
+            <FilterToggle
+              pressed={filters.mine}
+              onPressedChange={(mine) => updateFilters({ mine })}
+            >
+              Only mine
+            </FilterToggle>
+            {isKanbanFiltered(kanbanFilters) && (
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() =>
+                  updateFilters({ mine: false, ownerId: null, teamId: null })
+                }
+              >
+                Clear filters
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            <Segmented
+              label="Group by"
+              value={filters.groupBy}
+              onValueChange={(groupBy) => updateFilters({ groupBy })}
+              options={[
+                { value: "owner", label: "By person" },
+                { value: "team", label: "By team" },
+              ]}
+            />
+            <FilterToggle
+              pressed={filters.mine}
+              onPressedChange={(mine) => updateFilters({ mine })}
+            >
+              Only mine
+            </FilterToggle>
+            <FilterToggle
+              pressed={filters.showDone}
+              onPressedChange={(showDone) => updateFilters({ showDone })}
+            >
+              Show done
+            </FilterToggle>
+          </>
+        )}
         {canManageSlack && (
           <Button
             asChild
@@ -208,7 +327,17 @@ export function TaskBoard({
         )}
       </div>
 
-      {anything ? (
+      {filters.view === "board" ? (
+        <TaskKanban
+          tasks={shownTasks}
+          today={today}
+          viewerId={viewerId}
+          filters={kanbanFilters}
+          isPending={statusSave.isPendingKey}
+          onStatusChange={changeStatus}
+          onOpen={openTask}
+        />
+      ) : anything ? (
         <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5">
           {groups.map((group) => (
             <GroupCard
@@ -285,6 +414,40 @@ function Summary({ summary }: { summary: ReturnType<typeof summarize> }) {
         <span>{n(summary.needsNewOwner)} need a new owner</span>
       )}
     </span>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  active,
+  disabled,
+  onChange,
+  children,
+}: {
+  label: string;
+  value: string;
+  /** Narrowing the board: tinted like a pressed toggle. */
+  active: boolean;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <NativeSelect
+      size="sm"
+      aria-label={label}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value)}
+      className={cn(
+        "max-w-[60vw] rounded-full bg-card pl-3 text-[13px] font-medium dark:bg-card",
+        active &&
+          "border-transparent bg-primary/12 text-primary dark:bg-primary/12",
+      )}
+    >
+      {children}
+    </NativeSelect>
   );
 }
 

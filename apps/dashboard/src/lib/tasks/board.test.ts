@@ -5,11 +5,18 @@ import {
   addDays,
   daysFrom,
   dueLabel,
+  filterKanban,
   groupTasks,
   isDueThisWeek,
+  isKanbanFiltered,
+  kanbanColumns,
+  ownerFilterParam,
+  parseOwnerFilter,
+  parseTeamFilter,
   summarize,
   type BoardFilters,
   type BoardTaskFields,
+  type KanbanFilters,
 } from "./board.ts";
 
 // A Wednesday.
@@ -180,4 +187,75 @@ test("by team: teams in order, empty ones dropped, no team last", () => {
     groups.map((g) => g.key),
     ["team-20", "team-null", "team-99"],
   );
+});
+
+// --- Kanban (#144) ---------------------------------------------------------
+
+type KTask = BoardTaskFields & { updatedAt: string };
+function ktask(over: Partial<KTask> = {}): KTask {
+  return { ...task(over), updatedAt: "2026-11-18T12:00:00Z", ...over };
+}
+const EVERYONE: KanbanFilters = { mine: false, ownerId: null, teamId: null };
+const titles = (ts: { id: number }[]) => ts.map((t) => t.id);
+
+test("kanban: open columns soonest due first, Done most recent first", () => {
+  const late = ktask({ dueDate: "2026-11-15" });
+  const soon = ktask({ dueDate: "2026-11-20" });
+  const doing = ktask({ status: "IN_PROGRESS", dueDate: "2026-11-19" });
+  const oldDone = ktask({ status: "DONE", updatedAt: "2026-11-01T10:00:00Z" });
+  const newDone = ktask({ status: "DONE", updatedAt: "2026-11-17T10:00:00Z" });
+  const cols = kanbanColumns(
+    [soon, oldDone, doing, late, newDone],
+    EVERYONE,
+    1,
+  );
+  assert.deepEqual(titles(cols.TODO), [late.id, soon.id]);
+  assert.deepEqual(titles(cols.IN_PROGRESS), [doing.id]);
+  assert.deepEqual(titles(cols.DONE), [newDone.id, oldDone.id]);
+});
+
+test("kanban: Done orders by updatedAt given as Date objects too", () => {
+  const a = { ...ktask({ status: "DONE" }), updatedAt: new Date("2026-11-02") };
+  const b = { ...ktask({ status: "DONE" }), updatedAt: new Date("2026-11-09") };
+  assert.deepEqual(titles(kanbanColumns([a, b], EVERYONE, 1).DONE), [
+    b.id,
+    a.id,
+  ]);
+});
+
+test("kanban: an unknown status lands in To do", () => {
+  const odd = ktask({ status: "BLOCKED" });
+  assert.deepEqual(titles(kanbanColumns([odd], EVERYONE, 1).TODO), [odd.id]);
+});
+
+test("kanban: filters by person, needs-a-new-owner, team and no team", () => {
+  const mine = ktask({ ownerId: 7, teamId: 3 });
+  const theirs = ktask({ ownerId: 8, teamId: null });
+  const orphan = ktask({ ownerId: 9, teamId: 3, needsNewOwner: true });
+  const all = [mine, theirs, orphan];
+  const ids = (f: Partial<KanbanFilters>) =>
+    titles(filterKanban(all, { ...EVERYONE, ...f }, 7));
+  assert.deepEqual(ids({}), [mine.id, theirs.id, orphan.id]);
+  assert.deepEqual(ids({ ownerId: 8 }), [theirs.id]);
+  assert.deepEqual(ids({ ownerId: "needsOwner" }), [orphan.id]);
+  assert.deepEqual(ids({ teamId: 3 }), [mine.id, orphan.id]);
+  assert.deepEqual(ids({ teamId: "none" }), [theirs.id]);
+  // Only mine wins over a person filter, and still respects the team.
+  assert.deepEqual(ids({ mine: true, ownerId: 8 }), [mine.id]);
+  assert.deepEqual(ids({ mine: true, teamId: "none" }), []);
+  assert.equal(isKanbanFiltered(EVERYONE), false);
+  assert.equal(isKanbanFiltered({ ...EVERYONE, teamId: "none" }), true);
+});
+
+test("kanban: person and team filters round-trip through the URL", () => {
+  assert.equal(ownerFilterParam(null), null);
+  assert.equal(ownerFilterParam("needsOwner"), "needs-owner");
+  assert.equal(parseOwnerFilter(ownerFilterParam(12) ?? undefined), 12);
+  assert.equal(parseOwnerFilter("needs-owner"), "needsOwner");
+  assert.equal(parseTeamFilter("none"), "none");
+  assert.equal(parseTeamFilter("4"), 4);
+  for (const bad of [undefined, "", "0", "-3", "1.5", "abc", "1e3"]) {
+    assert.equal(parseOwnerFilter(bad), null);
+    assert.equal(parseTeamFilter(bad), null);
+  }
 });
