@@ -28,6 +28,7 @@ import {
   upcomingMeetings,
 } from "@/lib/meetings";
 import { getOfficerDashboard } from "@/server/dashboard/queries";
+import { canViewerUseTasks } from "@/server/tasks/queries";
 import type { Viewer } from "@/server/viewer";
 import type { Meeting } from "@/types/dashboard";
 
@@ -55,11 +56,15 @@ function recentLocations(meetings: Meeting[]) {
  */
 export async function OfficerDashboard({ user }: { user: Viewer }) {
   let data = EMPTY;
+  let canUseTasks = false;
   let dbUnavailable = false;
   try {
     // One round of parallel queries, inside the service. If it fails, render
     // with empty data and the banner below.
-    data = await getOfficerDashboard(user);
+    [data, canUseTasks] = await Promise.all([
+      getOfficerDashboard(user),
+      canViewerUseTasks(user),
+    ]);
   } catch (error) {
     dbUnavailable = true;
     console.error("Database unavailable, rendering empty dashboard:", error);
@@ -136,6 +141,7 @@ export async function OfficerDashboard({ user }: { user: Viewer }) {
               meeting={current.meeting}
               phase={current.phase}
               locations={locations}
+              canUseTasks={canUseTasks}
             />
           ) : (
             <Section title="Next up">

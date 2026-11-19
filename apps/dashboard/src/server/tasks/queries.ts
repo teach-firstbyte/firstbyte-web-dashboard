@@ -13,7 +13,7 @@ import {
 } from "@/lib/auth/taskPolicy";
 import {
   EBOARD_USER_WHERE,
-  taskOwnerOptionArgs,
+  taskOwnerChoiceArgs,
   taskRowArgs,
   type TaskOwnerOption,
   type TaskRow,
@@ -42,6 +42,14 @@ export async function isOnEboard(userId: number): Promise<boolean> {
     select: { id: true },
   });
   return user !== null;
+}
+
+/**
+ * May this person open Tasks? For showing a link without redirecting anyone,
+ * like the meeting page's Action items button.
+ */
+export async function canViewerUseTasks(viewer: Viewer): Promise<boolean> {
+  return canAccessTasks(await getTaskActor(viewer));
 }
 
 /**
@@ -110,6 +118,9 @@ export async function listTasks(
 
   const where: Prisma.TaskWhereInput = {
     ...(filters.ownerId !== undefined ? { ownerId: filters.ownerId } : {}),
+    ...(filters.meetingId !== undefined
+      ? { meetingId: filters.meetingId }
+      : {}),
     ...(filters.includeDone ? {} : { status: { not: TaskStatus.DONE } }),
   };
 
@@ -148,16 +159,28 @@ export function viewTaskRow(row: TaskRow, actor: TaskActor): TaskView {
 }
 
 /**
+ * Someone who can be picked as an owner, with the teams they lead. The shape
+ * of GET /api/tasks/owners. `leads` is empty for someone who leads no team.
+ */
+export type TaskOwnerChoice = TaskOwnerOption & {
+  leads: { id: number; name: string }[];
+};
+
+/**
  * Everyone who can be picked as an owner: approved EBOARD members, by name.
  * The same rule assertEligibleOwner enforces on writes.
  */
 export async function listTaskOwnerOptions(
   viewer: Viewer,
-): Promise<TaskOwnerOption[]> {
+): Promise<TaskOwnerChoice[]> {
   await assertTaskAccess(viewer);
-  return prisma.user.findMany({
-    ...taskOwnerOptionArgs,
+  const rows = await prisma.user.findMany({
+    ...taskOwnerChoiceArgs,
     where: EBOARD_USER_WHERE,
     orderBy: [{ name: "asc" }, { id: "asc" }],
   });
+  return rows.map(({ teamMemberships, ...person }) => ({
+    ...person,
+    leads: teamMemberships.map((m) => m.team),
+  }));
 }

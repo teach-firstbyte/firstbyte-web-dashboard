@@ -3,6 +3,7 @@ import {
   Prisma,
   TeamJoinPolicy,
   TeamMemberStatus,
+  TeamRole,
 } from "@prisma/client";
 
 /**
@@ -79,3 +80,27 @@ export const taskOwnerOptionArgs = Prisma.validator<Prisma.UserDefaultArgs>()({
 });
 
 export type TaskOwnerOption = Prisma.UserGetPayload<typeof taskOwnerOptionArgs>;
+
+/**
+ * An owner as the owner pickers get it: the person, plus the ordinary teams
+ * they lead (not the e-board itself). The pickers match "events" to the Events
+ * lead with it, and label a new task with the owner's team.
+ */
+export const taskOwnerChoiceArgs = Prisma.validator<Prisma.UserDefaultArgs>()({
+  select: {
+    ...person,
+    teamMemberships: {
+      where: {
+        role: TeamRole.LEAD,
+        status: TeamMemberStatus.APPROVED,
+        team: { joinPolicy: TeamJoinPolicy.OPEN, isActive: true },
+      },
+      select: { team: { select: { id: true, name: true } } },
+      orderBy: { team: { name: "asc" } },
+    },
+  },
+});
+
+export type TaskOwnerChoiceRow = Prisma.UserGetPayload<
+  typeof taskOwnerChoiceArgs
+>;

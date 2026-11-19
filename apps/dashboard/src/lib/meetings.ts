@@ -25,6 +25,15 @@ export function meetingTypeLabel(type: string): string {
   return TYPE_LABELS[type as MeetingTypeValue] ?? type.replace(/_/g, " ");
 }
 
+/**
+ * Only e-board meetings have an Action items page (each item becomes an
+ * e-board task). Whether the viewer may open it is a separate question:
+ * canAccessTasks.
+ */
+export function hasActionItems(type: string): boolean {
+  return type === "EBOARD_MEETING";
+}
+
 export type MeetingPhase = "upcoming" | "live" | "past";
 
 /**
