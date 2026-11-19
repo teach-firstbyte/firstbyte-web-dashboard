@@ -32,6 +32,10 @@
  * src/lib/auth/sync-user.ts does it, so a real officer who signs up on preview
  * with their email lands on their seeded row.
  *
+ * SEED_SKIP_LOGINS=1 seeds the app tables only and leaves every login alone:
+ * the test logins keep their passwords, and no Supabase secret key is needed.
+ * Existing logins still find their seeded rows by email.
+ *
  * Refuses to run against anything but the local stack or the preview project.
  */
 import { readFileSync } from "node:fs";
@@ -364,14 +368,17 @@ run(async () => {
     "DIRECT_URL",
     "SUPABASE_URL",
   ]);
-  if (!supabaseUrl || !process.env.SUPABASE_SECRET_KEY) {
+  const skipLogins = process.env.SEED_SKIP_LOGINS === "1";
+  if (!skipLogins && (!supabaseUrl || !process.env.SUPABASE_SECRET_KEY)) {
     throw new Error(
-      "SUPABASE_URL and SUPABASE_SECRET_KEY must be set to create the test logins.",
+      "SUPABASE_URL and SUPABASE_SECRET_KEY must be set to create the test logins (or set SEED_SKIP_LOGINS=1).",
     );
   }
 
   const { teams, officers } = readOfficers();
-  const testAccounts = [...readPasswords(), ...readEboardLogins()];
+  const testAccounts = skipLogins
+    ? []
+    : [...readPasswords(), ...readEboardLogins()];
   const now = new Date();
 
   const prisma = new PrismaClient({
@@ -391,6 +398,10 @@ run(async () => {
     await prisma.$disconnect();
   }
 
+  if (skipLogins) {
+    console.log("✔ Seeded. Logins left as they were (SEED_SKIP_LOGINS=1).");
+    return;
+  }
   await upsertTestLogins(
     supabaseUrl,
     process.env.SUPABASE_SECRET_KEY,
