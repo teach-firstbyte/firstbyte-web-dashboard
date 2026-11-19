@@ -47,6 +47,33 @@ export const nullableIdParam = idParam.nullish().transform((v) => v ?? null);
 export const dateField = z.coerce.date({ error: "must be a valid date" });
 
 /**
+ * A calendar date with no time, as "YYYY-MM-DD". For `@db.Date` columns.
+ *
+ * Parsed to midnight UTC, which is how Prisma reads and writes a date-only
+ * column, so the stored day is exactly the one typed. Read it back with
+ * toDateOnly. A Date or a full timestamp is refused rather than guessed at:
+ * "2026-11-20T23:00:00-05:00" is a different day in UTC than in Boston.
+ */
+export const dateOnlyField = z
+  .string({ error: "must be a date like 2026-11-20" })
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "must be a date like 2026-11-20")
+  .refine(
+    // Rejects impossible days. Date rolls 2026-02-30 over to March 2 instead
+    // of failing, so the round trip is what catches it.
+    (s) => {
+      const d = new Date(`${s}T00:00:00.000Z`);
+      return !Number.isNaN(d.getTime()) && toDateOnly(d) === s;
+    },
+    "must be a real date",
+  )
+  .transform((s) => new Date(`${s}T00:00:00.000Z`));
+
+/** A `@db.Date` value back to "YYYY-MM-DD". The inverse of dateOnlyField. */
+export function toDateOnly(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/**
  * Free text that is optional. Trims, and treats "" the same as absent, so a
  * cleared form field stores null rather than an empty string.
  */
