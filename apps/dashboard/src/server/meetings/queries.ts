@@ -149,6 +149,20 @@ export async function findMeetingHeading(meetingId: number) {
  * Counts in the database rather than loading the roster: the projector page
  * refreshes every few seconds while it is up.
  */
+/** The few fields a meeting's subpages put in their header, or null. */
+export async function findMeetingHeader(meetingId: number) {
+  return prisma.meeting.findUnique({
+    where: { id: meetingId },
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      scheduledAt: true,
+      location: true,
+    },
+  });
+}
+
 export async function findMeetingCheckInSummary(meetingId: number) {
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },

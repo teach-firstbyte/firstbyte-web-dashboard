@@ -42,6 +42,7 @@
   --color-brand-foreground: var(--brand-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --radius-sm: calc(var(--radius) - 4px);
@@ -94,6 +95,8 @@
   --brand-foreground: oklch(0.99 0 0);
   --warning: oklch(0.62 0.14 75);
   --warning-foreground: oklch(0.42 0.1 70);
+  /* In-progress tasks. */
+  --info: oklch(0.45 0.11 245);
   --success: oklch(0.55 0.13 150);
   --success-foreground: oklch(0.36 0.09 150);
 }
@@ -134,6 +137,7 @@
   --brand-foreground: oklch(0.266 0.065 153);
   --warning: oklch(0.75 0.15 80);
   --warning-foreground: oklch(0.88 0.08 85);
+  --info: oklch(0.8 0.09 245);
   --success: oklch(0.72 0.16 152);
   --success-foreground: oklch(0.88 0.08 150);
 }

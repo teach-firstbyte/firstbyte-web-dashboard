@@ -64,10 +64,13 @@ export function MeetingList({
   meetings,
   feedback,
   locations,
+  canUseTasks = false,
 }: {
   meetings: Meeting[];
   feedback: FeedbackStats;
   locations: string[];
+  /** Offer Action items on e-board meetings. */
+  canUseTasks?: boolean;
 }) {
   const [when, setWhen] = React.useState<"upcoming" | "past">("upcoming");
   const [query, setQuery] = React.useState("");
@@ -216,6 +219,7 @@ export function MeetingList({
                             <MeetingActionsMenu
                               meeting={m}
                               locations={locations}
+                              canUseTasks={canUseTasks}
                             />
                           </div>
                         }
@@ -233,6 +237,7 @@ export function MeetingList({
         meeting={selected}
         onOpenChange={detail.onOpenChange}
         onCloseAutoFocus={detail.onCloseAutoFocus}
+        canUseTasks={canUseTasks}
       />
     </div>
   );
