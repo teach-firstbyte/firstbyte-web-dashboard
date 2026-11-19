@@ -232,7 +232,7 @@ The same steps from your laptop (needs `SUPABASE_SECRET_KEY` in `.env.preview`):
 npm run db:reset:preview
 ```
 
-To seed again without dropping the tables, use `npm run db:seed:preview`. The seed script (`scripts/seed/seed.mjs`) empties the app tables first, so every run gives the same data. Dates are counted from the day it runs. The script refuses to run against production.
+To seed again without dropping the tables, use `npm run db:seed:preview`. Add `SEED_SKIP_LOGINS=1` to seed the app data only: the test logins keep their passwords, and `.env.preview` needs only `DATABASE_URL` and `DIRECT_URL`. The seed script (`scripts/seed/seed.mjs`) empties the app tables first, so every run gives the same data. Dates are counted from the day it runs. The script refuses to run against production.
 
 `npm run db:seed:local` seeds your **local** database the same way. It deletes your local app data first.
 
