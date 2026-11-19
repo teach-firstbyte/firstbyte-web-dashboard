@@ -35,11 +35,21 @@ const person = {
 } satisfies Prisma.UserSelect;
 
 /**
+ * Whether someone has a Slack link, without the member ID. Selecting only the
+ * link's userId (their own id) means the ID can't reach the board by mistake:
+ * only server/tasks/slack-links.ts reads slackUserId.
+ */
+const SLACK_CONNECTED_SELECT = {
+  select: { userId: true },
+} satisfies Prisma.User$slackLinkArgs;
+
+/**
  * One task row as the database gives it. queries.ts turns it into a TaskView.
  *
  * The owner carries their account status and at most one e-board membership,
- * which is all it takes to tell whether the task needs a new owner. Neither
- * leaves the server.
+ * which is all it takes to tell whether the task needs a new owner, and
+ * whether they're linked to Slack. None of that leaves the server as it is:
+ * queries.ts turns it into two booleans.
  */
 export const taskRowArgs = Prisma.validator<Prisma.TaskDefaultArgs>()({
   select: {
@@ -63,6 +73,7 @@ export const taskRowArgs = Prisma.validator<Prisma.TaskDefaultArgs>()({
           select: { id: true },
           take: 1,
         },
+        slackLink: SLACK_CONNECTED_SELECT,
       },
     },
     createdBy: { select: person },
@@ -73,9 +84,32 @@ export const taskRowArgs = Prisma.validator<Prisma.TaskDefaultArgs>()({
 
 export type TaskRow = Prisma.TaskGetPayload<typeof taskRowArgs>;
 
-/** Someone who can be picked as a task's owner. */
+/** Someone who can be picked as a task's owner, as the database gives it. */
 export const taskOwnerOptionArgs = Prisma.validator<Prisma.UserDefaultArgs>()({
-  select: person,
+  select: { ...person, slackLink: SLACK_CONNECTED_SELECT },
 });
 
-export type TaskOwnerOption = Prisma.UserGetPayload<typeof taskOwnerOptionArgs>;
+export type TaskOwnerOptionRow = Prisma.UserGetPayload<
+  typeof taskOwnerOptionArgs
+>;
+
+/**
+ * A task's owner, or someone who can be picked as one, as readers get it.
+ *
+ * `slackConnected` is false until a super admin links their Slack account on
+ * /tasks/slack. The board shows "Not connected to Slack" next to them, and
+ * they get no reminders. The member ID itself is never here.
+ */
+export type TaskOwnerOption = Prisma.UserGetPayload<{
+  select: typeof person;
+}> & {
+  slackConnected: boolean;
+};
+
+/** Drops the link row and keeps the boolean. */
+export function toTaskOwnerOption({
+  slackLink,
+  ...rest
+}: TaskOwnerOptionRow): TaskOwnerOption {
+  return { ...rest, slackConnected: slackLink !== null };
+}

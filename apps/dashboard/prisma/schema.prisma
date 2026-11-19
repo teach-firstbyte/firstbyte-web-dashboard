@@ -48,6 +48,8 @@ model User {
   feedbackGiven     Feedback[]   @relation("FeedbackAuthor")
   tasksOwned        Task[]       @relation("TaskOwner")
   tasksCreated      Task[]       @relation("TaskCreator")
+  slackLink         SlackLink?   @relation("SlackLinkUser")
+  slackLinksMade    SlackLink[]  @relation("SlackLinkLinkedBy")
 
   // Officer who decided this account. SetNull so removing an officer does not
   // cascade away the members they approved.
@@ -216,6 +218,39 @@ model Task {
   @@index([meetingId])
   @@index([dueDate])
   @@map("tasks")
+}
+
+/// An e-board member's Slack account, for DMs from the FirstByte Tasks bot.
+///
+/// A super admin types the member ID in by hand on /tasks/slack. Nothing is
+/// matched by email. Only approved EBOARD members can be linked
+/// (server/tasks/slack-links.ts).
+///
+/// Its own table rather than a column on users, on purpose: plenty of code
+/// reads whole user rows (the Viewer is one), and a member ID must reach no
+/// one but a super admin. A column there would ride along with every one of
+/// those reads.
+///
+/// The IDs belong to one Slack workspace (the sandbox, for now). Moving the
+/// bot to another workspace means clearing this table and linking everyone
+/// again.
+model SlackLink {
+  userId      Int      @id @map("user_id")
+  // As Slack shows it: U or W, then 8-11 upper-case letters or digits.
+  // Always written through normalizeSlackMemberId (lib/tasks/slack-member-id.ts).
+  slackUserId String   @unique @map("slack_user_id")
+  // The super admin who set it. SetNull so removing them keeps the link.
+  linkedById  Int?     @map("linked_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  //relationships
+  // A link is personal data, so it goes with the person.
+  user     User  @relation("SlackLinkUser", fields: [userId], references: [id], onDelete: Cascade)
+  linkedBy User? @relation("SlackLinkLinkedBy", fields: [linkedById], references: [id], onDelete: SetNull)
+
+  @@index([linkedById])
+  @@map("slack_links")
 }
 
 //ENUMS 

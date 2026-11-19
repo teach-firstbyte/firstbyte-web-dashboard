@@ -71,3 +71,14 @@ export const listTasksSchema = z.object({
 });
 
 export type ListTasksInput = z.infer<typeof listTasksSchema>;
+
+/**
+ * PUT /api/tasks/slack/[userId]. Only the type is checked here: the format
+ * check is normalizeSlackMemberId's, in server/tasks/slack-links.ts, so the
+ * message matches the setup form's.
+ */
+export const slackLinkSchema = z.object({
+  slackUserId: z.string({ error: "slackUserId is required" }).max(64),
+});
+
+export type SlackLinkInput = z.infer<typeof slackLinkSchema>;
