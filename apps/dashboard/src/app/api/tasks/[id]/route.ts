@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { requireTaskAccessApi } from "@/lib/auth/requireTaskAccessApi";
 import { parseJsonBody, toErrorResponse } from "@/server/http";
 import { deleteTask, updateTask } from "@/server/tasks/mutations";
 import { getTask } from "@/server/tasks/queries";
+import { deliverRemindersForTask } from "@/server/tasks/reminders";
 import { updateTaskSchema } from "@/server/tasks/schema";
 import { requireId } from "@/server/validation";
 
@@ -34,6 +35,9 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const { id } = await params;
     const input = await parseJsonBody(request, updateTaskSchema);
     const task = await updateTask(user, requireId(id, "task"), input);
+    // Any Slack DM about the change (reassigned, due date moved), sent after
+    // the response. The hourly job sends it if this doesn't.
+    after(() => deliverRemindersForTask(task.id));
     return NextResponse.json(task, { status: 200 });
   } catch (e) {
     return toErrorResponse(e, "PATCH /api/tasks/[id]", "Failed to update task");

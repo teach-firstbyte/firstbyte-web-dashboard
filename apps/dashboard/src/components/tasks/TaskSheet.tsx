@@ -483,8 +483,7 @@ function TaskForm({
             )}
           </Field>
 
-          {/* SLACK: delivery state arrives with #138. */}
-          <ReminderNotDelivered undelivered={undefined} />
+          <ReminderNotDelivered undelivered={task?.reminderUndelivered} />
 
           {save.error && (
             <p className="text-sm text-destructive">{save.error}</p>

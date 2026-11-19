@@ -5,6 +5,7 @@ import { toDateOnly } from "@/server/validation";
 import type { Viewer } from "@/server/viewer";
 import { formatIsoDate } from "@/lib/format";
 import { isSuperAdmin } from "@/lib/auth/roles";
+import { isReminderUndelivered } from "@/lib/tasks/reminders";
 import {
   canAccessTasks,
   taskPermissions,
@@ -76,13 +77,18 @@ export async function assertTaskAccess(viewer: Viewer): Promise<TaskActor> {
  *   left, or deleted their account). Shown on the board, never stored.
  * - `owner.slackConnected`: whether the owner is linked to Slack. False means
  *   "Not connected to Slack" on the board, and no reminders.
+ * - `reminderUndelivered`: the owner's or the creator's latest Slack reminder
+ *   about it was given up on, after a day of retries or because Slack refused
+ *   it outright. Shown as "Reminder not delivered" until a later one reaches
+ *   them, or the task is Done.
  * - `can`: what this viewer may do with it, from lib/auth/taskPolicy.ts.
  */
-export type TaskView = Omit<TaskRow, "dueDate" | "owner"> & {
+export type TaskView = Omit<TaskRow, "dueDate" | "owner" | "reminders"> & {
   dueDate: string;
   owner: TaskOwnerOption;
   isOverdue: boolean;
   needsNewOwner: boolean;
+  reminderUndelivered: boolean;
   can: TaskPermissions;
 };
 
@@ -92,7 +98,7 @@ export function clubToday(now: Date = new Date()): string {
 }
 
 function toTaskView(row: TaskRow, actor: TaskActor, today: string): TaskView {
-  const { owner, dueDate, ...rest } = row;
+  const { owner, dueDate, reminders, ...rest } = row;
   const { status: accountStatus, teamMemberships, ...ownerRow } = owner;
   const due = toDateOnly(dueDate);
 
@@ -103,6 +109,7 @@ function toTaskView(row: TaskRow, actor: TaskActor, today: string): TaskView {
     isOverdue: row.status !== TaskStatus.DONE && due < today,
     needsNewOwner:
       accountStatus !== AccountStatus.APPROVED || teamMemberships.length === 0,
+    reminderUndelivered: isReminderUndelivered(row, reminders),
     can: taskPermissions(actor, row),
   };
 }

@@ -321,6 +321,38 @@ The page lists every approved E-Board team member. Use **Link** to paste a membe
 
 Unlinked people show "Not connected to Slack" on the board and get no reminders. Their next reminder after linking goes out as usual.
 
+### Reminders
+
+Every reminder is a DM, and every time is Boston time.
+
+| DM | To | Sent by |
+|---|---|---|
+| Assigned | The new owner | Creating or reassigning a task |
+| No longer yours | The previous owner | Reassigning a task |
+| Due date changed (old date, new date, who) | The owner | Changing the due date |
+| Due in 2 days | The owner | The hourly job, from 9am that day |
+| Due today | The owner | The hourly job, from 9am on the due date |
+| 1 day overdue | The owner, and the creator if they aren't the owner | The hourly job, from 9am the day after |
+
+- Nobody gets a DM about a change they made themselves, except "Assigned" (a task you make for yourself says "You have a new task").
+- Nothing goes out once a task is Done, or while it needs a new owner. A reminder already waiting is cancelled when it no longer fits (the task was reassigned, or its date moved).
+- A new owner or a new due date restarts the schedule from that moment (`tasks.reminders_from`). A task created, handed over or moved to a date that's today or already past gets only its event DM. A reminder day with no run at all is dropped, not sent late.
+- Code: the rules are pure functions in `src/lib/tasks/reminders.ts` (tested in `reminders.test.ts`). Recording and sending are in `src/server/tasks/reminders.ts`.
+
+**Sent once.** Every DM is a row in `task_reminders` before it's sent. Its unique key is task, kind, recipient, due date and, for event DMs, the time of the change, so a job that runs twice records it once. A row is sent only by whoever moves it from `PENDING` to `SENDING`, so two runs at once can't both send it. A row stuck in `SENDING` for 15 minutes (the function died mid-send) is marked `FAILED`, not resent, because Slack may already have it.
+
+**When.** Event DMs are recorded with the change and sent right after the response (Next's `after()`). The hourly cron job, `/api/cron/task-reminders` in `vercel.json`, records the scheduled ones and sends anything still waiting.
+
+**Failures.** If Slack is down, rate limits us or the bot is broken (a bad token, a missing scope), the send is retried every hour for a day. Then the row is `FAILED` and the task shows "⚠ Reminder not delivered" until a later reminder reaches that person, or the task is Done. A problem with the person (such as `user_not_found`) fails at once. Someone unlinked or off the e-board is `SKIPPED`, and so is everything when `TASKS_SLACK_BOT_TOKEN` isn't set. Neither counts as a failure.
+
+**Cron on preview and locally.** Vercel runs cron jobs on production only. To run the reminder job on a preview or locally, call it with that deployment's `CRON_SECRET`:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3001/dashboard/api/cron/task-reminders
+```
+
+It answers with counts (`queued`, `sent`, `retrying`, `failed`, `skipped`, `cancelled`), never names or member IDs.
+
 ---
 
 ## 🛠️ Starting the App

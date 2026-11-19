@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 //
 // - NotConnectedToSlack: fed by each owner's `slackConnected`, which is false
 //   until a super admin links them on /tasks/slack.
-// - ReminderNotDelivered: SLACK PLACEHOLDER. Needs per-task delivery state,
-//   which comes with the reminder sender in #138. Pass `undelivered` from it.
+// - ReminderNotDelivered: fed by each task's `reminderUndelivered`, true when
+//   its latest Slack reminder was given up on (server/tasks/reminders.ts).
 
 /** Next to a person on the board: they won't get reminders. */
 export function NotConnectedToSlack({

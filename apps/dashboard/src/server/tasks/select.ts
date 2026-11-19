@@ -1,10 +1,12 @@
 import {
   AccountStatus,
   Prisma,
+  TaskReminderStatus,
   TeamJoinPolicy,
   TeamMemberStatus,
   TeamRole,
 } from "@prisma/client";
+import { UNDELIVERED_LOOKBACK } from "@/lib/tasks/reminders";
 
 /**
  * "This person is on the e-board": an APPROVED membership of the EBOARD team,
@@ -50,7 +52,7 @@ const SLACK_CONNECTED_SELECT = {
  * The owner carries their account status and at most one e-board membership,
  * which is all it takes to tell whether the task needs a new owner, and
  * whether they're linked to Slack. None of that leaves the server as it is:
- * queries.ts turns it into two booleans.
+ * queries.ts turns it into booleans, as it does the latest reminder's status.
  */
 export const taskRowArgs = Prisma.validator<Prisma.TaskDefaultArgs>()({
   select: {
@@ -80,6 +82,16 @@ export const taskRowArgs = Prisma.validator<Prisma.TaskDefaultArgs>()({
     createdBy: { select: person },
     team: { select: { id: true, name: true } },
     meeting: { select: { id: true, title: true, scheduledAt: true } },
+    // The latest reminders that finished trying, sent or given up on, for
+    // "Reminder not delivered". queries.ts turns them into a boolean.
+    reminders: {
+      where: {
+        status: { in: [TaskReminderStatus.SENT, TaskReminderStatus.FAILED] },
+      },
+      orderBy: [{ finishedAt: "desc" }, { id: "desc" }],
+      select: { status: true, recipientId: true },
+      take: UNDELIVERED_LOOKBACK,
+    },
   },
 });
 

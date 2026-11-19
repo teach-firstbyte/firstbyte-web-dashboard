@@ -109,8 +109,7 @@ export function TaskRow({
               From {meetingDay(task.meeting.scheduledAt)} meeting
             </Badge>
           )}
-          {/* SLACK: delivery state arrives with #138. */}
-          <ReminderNotDelivered undelivered={undefined} />
+          <ReminderNotDelivered undelivered={task.reminderUndelivered} />
           {task.notes && (
             <span
               title={task.notes}
