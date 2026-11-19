@@ -21,3 +21,9 @@ export const MEMBER_LINKS: NavLink[] = [
   { href: "/meetings", label: "Meetings" },
   { href: "/attendance", label: "My attendance" },
 ];
+
+/**
+ * The e-board task board. Added to either list only for people who can open
+ * it; AppShell decides on the server and tells AppNav.
+ */
+export const TASKS_LINK: NavLink = { href: "/tasks", label: "Tasks" };
