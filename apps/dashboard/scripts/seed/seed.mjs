@@ -18,7 +18,9 @@
  *     PREVIEW_TEST_ACCOUNTS secret on GitHub)
  *   - a fake e-board of 8 for testing the task board's Slack reminders (see
  *     FAKE_EBOARD). They get logins too, but only when TEST_EBOARD_PASSWORD
- *     is set.
+ *     is set. All but one are linked to their Slack sandbox accounts.
+ *   - e-board tasks at every reminder stage (see seedTasks), so the next run
+ *     of the reminder job after 9am Boston time sends a few real DMs
  *
  * Re-runnable: it empties every app table first and restarts the ids, and
  * random choices come from a fixed seed, so each run gives the same club.
@@ -60,8 +62,10 @@ const TEST_ACCOUNTS = [
  * reminders (issue 141). They are the sample people in the mockup
  * (docs/superpowers/specs/2026-11-18-eboard-task-board-mockup.html), and
  * each one has a real account in the FirstByte Slack Dev Sandbox, so the
- * Tasks bot can DM them. slackUserId is that account's member ID. Nothing
- * reads it yet: it is here for when the task board's Slack links exist.
+ * Tasks bot can DM them. slackUserId is that account's member ID, and the seed
+ * links each of them on Slack setup, except anyone with `linkSlack: false`,
+ * who shows "Not connected to Slack". Only Maya, Daniel and Jordan have joined
+ * the sandbox; DMs to the others fail, which shows "Reminder not delivered".
  * Who they are, and how to recreate them in Slack, is in
  * docs/superpowers/2026-11-18-fake-eboard-users.md.
  *
@@ -130,6 +134,7 @@ const FAKE_EBOARD = [
     email: "taylor.brooks@firstbyte.test",
     role: "NORTHEASTERN_ADMIN",
     slackUserId: "U0CJWJUCYRH",
+    linkSlack: false,
   },
 ];
 
@@ -756,6 +761,27 @@ async function seedDatabase(tx, { teams, officers, now }) {
   await tx.attendance.createMany({ data: attendance });
   await tx.feedback.createMany({ data: feedback });
 
+  // --- Slack links and e-board tasks ---------------------------------------
+  const links = FAKE_EBOARD.flatMap((p, i) =>
+    p.linkSlack === false
+      ? []
+      : [{ userId: eboardRows[i].id, slackUserId: p.slackUserId }],
+  );
+  await tx.slackLink.createMany({ data: links });
+  const tasks = seedTasks({
+    now,
+    eboard: Object.fromEntries(
+      FAKE_EBOARD.map((p, i) => [p.name.split(" ")[0], eboardRows[i]]),
+    ),
+    // Approved, but not on the e-board: their task "needs a new owner".
+    outsider: memberRows.find((u) => u.status === "APPROVED"),
+    teamId,
+    meeting: meetingRows
+      .filter((m) => m.type === "EBOARD_MEETING" && m.attendanceClosedAt)
+      .at(-1),
+  });
+  await tx.task.createMany({ data: tasks });
+
   return {
     teams: teamRows.length,
     officers: officerRows.length,
@@ -766,7 +792,88 @@ async function seedDatabase(tx, { teams, officers, now }) {
     "meetings (past / upcoming)": `${meetingRows.filter((m) => m.attendanceClosedAt).length} / ${meetingRows.filter((m) => !m.attendanceClosedAt).length}`,
     "attendance records": attendance.length,
     feedback: feedback.length,
+    "slack links": links.length,
+    "e-board tasks": tasks.length,
   };
+}
+
+/** Today's date in Boston, "YYYY-MM-DD", plus `days`. */
+function bostonDay(now, days = 0) {
+  const today = now.toLocaleDateString("en-CA", {
+    timeZone: "America/New_York",
+  });
+  const d = new Date(`${today}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d;
+}
+
+/**
+ * E-board tasks at every stage the Slack reminders care about. Due dates are
+ * counted from today in Boston. Each one's schedule started a week ago
+ * (remindersFrom), so the reminder job's next run after 9am Boston today
+ * sends what's due today, and nothing piles up:
+ *
+ *   Daniel   due today                 -> "due today"
+ *   Jordan   due yesterday             -> "overdue" to Jordan and to Maya (creator)
+ *   Maya     due in 2 days             -> "due in 2 days"
+ *   Alex     due in 2 days             -> fails (not in the sandbox): "Reminder not delivered"
+ *   Taylor   due today                 -> nothing: not connected to Slack
+ *   Riley    Done                      -> nothing
+ *   outsider due in 3 days             -> nothing: needs a new owner
+ *   Priya    4 days overdue            -> nothing: the overdue reminder was 3 days ago
+ *   Sam      due in 6 days             -> nothing yet
+ *
+ * The cron job runs on production only. On preview, call it by hand (README:
+ * "Cron on preview and locally"). Reseeding the next day shifts the dates
+ * with it.
+ */
+function seedTasks({ now, eboard, outsider, teamId, meeting }) {
+  const { Maya, Daniel, Jordan, Alex, Taylor, Riley, Priya, Sam } = eboard;
+  const remindersFrom = new Date(now.getTime() - 7 * DAY);
+  const createdAt = remindersFrom;
+  const task = (title, owner, createdBy, days, extra = {}) => ({
+    title,
+    ownerId: owner.id,
+    createdById: createdBy.id,
+    dueDate: bostonDay(now, days),
+    status: "TODO",
+    remindersFrom,
+    createdAt,
+    meetingId: meeting?.id ?? null,
+    ...extra,
+  });
+  const tasks = [
+    task("Book Curry 333 for the spring kickoff", Daniel, Maya, 0),
+    task("Send the sponsor follow-up to Wayfair", Jordan, Maya, -1, {
+      status: "IN_PROGRESS",
+      teamId: teamId["CS Curricula"] ?? null,
+    }),
+    task("Draft the volunteer sign-up form", Maya, Daniel, 2),
+    task("Count robotics kits after the STEM workshop", Alex, Maya, 2, {
+      teamId: teamId["STEM Curricula"] ?? null,
+    }),
+    task("Collect receipts for reimbursement", Taylor, Maya, 0),
+    task("Post the GM recap on Instagram", Riley, Maya, 0, {
+      status: "DONE",
+      teamId: teamId["Brand and Marketing"] ?? null,
+    }),
+    task("Reserve a table at the involvement fair", Priya, Daniel, -4, {
+      teamId: teamId["Events"] ?? null,
+      notes: "Ask the involvement office which day we got.",
+    }),
+    task("Update the website's events page", Sam, Maya, 6, {
+      teamId: teamId["Website"] ?? null,
+      meetingId: null,
+    }),
+  ];
+  if (outsider) {
+    tasks.push(
+      task("Hand over the club's Canva account", outsider, Maya, 3, {
+        meetingId: null,
+      }),
+    );
+  }
+  return tasks;
 }
 
 /**

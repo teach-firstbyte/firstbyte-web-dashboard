@@ -15,6 +15,7 @@ import {
   viewTaskRow,
   type TaskView,
 } from "./queries";
+import { planTaskEvents, recordEventReminders } from "./reminders";
 import { taskRowArgs } from "./select";
 import type { CreateTaskInput, UpdateTaskInput } from "./schema";
 
@@ -31,9 +32,23 @@ export async function createTask(
   await assertEligibleOwner(input.ownerId);
   await assertLinksExist(input);
 
-  const row = await prisma.task.create({
-    ...taskRowArgs,
-    data: { ...input, createdById: viewer.id },
+  // The "assigned" DM is recorded with the task, so it can't be lost between
+  // the two. The route sends it once the response has gone.
+  const at = new Date();
+  const { reminders } = planTaskEvents(null, input, viewer);
+  const row = await prisma.$transaction(async (tx) => {
+    const row = await tx.task.create({
+      ...taskRowArgs,
+      data: { ...input, createdById: viewer.id, remindersFrom: at },
+    });
+    await recordEventReminders(tx, {
+      reminders,
+      before: null,
+      after: row,
+      actor: viewer,
+      at,
+    });
+    return row;
   });
   return viewTaskRow(row, actor);
 }
@@ -63,10 +78,33 @@ export async function updateTask(
   }
   await assertLinksExist(input);
 
-  const row = await prisma.task.update({
-    ...taskRowArgs,
-    where: { id: taskId },
-    data: input,
+  // Slack DMs about the change (lib/tasks/reminders.ts eventRemindersFor),
+  // recorded with it. The route sends them once the response has gone. A new
+  // owner or due date also restarts the scheduled reminders from now.
+  const at = new Date();
+  const { reminders, restartSchedule } = planTaskEvents(
+    task,
+    {
+      status: input.status ?? task.status,
+      dueDate: input.dueDate ?? task.dueDate,
+      ownerId: input.ownerId ?? task.ownerId,
+    },
+    viewer,
+  );
+  const row = await prisma.$transaction(async (tx) => {
+    const row = await tx.task.update({
+      ...taskRowArgs,
+      where: { id: taskId },
+      data: restartSchedule ? { ...input, remindersFrom: at } : input,
+    });
+    await recordEventReminders(tx, {
+      reminders,
+      before: task,
+      after: row,
+      actor: viewer,
+      at,
+    });
+    return row;
   });
   return viewTaskRow(row, actor);
 }

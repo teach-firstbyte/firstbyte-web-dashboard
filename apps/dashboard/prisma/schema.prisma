@@ -44,12 +44,13 @@ model User {
   //relationships
   teamMemberships   TeamMember[]
   attendanceRecords Attendance[]
-  attendanceMarked  Attendance[] @relation("AttendanceMarkedBy")
-  feedbackGiven     Feedback[]   @relation("FeedbackAuthor")
-  tasksOwned        Task[]       @relation("TaskOwner")
-  tasksCreated      Task[]       @relation("TaskCreator")
-  slackLink         SlackLink?   @relation("SlackLinkUser")
-  slackLinksMade    SlackLink[]  @relation("SlackLinkLinkedBy")
+  attendanceMarked  Attendance[]   @relation("AttendanceMarkedBy")
+  feedbackGiven     Feedback[]     @relation("FeedbackAuthor")
+  tasksOwned        Task[]         @relation("TaskOwner")
+  tasksCreated      Task[]         @relation("TaskCreator")
+  slackLink         SlackLink?     @relation("SlackLinkUser")
+  slackLinksMade    SlackLink[]    @relation("SlackLinkLinkedBy")
+  taskReminders     TaskReminder[] @relation("TaskReminderRecipient")
 
   // Officer who decided this account. SetNull so removing an officer does not
   // cascade away the members they approved.
@@ -200,18 +201,26 @@ model Task {
   // The e-board meeting the task came from.
   meetingId   Int? @map("meeting_id")
 
+  // Scheduled Slack reminders (2 days before, due today, overdue) count from
+  // here: only one whose day is after this day (in Boston) is sent. Set when
+  // the task is created and whenever its owner or due date changes, so a
+  // changed date restarts the schedule, and a task created or handed over late
+  // gets the "assigned" DM only, never a pile of reminders already past.
+  remindersFrom DateTime @default(now()) @map("reminders_from")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   //relationships
+  reminders TaskReminder[]
   // Restrict, not Cascade: a task must outlive its owner and its creator.
   // Accounts are never hard-deleted (deleteOwnAccount keeps the row), and if
   // something ever tries, this makes it fail instead of erasing tasks.
-  owner     User     @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  createdBy User     @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  owner     User           @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  createdBy User           @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Restrict)
   // Deleting the team or the meeting keeps the task and clears the link.
-  team      Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  meeting   Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  team      Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  meeting   Meeting?       @relation(fields: [meetingId], references: [id], onDelete: SetNull)
 
   @@index([ownerId])
   @@index([createdById])
@@ -251,6 +260,56 @@ model SlackLink {
 
   @@index([linkedById])
   @@map("slack_links")
+}
+
+/// One Slack DM from the FirstByte Tasks bot about a task: sent, waiting to be
+/// sent or retried, or decided against. See src/server/tasks/reminders.ts.
+///
+/// "Never sent twice" is the database's job: the unique key below means a
+/// reminder can be recorded only once, however often or concurrently the
+/// hourly job runs, and a row is sent only by whoever moves it from PENDING to
+/// SENDING (a conditional update, so only one caller wins).
+model TaskReminder {
+  id          Int              @id @default(autoincrement())
+  taskId      Int              @map("task_id")
+  kind        TaskReminderKind
+  recipientId Int              @map("recipient_id")
+  // The task's due date this reminder is about (the new date, for a changed
+  // one). Part of the key, so a changed date gets its own reminders.
+  dueDate     DateTime         @map("due_date") @db.Date
+  // "" for the scheduled reminders, so each goes out once per due date. For
+  // the event DMs (assigned, date changed, reassigned away), the time of the
+  // change, so a later change sends again.
+  eventKey    String           @default("") @map("event_key")
+  // Slack mrkdwn, written when the reminder is recorded and kept as sent.
+  text        String
+
+  status         TaskReminderStatus @default(PENDING)
+  // Sends tried so far, and when the first one was. Retries stop a day after it.
+  attempts       Int                @default(0)
+  firstAttemptAt DateTime?          @map("first_attempt_at")
+  // A PENDING row is picked up once this has passed.
+  nextAttemptAt  DateTime           @default(now()) @map("next_attempt_at")
+  // When a sender took it (SENDING). One stuck for long is marked FAILED, not
+  // retried, because Slack may have got it.
+  claimedAt      DateTime?          @map("claimed_at")
+  // When it ended up SENT, FAILED, SKIPPED or CANCELLED.
+  finishedAt     DateTime?          @map("finished_at")
+  // sendSlackDm's error code from the last failed try, or why it was skipped.
+  lastError      String?            @map("last_error")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  //relationships
+  // A reminder means nothing without its task.
+  task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  recipient User @relation("TaskReminderRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, kind, recipientId, dueDate, eventKey])
+  @@index([status, nextAttemptAt])
+  @@index([taskId, finishedAt])
+  @@index([recipientId])
+  @@map("task_reminders")
 }
 
 //ENUMS 
@@ -320,6 +379,32 @@ enum TaskStatus {
   DONE
 
   @@map("task_status")
+}
+
+/// Which DM a TaskReminder is. The texts are in src/lib/tasks/slack-messages.ts.
+enum TaskReminderKind {
+  // Event DMs, recorded by the task mutations.
+  ASSIGNED // to the new owner
+  DUE_DATE_CHANGED // to the owner
+  REASSIGNED_AWAY // to the previous owner
+  // Scheduled, at 9am Boston time, recorded by the hourly job.
+  DUE_SOON // to the owner, 2 days before
+  DUE_TODAY // to the owner, on the due date
+  OVERDUE_OWNER // to the owner, 1 day overdue
+  OVERDUE_CREATOR // to the creator, 1 day overdue, when they aren't the owner
+
+  @@map("task_reminder_kind")
+}
+
+enum TaskReminderStatus {
+  PENDING // waiting for its first try, or for its next retry
+  SENDING // a sender has taken it and is talking to Slack
+  SENT
+  FAILED // gave up: the task shows "Reminder not delivered"
+  SKIPPED // nobody to send to: not linked to Slack, off the e-board, or no bot token
+  CANCELLED // no longer true by the time it was sent (Done, reassigned, date moved)
+
+  @@map("task_reminder_status")
 }
 
 enum TeamMemberStatus {

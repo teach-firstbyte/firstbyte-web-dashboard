@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { requireTaskAccessApi } from "@/lib/auth/requireTaskAccessApi";
 import { parseJsonBody, parseOrThrow, toErrorResponse } from "@/server/http";
 import { createTask } from "@/server/tasks/mutations";
+import { deliverRemindersForTask } from "@/server/tasks/reminders";
 import { listTasks } from "@/server/tasks/queries";
 import { createTaskSchema, listTasksSchema } from "@/server/tasks/schema";
 
@@ -40,6 +41,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     const input = await parseJsonBody(request, createTaskSchema);
     const task = await createTask(user, input);
+    // The "assigned" Slack DM, sent after the response so Slack never slows
+    // the save. The hourly job sends it if this doesn't.
+    after(() => deliverRemindersForTask(task.id));
     return NextResponse.json(task, { status: 201 });
   } catch (e) {
     return toErrorResponse(e, "POST /api/tasks", "Failed to create task");

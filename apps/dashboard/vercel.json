@@ -4,6 +4,10 @@
     {
       "path": "/dashboard/api/cron/close-attendance",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/dashboard/api/cron/task-reminders",
+      "schedule": "0 * * * *"
     }
   ]
 }
