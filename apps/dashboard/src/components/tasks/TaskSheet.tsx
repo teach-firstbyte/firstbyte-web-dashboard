@@ -41,12 +41,8 @@ import { createTask, deleteTask, updateTask, type TaskInput } from "./api";
 import { OwnerCombobox } from "./OwnerCombobox";
 import { ReminderNotDelivered } from "./SlackFlags";
 import { taskStatusLabel } from "./TaskStatusControl";
-import {
-  firstName,
-  personName,
-  type BoardTask,
-  type TaskFormOptions,
-} from "./types";
+import { permissionNote } from "./permissionText";
+import { personName, type BoardTask, type TaskFormOptions } from "./types";
 
 /** What the panel is showing: the New task form, or one task. */
 export type TaskPanel = { kind: "new" } | { kind: "task"; task: BoardTask };
@@ -562,13 +558,9 @@ function TaskForm({
 
 /** Says who can change what, for anyone who can't edit this task. */
 function PermissionNote({ task }: { task: BoardTask }) {
-  const creator = personName(task.createdBy);
-  const owner = firstName(task.owner);
   return (
     <p className="rounded-xl bg-muted px-3 py-2.5 text-[13px] text-muted-foreground">
-      {task.can.changeStatus
-        ? `You can change the status. Only ${creator}, who created this, or the president, VP and website lead can change the rest.`
-        : `This task is read-only for you. ${owner}, who owns it, can change the status. ${creator}, who created it, and the president, VP and website lead can change everything.`}
+      {permissionNote(task)}
     </p>
   );
 }

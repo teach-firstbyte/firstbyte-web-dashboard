@@ -26,7 +26,8 @@ import {
   TaskStatusPill,
   taskStatusLabel,
 } from "./TaskStatusControl";
-import { firstName, personName, type BoardTask } from "./types";
+import { lockedHint } from "./permissionText";
+import { personName, type BoardTask } from "./types";
 
 // The kanban view of the Tasks board (#144).
 //
@@ -53,17 +54,6 @@ const DOT: Record<KanbanColumn, string> = {
 
 const statusId = (taskId: number) => `kanban-status-${taskId}`;
 const columnId = (col: KanbanColumn) => `kanban-col-${col}`;
-// Who can move a locked card, as the task panel's PermissionNote says it:
-// the owner, the creator and the super admins. Short, since it's a tooltip,
-// a toast and a screen-reader hint.
-const lockedHint = (task: BoardTask) => {
-  const owner = firstName(task.owner);
-  const others =
-    task.createdById === task.ownerId
-      ? ""
-      : `, ${firstName(task.createdBy)} (the creator),`;
-  return `Only ${owner}${others} or the president, VP and website lead can change this`;
-};
 
 export function TaskKanban({
   tasks,
