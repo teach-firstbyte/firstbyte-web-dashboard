@@ -14,6 +14,7 @@ import {
 import { RateMeetingButton } from "@/components/feedback/RateMeetingButton";
 import { AppShell } from "@/components/layout/AppShell";
 import { LivePill, MeetingRow } from "@/components/meetings/MeetingRow";
+import { MyTasksCard } from "@/components/tasks/MyTasksCard";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { getViewMode } from "@/lib/auth/viewMode";
@@ -26,6 +27,7 @@ import {
 import { checkInWindow } from "@/lib/attendance/timing";
 import { pickCurrentMeeting, upcomingMeetings } from "@/lib/meetings";
 import { getMemberDashboard } from "@/server/dashboard/queries";
+import { getHomeTasks } from "@/server/tasks/home";
 import type { Viewer } from "@/server/viewer";
 
 type Data = Awaited<ReturnType<typeof getMemberDashboard>>;
@@ -58,6 +60,10 @@ const RATE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
  * because getMemberDashboard is scoped to the viewer.
  */
 export async function MemberDashboard({ user }: { user: Viewer }) {
+  // E-board members get My tasks here too, in member view or not. Null for
+  // everyone else, who get no task query. Never throws, so it runs alongside
+  // the member query and a failure leaves the rest of Home alone.
+  const myTasksLoad = getHomeTasks(user);
   let data = EMPTY;
   let dbUnavailable = false;
   try {
@@ -66,6 +72,7 @@ export async function MemberDashboard({ user }: { user: Viewer }) {
     dbUnavailable = true;
     console.error("Member dashboard query failed:", error);
   }
+  const myTasks = await myTasksLoad;
   const mode = await getViewMode(user);
 
   const { memberships, meetings, recent, attendance } = data;
@@ -193,6 +200,8 @@ export async function MemberDashboard({ user }: { user: Viewer }) {
               ) : null}
             </section>
           )}
+
+          {myTasks && <MyTasksCard data={myTasks} />}
 
           <Section
             title="Coming up for you"

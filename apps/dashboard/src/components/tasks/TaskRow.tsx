@@ -18,7 +18,8 @@ export function meetingDay(scheduledAt: Date | string): string {
   return `${month} ${day}`;
 }
 
-const DUE_TONE = {
+/** The due label's colour for each tone. */
+export const DUE_TONE = {
   overdue: "font-semibold text-destructive",
   today: "font-semibold text-warning-foreground",
   soon: "text-foreground",
