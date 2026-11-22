@@ -53,8 +53,17 @@ const DOT: Record<KanbanColumn, string> = {
 
 const statusId = (taskId: number) => `kanban-status-${taskId}`;
 const columnId = (col: KanbanColumn) => `kanban-col-${col}`;
-const lockedHint = (task: BoardTask) =>
-  `Only ${firstName(task.owner)} or the creator can change this`;
+// Who can move a locked card, as the task panel's PermissionNote says it:
+// the owner, the creator and the super admins. Short, since it's a tooltip,
+// a toast and a screen-reader hint.
+const lockedHint = (task: BoardTask) => {
+  const owner = firstName(task.owner);
+  const others =
+    task.createdById === task.ownerId
+      ? ""
+      : `, ${firstName(task.createdBy)} (the creator),`;
+  return `Only ${owner}${others} or the president, VP and website lead can change this`;
+};
 
 export function TaskKanban({
   tasks,
