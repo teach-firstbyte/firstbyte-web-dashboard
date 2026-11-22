@@ -1,10 +1,11 @@
-import { AccountStatus, TaskStatus, type Prisma } from "@prisma/client";
+import { TaskStatus, type Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { ServiceError } from "@/server/errors";
 import { toDateOnly } from "@/server/validation";
 import type { Viewer } from "@/server/viewer";
 import { formatIsoDate } from "@/lib/format";
 import { isSuperAdmin } from "@/lib/auth/roles";
+import { ownerNeedsReplacing } from "@/lib/tasks/owners";
 import { isReminderUndelivered } from "@/lib/tasks/reminders";
 import {
   canAccessTasks,
@@ -107,8 +108,10 @@ function toTaskView(row: TaskRow, actor: TaskActor, today: string): TaskView {
     dueDate: due,
     owner: toTaskOwnerOption(ownerRow),
     isOverdue: row.status !== TaskStatus.DONE && due < today,
-    needsNewOwner:
-      accountStatus !== AccountStatus.APPROVED || teamMemberships.length === 0,
+    needsNewOwner: ownerNeedsReplacing({
+      accountStatus,
+      eboardMemberships: teamMemberships.length,
+    }),
     reminderUndelivered: isReminderUndelivered(row, reminders),
     can: taskPermissions(actor, row),
   };

@@ -78,3 +78,24 @@ export function matchOwners<T extends OwnerChoice>(
   }
   return [...byName, ...byRole];
 }
+
+/**
+ * Does a task need a new owner? Yes once its owner is off the e-board: taken
+ * off the EBOARD team (no approved membership left), or their account is no
+ * longer approved (deleted, which also removes every membership, or denied).
+ *
+ * Worked out each time a task is read, never stored, so it follows the
+ * owner's membership with nothing to keep in sync, and clears as soon as
+ * someone reassigns the task. While it's true the board shows "Needs a new
+ * owner", reminders stop, and the weekly summary lists the task. Nothing is
+ * deleted: tasks.owner_id is ON DELETE RESTRICT.
+ *
+ * `eboardMemberships` is how many approved EBOARD memberships they have (the
+ * server reads at most one).
+ */
+export function ownerNeedsReplacing(owner: {
+  accountStatus: string;
+  eboardMemberships: number;
+}): boolean {
+  return owner.accountStatus !== "APPROVED" || owner.eboardMemberships === 0;
+}
