@@ -4,20 +4,24 @@ import { AppShell } from "@/components/layout/AppShell";
 import { requireSlackSetupAccess } from "@/lib/auth/requireSlackSetupAccess";
 import { getViewMode } from "@/lib/auth/viewMode";
 import { listSlackSetup } from "@/server/tasks/slack-links";
+import { getSummarySetup } from "@/server/tasks/weekly-summary";
 import { SlackLinksTable, type SlackLinkRow } from "./SlackLinksTable";
+import { SummaryScheduleForm } from "./SummaryScheduleForm";
 
 /**
  * Slack setup: a super admin links each e-board member to their Slack account
  * by hand, so the FirstByte Tasks bot can DM them. Nothing is matched by
  * email. Anyone who isn't a super admin is sent to Home.
  *
- * The weekly summary's day and time will live here too (#139).
+ * The weekly summary's day and time live here too (#139): one setting for
+ * the club, with when the next one goes out.
  */
 export default async function SlackSetupPage() {
   const user = await requireSlackSetupAccess();
-  const [mode, setup] = await Promise.all([
+  const [mode, setup, summary] = await Promise.all([
     getViewMode(user),
     listSlackSetup(user),
+    getSummarySetup(user),
   ]);
 
   const rows: SlackLinkRow[] = setup.map((r) => ({
@@ -55,6 +59,12 @@ export default async function SlackSetupPage() {
             Slack&rdquo; on the board and get no reminders.
           </p>
           <SlackLinksTable rows={rows} />
+        </Section>
+        <Section title="Weekly summary">
+          <SummaryScheduleForm
+            key={`${summary.schedule.day}-${summary.schedule.hour}`}
+            {...summary}
+          />
         </Section>
       </div>
     </AppShell>

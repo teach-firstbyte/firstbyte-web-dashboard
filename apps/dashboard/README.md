@@ -351,7 +351,20 @@ Every reminder is a DM, and every time is Boston time.
 curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3001/dashboard/api/cron/task-reminders
 ```
 
-It answers with counts (`queued`, `sent`, `retrying`, `failed`, `skipped`, `cancelled`), never names or member IDs.
+It answers with counts (`queued`, `sent`, `retrying`, `failed`, `skipped`, `cancelled`), never names or member IDs. The weekly summary's counts are under `summary`.
+
+### Weekly summary
+
+Once a week the bot DMs each super admin who is on the e-board and linked to Slack: what's overdue or due in the next 7 days, grouped by person; every open task that needs a new owner; and the e-board members who aren't connected to Slack. The layout is the mockup's "Weekly summary".
+
+- **When.** Mondays at 9am Boston time unless a super admin changes it under **Weekly summary** on Slack setup (`GET` and `PUT /api/tasks/summary`, 403 for anyone else). There's one setting for the club, the single row of `task_settings`. The page shows when the next one goes out.
+- **Sent by** the same hourly job. It's due from the set hour until the same hour the next day, so a late run still sends it. The time is read off Boston's clock, so daylight saving can't move it.
+- **Once a week.** Each DM is a `task_summaries` row first, and the database allows one row per person per week (keyed by the week's Monday). A run that's late, runs twice or overlaps another records it once. Moving the day later in a week that already had its summary doesn't send a second one. Sending, retries and "stuck" rows work like the reminders.
+- **Code:** the rules (is it due, the next one, what it says) are pure functions in `src/lib/tasks/weekly-summary.ts` (tested in `weekly-summary.test.ts`). Recording and sending are in `src/server/tasks/weekly-summary.ts`.
+
+### When an owner leaves
+
+Taking someone off the E-Board team, or deleting their account, keeps their tasks. Their open tasks show "Needs a new owner" at the top of the board, get no more reminders (any waiting one is cancelled) and are listed in the weekly summary until someone reassigns them. Nothing is deleted: an account is never hard-deleted, and `tasks.owner_id` and `created_by_id` are `ON DELETE RESTRICT`. The rule is `ownerNeedsReplacing` in `src/lib/tasks/owners.ts`, and `owner-leaves.test.ts` follows a task through every step.
 
 ---
 
