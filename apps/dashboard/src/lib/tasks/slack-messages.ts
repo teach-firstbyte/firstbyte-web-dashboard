@@ -9,8 +9,8 @@
 // @db.Date column (UTC midnight). Either way they're printed as that calendar
 // day, never shifted by a time zone.
 //
-// The weekly summary (#139) isn't here: its shape depends on how #139 groups
-// the board.
+// The weekly summary (#139) is in weekly-summary.ts, with the rules that
+// build it. It uses bold() and link() from here.
 
 /** What sendSlackDm() posts. `text` is Slack mrkdwn. */
 export type SlackMessage = { text: string };
@@ -64,11 +64,13 @@ export function escapeSlackText(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
-function bold(value: string): string {
+/** *Bold*, escaped. */
+export function bold(value: string): string {
   return `*${escapeSlackText(value)}*`;
 }
 
-function link(url: string, label = "Open in dashboard"): string {
+/** <url|Open in dashboard>, with the URL made safe for Slack's link syntax. */
+export function link(url: string, label = "Open in dashboard"): string {
   const safeUrl = url
     .replace(/\|/g, "%7C")
     .replace(/</g, "%3C")

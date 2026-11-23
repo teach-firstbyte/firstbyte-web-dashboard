@@ -84,3 +84,23 @@ export const slackLinkSchema = z.object({
 });
 
 export type SlackLinkInput = z.infer<typeof slackLinkSchema>;
+
+/**
+ * PUT /api/tasks/summary: when the weekly summary goes out, Boston time. The
+ * same ranges as isSummarySchedule (lib/tasks/weekly-summary.ts) and the
+ * table's CHECKs.
+ */
+export const summaryScheduleSchema = z.object({
+  day: z
+    .number({ error: "day must be a number from 0 (Sunday) to 6 (Saturday)" })
+    .int("day must be a whole number")
+    .min(0, "day must be from 0 (Sunday) to 6 (Saturday)")
+    .max(6, "day must be from 0 (Sunday) to 6 (Saturday)"),
+  hour: z
+    .number({ error: "hour must be a number from 0 to 23" })
+    .int("hour must be a whole number")
+    .min(0, "hour must be from 0 to 23")
+    .max(23, "hour must be from 0 to 23"),
+});
+
+export type SummaryScheduleInput = z.infer<typeof summaryScheduleSchema>;

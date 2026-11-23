@@ -1,16 +1,14 @@
-import {
-  AccountStatus,
-  Prisma,
-  TaskReminderStatus,
-  TaskStatus,
-} from "@prisma/client";
+import { Prisma, TaskReminderStatus, TaskStatus } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { toDateOnly } from "@/server/validation";
 import type { Viewer } from "@/server/viewer";
 import { TASK_STATUS_OPTIONS } from "@/lib/enums";
 import { formatIsoDate } from "@/lib/format";
 import { withBasePath } from "@/lib/paths";
-import { ownerName } from "@/lib/tasks/owners";
+import {
+  ownerName,
+  ownerNeedsReplacing as needsNewOwnerRule,
+} from "@/lib/tasks/owners";
 import {
   afterFailedSend,
   dueDateWindow,
@@ -100,15 +98,18 @@ function statusLabel(status: TaskStatus): string {
   return TASK_STATUS_OPTIONS.find((o) => o.value === status)?.label ?? "To do";
 }
 
-/** A task's owner needs replacing: off the e-board, or account gone. */
+/**
+ * A task's owner needs replacing: off the e-board, or account gone. The rule
+ * is lib/tasks/owners.ts's, on the owner as the selects here read them.
+ */
 export function ownerNeedsReplacing(owner: {
   status: string;
   teamMemberships: unknown[];
 }): boolean {
-  return (
-    owner.status !== AccountStatus.APPROVED ||
-    owner.teamMemberships.length === 0
-  );
+  return needsNewOwnerRule({
+    accountStatus: owner.status,
+    eboardMemberships: owner.teamMemberships.length,
+  });
 }
 
 function snapshot(row: TaskRow): TaskSnapshot {

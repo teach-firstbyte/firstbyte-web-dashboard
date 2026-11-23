@@ -51,6 +51,8 @@ model User {
   slackLink         SlackLink?     @relation("SlackLinkUser")
   slackLinksMade    SlackLink[]    @relation("SlackLinkLinkedBy")
   taskReminders     TaskReminder[] @relation("TaskReminderRecipient")
+  taskSummaries     TaskSummary[]  @relation("TaskSummaryRecipient")
+  taskSettingsSet   TaskSettings[] @relation("TaskSettingsUpdatedBy")
 
   // Officer who decided this account. SetNull so removing an officer does not
   // cascade away the members they approved.
@@ -310,6 +312,62 @@ model TaskReminder {
   @@index([taskId, finishedAt])
   @@index([recipientId])
   @@map("task_reminders")
+}
+
+/// The club's settings for the task board. There is exactly one row (id 1):
+/// a CHECK in the migration refuses any other id, and the code reads the
+/// defaults below if the row is ever missing.
+model TaskSettings {
+  id          Int      @id @default(1)
+  // When the weekly summary goes out, Boston time: a weekday, 0 Sunday to 6
+  // Saturday (as Date.getDay counts), and an hour, 0-23. Monday 9am by
+  // default. CHECKs in the migration hold them to those ranges.
+  summaryDay  Int      @default(1) @map("summary_day")
+  summaryHour Int      @default(9) @map("summary_hour")
+  // The super admin who last changed it. SetNull so removing them keeps it.
+  updatedById Int?     @map("updated_by_id")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  //relationships
+  updatedBy User? @relation("TaskSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([updatedById])
+  @@map("task_settings")
+}
+
+/// One weekly task summary DM to one super admin (#139). See
+/// src/server/tasks/weekly-summary.ts.
+///
+/// "Once a week" is the database's job: the unique key (recipient, week) means
+/// a summary can be recorded only once per person per week, however late,
+/// often or concurrently the hourly job runs. It's sent like a reminder: only
+/// by whoever moves it from PENDING to SENDING, retried hourly for a day.
+model TaskSummary {
+  id          Int      @id @default(autoincrement())
+  recipientId Int      @map("recipient_id")
+  // The Monday of the week it's for (Monday to Sunday, Boston). A CHECK in the
+  // migration refuses any other weekday.
+  weekOf      DateTime @map("week_of") @db.Date
+  // Slack mrkdwn, written when it's recorded and kept as sent.
+  text        String
+
+  status         TaskReminderStatus @default(PENDING)
+  attempts       Int                @default(0)
+  firstAttemptAt DateTime?          @map("first_attempt_at")
+  nextAttemptAt  DateTime           @default(now()) @map("next_attempt_at")
+  claimedAt      DateTime?          @map("claimed_at")
+  finishedAt     DateTime?          @map("finished_at")
+  lastError      String?            @map("last_error")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  //relationships
+  recipient User @relation("TaskSummaryRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@unique([recipientId, weekOf])
+  @@index([status, nextAttemptAt])
+  @@index([weekOf])
+  @@map("task_summaries")
 }
 
 //ENUMS 
