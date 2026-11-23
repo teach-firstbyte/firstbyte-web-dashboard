@@ -26,7 +26,8 @@ import {
   TaskStatusPill,
   taskStatusLabel,
 } from "./TaskStatusControl";
-import { firstName, personName, type BoardTask } from "./types";
+import { lockedHint } from "./permissionText";
+import { personName, type BoardTask } from "./types";
 
 // The kanban view of the Tasks board (#144).
 //
@@ -53,8 +54,6 @@ const DOT: Record<KanbanColumn, string> = {
 
 const statusId = (taskId: number) => `kanban-status-${taskId}`;
 const columnId = (col: KanbanColumn) => `kanban-col-${col}`;
-const lockedHint = (task: BoardTask) =>
-  `Only ${firstName(task.owner)} or the creator can change this`;
 
 export function TaskKanban({
   tasks,
