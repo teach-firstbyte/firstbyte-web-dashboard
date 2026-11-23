@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ClipboardCheck,
   Copy,
+  ListTodo,
   MoreHorizontal,
   Pencil,
   QrCode,
@@ -25,7 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
-import { meetingPhase } from "@/lib/meetings";
+import { hasActionItems, meetingPhase } from "@/lib/meetings";
 import { withBasePath } from "@/lib/paths";
 import {
   MeetingFormDialog,
@@ -41,9 +42,12 @@ import {
 export function MeetingActionsMenu({
   meeting,
   locations,
+  canUseTasks = false,
 }: {
   meeting: MeetingFormSource;
   locations: string[];
+  /** The viewer is on the e-board (or a super admin), so may add tasks. */
+  canUseTasks?: boolean;
 }) {
   const router = useRouter();
   const [form, setForm] = React.useState<MeetingFormMode | null>(null);
@@ -99,6 +103,13 @@ export function MeetingActionsMenu({
                 {phase === "past" ? "View attendance" : "Take attendance"}
               </Link>
             </DropdownMenuItem>
+            {canUseTasks && hasActionItems(meeting.type) && (
+              <DropdownMenuItem asChild>
+                <Link href={`/meetings/${meeting.id}/action-items`}>
+                  <ListTodo /> Action items
+                </Link>
+              </DropdownMenuItem>
+            )}
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>

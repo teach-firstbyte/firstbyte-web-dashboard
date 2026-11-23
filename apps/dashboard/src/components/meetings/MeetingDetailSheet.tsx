@@ -1,6 +1,10 @@
 "use client";
 
+import Link from "next/link";
+import { ListTodo } from "lucide-react";
+
 import { AttendanceStatusBadge } from "@/components/AttendanceStatusBadge";
+import { Button } from "@/components/ui/button";
 import { DetailSheet } from "@/components/ui/detail-sheet";
 import {
   DetailEmpty,
@@ -9,19 +13,26 @@ import {
   DetailSection,
 } from "@/components/ui/detail";
 import { formatLongDateTime, formatTime } from "@/lib/format";
-import { audienceLabel, meetingTypeLabel } from "@/lib/meetings";
+import {
+  audienceLabel,
+  hasActionItems,
+  meetingTypeLabel,
+} from "@/lib/meetings";
 import type { Meeting } from "@/types/dashboard";
 
 interface MeetingDetailSheetProps {
   meeting: Meeting | null;
   onOpenChange: (open: boolean) => void;
   onCloseAutoFocus: (event: Event) => void;
+  /** Offer Action items on e-board meetings. */
+  canUseTasks?: boolean;
 }
 
 export function MeetingDetailSheet({
   meeting,
   onOpenChange,
   onCloseAutoFocus,
+  canUseTasks = false,
 }: MeetingDetailSheetProps) {
   return (
     <DetailSheet
@@ -39,6 +50,14 @@ export function MeetingDetailSheet({
 
         return (
           <>
+            {canUseTasks && hasActionItems(m.type) && (
+              <Button asChild variant="outline" className="self-start">
+                <Link href={`/meetings/${m.id}/action-items`}>
+                  <ListTodo data-icon="inline-start" />
+                  Action items
+                </Link>
+              </Button>
+            )}
             {/* Type and time live in the description above. The id and the
                 created time are bookkeeping, so they are not shown. */}
             <DetailSection title="Overview">

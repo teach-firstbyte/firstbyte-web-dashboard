@@ -1,4 +1,6 @@
 import { isOfficer } from "@/lib/auth/roles";
+import { canAccessTasks } from "@/lib/auth/taskPolicy";
+import { getTaskActor } from "@/server/tasks/queries";
 import type { ViewMode } from "@/lib/auth/viewMode";
 import type { Viewer } from "@/server/viewer";
 import { SUGGESTION_BOX_URL } from "@/components/layout/links";
@@ -16,8 +18,12 @@ import { MemberPreviewBanner } from "./MemberPreviewBanner";
  *
  * Takes the Viewer and passes the client nav only the plain fields it shows,
  * never the whole user row.
+ *
+ * Async for one lookup: whether this person is on the e-board, which decides
+ * the Tasks link. The same check the Tasks page and API gate on, so the link
+ * shows exactly when the page would open.
  */
-export function AppShell({
+export async function AppShell({
   viewer,
   mode,
   children,
@@ -27,6 +33,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const officer = isOfficer(viewer);
+  const showTasks = await canOpenTasks(viewer);
 
   return (
     <div className="mx-auto grid w-full max-w-[1120px] grid-cols-[minmax(0,1fr)] gap-6 px-4 pt-4 pb-16">
@@ -34,6 +41,7 @@ export function AppShell({
       <AppNav
         mode={mode}
         canSwitchView={officer}
+        showTasks={showTasks}
         account={{
           name: viewer.preferredName || viewer.name,
           fullName: viewer.name,
@@ -57,4 +65,18 @@ export function AppShell({
       </footer>
     </div>
   );
+}
+
+/**
+ * Whether to show the Tasks link. A failed lookup hides it rather than
+ * breaking every page: the pages already show their own "could not load"
+ * banner when the database is down.
+ */
+async function canOpenTasks(viewer: Viewer): Promise<boolean> {
+  try {
+    return canAccessTasks(await getTaskActor(viewer));
+  } catch (error) {
+    console.error("Tasks access lookup failed:", error);
+    return false;
+  }
 }

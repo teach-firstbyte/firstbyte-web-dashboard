@@ -17,6 +17,7 @@ import {
   NewMeetingButton,
 } from "@/components/meetings/MeetingActionsMenu";
 import { MeetingRow } from "@/components/meetings/MeetingRow";
+import { MyTasksCard } from "@/components/tasks/MyTasksCard";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { isSuperAdmin } from "@/lib/auth/roles";
@@ -28,6 +29,8 @@ import {
   upcomingMeetings,
 } from "@/lib/meetings";
 import { getOfficerDashboard } from "@/server/dashboard/queries";
+import { getHomeTasks } from "@/server/tasks/home";
+import { canViewerUseTasks } from "@/server/tasks/queries";
 import type { Viewer } from "@/server/viewer";
 import type { Meeting } from "@/types/dashboard";
 
@@ -54,16 +57,24 @@ function recentLocations(meetings: Meeting[]) {
  * the approval queue, members to check on, then three numbers.
  */
 export async function OfficerDashboard({ user }: { user: Viewer }) {
+  // Started first and awaited after the try: it never throws, and a failed
+  // task query must not blank the rest of Home.
+  const myTasksLoad = getHomeTasks(user);
   let data = EMPTY;
+  let canUseTasks = false;
   let dbUnavailable = false;
   try {
     // One round of parallel queries, inside the service. If it fails, render
     // with empty data and the banner below.
-    data = await getOfficerDashboard(user);
+    [data, canUseTasks] = await Promise.all([
+      getOfficerDashboard(user),
+      canViewerUseTasks(user),
+    ]);
   } catch (error) {
     dbUnavailable = true;
     console.error("Database unavailable, rendering empty dashboard:", error);
   }
+  const myTasks = await myTasksLoad;
 
   const { pending, meetings, feedback, memberCount, missing } = data;
   const now = Date.now();
@@ -136,6 +147,7 @@ export async function OfficerDashboard({ user }: { user: Viewer }) {
               meeting={current.meeting}
               phase={current.phase}
               locations={locations}
+              canUseTasks={canUseTasks}
             />
           ) : (
             <Section title="Next up">
@@ -149,6 +161,8 @@ export async function OfficerDashboard({ user }: { user: Viewer }) {
               </EmptyState>
             </Section>
           )}
+
+          {myTasks && <MyTasksCard data={myTasks} />}
 
           <Section
             title="Coming up"

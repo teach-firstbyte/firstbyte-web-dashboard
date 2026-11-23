@@ -15,6 +15,7 @@ import { checkInWindow } from "@/lib/attendance/timing";
 import { meetingPhase } from "@/lib/meetings";
 import { listFeedbackForViewer } from "@/server/feedback/queries";
 import { listMeetingsForViewer } from "@/server/meetings/queries";
+import { canViewerUseTasks } from "@/server/tasks/queries";
 import type { Meeting } from "@/types/dashboard";
 
 /**
@@ -29,13 +30,16 @@ export default async function MeetingsPage() {
 
   let meetings: Meeting[] = [];
   let feedback: FeedbackStats = {};
+  let canUseTasks = false;
   let dbUnavailable = false;
   try {
-    const [rows, responses] = await Promise.all([
+    const [rows, responses, tasks] = await Promise.all([
       listMeetingsForViewer(user),
       mode === "officer" ? listFeedbackForViewer(user) : Promise.resolve([]),
+      mode === "officer" ? canViewerUseTasks(user) : Promise.resolve(false),
     ]);
     meetings = rows;
+    canUseTasks = tasks;
     // Average rating per meeting, for the Past list.
     const sums = new Map<number, { total: number; count: number }>();
     for (const f of responses) {
@@ -93,6 +97,7 @@ export default async function MeetingsPage() {
           meetings={meetings}
           feedback={feedback}
           locations={locations}
+          canUseTasks={canUseTasks}
         />
       ) : (
         <div className="rounded-2xl border bg-card p-5">
