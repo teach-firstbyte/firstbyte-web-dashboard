@@ -7,9 +7,9 @@ import { Banner } from "@/components/ui/banner";
 import { requireTaskAccess } from "@/lib/auth/requireTaskAccess";
 import { isSuperAdmin } from "@/lib/auth/roles";
 import { getViewMode } from "@/lib/auth/viewMode";
-import { parseOwnerFilter, parseTeamFilter } from "@/lib/tasks/board";
+import { parseBoardSettings } from "@/lib/tasks/board";
 import { getTaskBoard, type TaskBoardData } from "@/server/tasks/board";
-import { enumParam, firstParam } from "@/server/validation";
+import { firstParam } from "@/server/validation";
 
 export const metadata: Metadata = { title: "Tasks · FirstByte Dashboard" };
 
@@ -19,6 +19,10 @@ export const metadata: Metadata = { title: "Tasks · FirstByte Dashboard" };
  *
  * Approved e-board members and super admins only. requireTaskAccess sends
  * everyone else to Home, and the API refuses them on its own as well.
+ *
+ * "Only mine" starts on for regular e-board members and off for super admins
+ * (defaultMine in lib/tasks/board.ts). That only picks what the board shows
+ * first: anyone can turn it off and see everyone's tasks.
  */
 export default async function TasksPage({
   searchParams,
@@ -27,6 +31,7 @@ export default async function TasksPage({
 }) {
   const { user } = await requireTaskAccess();
   const params = await searchParams;
+  const superAdmin = isSuperAdmin(user);
 
   let board: TaskBoardData | null = null;
   try {
@@ -41,15 +46,12 @@ export default async function TasksPage({
         <TaskBoard
           {...board}
           viewerId={user.id}
-          canManageSlack={isSuperAdmin(user)}
-          initialFilters={{
-            view: enumParam(params.view, ["list"] as const) ?? "board",
-            groupBy: enumParam(params.group, ["team"] as const) ?? "owner",
-            mine: firstParam(params.mine) === "1",
-            showDone: firstParam(params.done) === "1",
-            ownerId: parseOwnerFilter(firstParam(params.person)),
-            teamId: parseTeamFilter(firstParam(params.team)),
-          }}
+          canManageSlack={superAdmin}
+          viewerIsSuperAdmin={superAdmin}
+          initialFilters={parseBoardSettings(
+            (key) => firstParam(params[key]),
+            superAdmin,
+          )}
         />
       ) : (
         <>

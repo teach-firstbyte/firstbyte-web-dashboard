@@ -13,6 +13,7 @@ import {
   afterFailedSend,
   dueDateWindow,
   eventRemindersFor,
+  reminderLinkQuery,
   reminderStillWanted,
   RETRY_AFTER_MS,
   scheduledRemindersDue,
@@ -75,8 +76,11 @@ type Tx = Prisma.TransactionClient;
 // ---------------------------------------------------------------------------
 // Message details
 
-/** Where "Open in dashboard" goes. Absolute: it leaves the app in a DM. */
-export function tasksUrl(): string {
+/**
+ * Where "Open in dashboard" goes. Absolute: it leaves the app in a DM.
+ * `query` ("?person=8", from reminderLinkQuery) goes on the end.
+ */
+export function tasksUrl(query = ""): string {
   const configured = process.env.NEXT_PUBLIC_APP_URL;
   const vercel = process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL;
   const origin = configured
@@ -84,7 +88,7 @@ export function tasksUrl(): string {
     : vercel
       ? `https://${vercel}`
       : "http://localhost:3000";
-  return `${origin}${withBasePath("/tasks")}`;
+  return `${origin}${withBasePath("/tasks")}${query}`;
 }
 
 type Person = { name: string | null; preferredName: string | null };
@@ -275,7 +279,9 @@ const scheduleTaskArgs = Prisma.validator<Prisma.TaskDefaultArgs>()({
 type ScheduleTask = Prisma.TaskGetPayload<typeof scheduleTaskArgs>;
 
 function scheduledText(task: ScheduleTask, r: PlannedReminder): string {
-  const url = tasksUrl();
+  // Plain /tasks for the owner. The creator's overdue note opens on the
+  // owner's tasks, since a regular member starts on "Only mine".
+  const url = tasksUrl(reminderLinkQuery(r.kind, task.ownerId));
   const dueDate = toDateOnly(task.dueDate);
   switch (r.kind) {
     case "DUE_SOON":

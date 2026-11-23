@@ -282,10 +282,10 @@ For now it lives only in the **FirstByte Slack Dev Sandbox** (`firstbyteslac-gtj
 
 - `slack-tasks-app/manifest.json`: the app's settings. It asks for two bot scopes, `chat:write` (send a message) and `im:write` (open a DM with someone). Nothing else. Its DM window is read-only (`features.app_home`: `messages_tab_enabled: true`, `messages_tab_read_only_enabled: true`): members can read the bot's DMs but can't type back, and the app has no scopes or endpoints for reading messages.
 - `src/lib/tasks/slack.ts`: `sendSlackDm(memberId, message)`, server-only. It opens a DM with `conversations.open`, then posts with `chat.postMessage`. It never throws. It resolves to `{ ok: true }` or `{ ok: false, error, retryable }`, so a caller can retry or mark a reminder "not delivered". Without a token it logs a line and sends nothing.
-- `src/lib/tasks/slack-messages.ts`: the DM texts from the mockup's Slack DMs screen (assigned, 2 days before, due today, overdue to the owner and to the creator, due date changed, reassigned away).
+- `src/lib/tasks/slack-messages.ts`: the DM texts from the mockup's Slack DMs screen (assigned, 2 days before, due today, overdue to the owner and to the creator, due date changed, reassigned away). The welcome DM is in `src/lib/tasks/slack-welcome.ts`.
 - `src/lib/tasks/slack-member-id.ts`: checks a member ID (`U` or `W`, then 8 to 11 letters or digits).
 - `slack_links` table (`SlackLink` in the schema): one row per linked person, with their member ID and which super admin set it. It's a separate table, not a column on `users`, so the ID can't ride along with the many reads of whole user rows. The database refuses a badly formed ID (a CHECK constraint) and the same ID on two people (unique). RLS is on, like every table.
-- `src/server/tasks/slack-links.ts`: the only code that reads member IDs. Listing, linking and unlinking are for super admins only. `slackMemberIdForDm(userId)` is for the reminder jobs: it returns null for anyone unlinked or no longer on the e-board.
+- `src/server/tasks/slack-links.ts`: the only code that reads member IDs. Listing, linking and unlinking are for super admins only. `slackMemberIdForDm(userId)` is for the reminder jobs and the welcome DM: it returns null for anyone unlinked or no longer on the e-board.
 - Everyone else gets a boolean instead: each task's `owner.slackConnected`, and `slackConnected` on `/api/tasks/owners`. False means "Not connected to Slack".
 
 ### Install it in the sandbox
@@ -321,6 +321,8 @@ The page lists every approved E-Board team member. Use **Link** to paste a membe
 
 Unlinked people show "Not connected to Slack" on the board and get no reminders. Their next reminder after linking goes out as usual.
 
+**Welcome DM.** Linking someone, or changing their member ID (say, for a new workspace), sends that person one hello DM from the bot. Saving the same ID again sends nothing. It says who the bot is, which DMs they'll get (assigned or due date changed, 2 days before, on the due date at 9am, overdue), and, for super admins only, when the weekly summary comes (the club's setting). It ends with an **Open your tasks** link and a note that they can't reply and should ask the president if anything's wrong. It goes out right after the response (Next's `after()`), so linking stays fast. A failed send is logged and dropped: the link is saved either way, and nothing about the welcome is recorded in the database. The success message on Slack setup says whether a welcome DM is on its way, or that none went out because `TASKS_SLACK_BOT_TOKEN` isn't set. Code: the text and the rule are pure functions in `src/lib/tasks/slack-welcome.ts` (tested in `slack-welcome.test.ts`), and the send is `src/server/tasks/slack-welcome.ts`.
+
 ### Reminders
 
 Every reminder is a DM, and every time is Boston time.
@@ -337,6 +339,7 @@ Every reminder is a DM, and every time is Boston time.
 - Nobody gets a DM about a change they made themselves, except "Assigned" (a task you make for yourself says "You have a new task").
 - Nothing goes out once a task is Done, or while it needs a new owner. A reminder already waiting is cancelled when it no longer fits (the task was reassigned, or its date moved).
 - A new owner or a new due date restarts the schedule from that moment (`tasks.reminders_from`). A task created, handed over or moved to a date that's today or already past gets only its event DM. A reminder day with no run at all is dropped, not sent late.
+- "Open in dashboard" goes to plain `/tasks`, where the owner starts on their own tasks. The overdue note to the creator is about someone else's task, so it opens on the owner's tasks instead (`/tasks?person=<ownerId>`, which has "Only mine" off).
 - Code: the rules are pure functions in `src/lib/tasks/reminders.ts` (tested in `reminders.test.ts`). Recording and sending are in `src/server/tasks/reminders.ts`.
 
 **Sent once.** Every DM is a row in `task_reminders` before it's sent. Its unique key is task, kind, recipient, due date and, for event DMs, the time of the change, so a job that runs twice records it once. A row is sent only by whoever moves it from `PENDING` to `SENDING`, so two runs at once can't both send it. A row stuck in `SENDING` for 15 minutes (the function died mid-send) is marked `FAILED`, not resent, because Slack may already have it.

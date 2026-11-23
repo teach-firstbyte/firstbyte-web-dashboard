@@ -27,15 +27,17 @@ import type { TaskView } from "./types";
  * marked Done drops off on that refresh.
  */
 export function MyTasksCard({ data }: { data: HomeTasks }) {
-  const allTasks = (
+  // Plain /tasks, so a regular member opens on their own tasks ("Only mine")
+  // and a super admin on everyone's. Not "All tasks": for most people it isn't.
+  const openTasks = (
     <Button asChild variant="link" size="sm" className="h-auto p-0">
-      <Link href="/tasks">All tasks →</Link>
+      <Link href="/tasks">Open Tasks →</Link>
     </Button>
   );
 
   if (data.kind === "unavailable") {
     return (
-      <Section title="My tasks" action={allTasks}>
+      <Section title="My tasks" action={openTasks}>
         <Banner variant="warning">
           Could not load your tasks right now. Try again in a moment.
         </Banner>
@@ -44,7 +46,7 @@ export function MyTasksCard({ data }: { data: HomeTasks }) {
   }
 
   return (
-    <Section title="My tasks" count={data.overdue} action={allTasks}>
+    <Section title="My tasks" count={data.overdue} action={openTasks}>
       <MyTaskList tasks={data.tasks} today={data.today} />
       {data.later > 0 && (
         <p className="text-sm text-muted-foreground">

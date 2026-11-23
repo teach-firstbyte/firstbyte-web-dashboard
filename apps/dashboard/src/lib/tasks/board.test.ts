@@ -4,17 +4,22 @@ import { test } from "node:test";
 import {
   addDays,
   daysFrom,
+  defaultMine,
   dueLabel,
   filterKanban,
+  filtersToQuery,
   groupTasks,
   isDueThisWeek,
   isKanbanFiltered,
   kanbanColumns,
   ownerFilterParam,
+  parseBoardSettings,
   parseOwnerFilter,
   parseTeamFilter,
+  personBoardQuery,
   summarize,
   type BoardFilters,
+  type BoardSettings,
   type BoardTaskFields,
   type KanbanFilters,
 } from "./board.ts";
@@ -257,5 +262,125 @@ test("kanban: person and team filters round-trip through the URL", () => {
   for (const bad of [undefined, "", "0", "-3", "1.5", "abc", "1e3"]) {
     assert.equal(parseOwnerFilter(bad), null);
     assert.equal(parseTeamFilter(bad), null);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// "Only mine" by default, and the URL
+
+const MEMBER = false;
+const SUPER_ADMIN = true;
+
+/** The page's parse of a query string. */
+function parse(query: string, superAdmin: boolean): BoardSettings {
+  const params = new URLSearchParams(query);
+  return parseBoardSettings((k) => params.get(k) ?? undefined, superAdmin);
+}
+
+const BOARD: BoardSettings = {
+  view: "board",
+  groupBy: "owner",
+  mine: false,
+  showDone: false,
+  ownerId: null,
+  teamId: null,
+};
+
+test("only mine: on by default for members, off for super admins", () => {
+  assert.equal(parse("", MEMBER).mine, true);
+  assert.equal(parse("view=list", MEMBER).mine, true);
+  assert.equal(parse("", SUPER_ADMIN).mine, false);
+  assert.equal(parse("view=list", SUPER_ADMIN).mine, false);
+});
+
+test("only mine: mine=1 and mine=0 say it either way, for anyone", () => {
+  for (const who of [MEMBER, SUPER_ADMIN]) {
+    assert.equal(parse("mine=1", who).mine, true);
+    assert.equal(parse("mine=0", who).mine, false);
+    assert.equal(parse("view=list&mine=0", who).mine, false);
+    assert.equal(parse("view=list&mine=1", who).mine, true);
+    // Anything else is the default.
+    assert.equal(parse("mine=yes", who).mine, !who);
+  }
+});
+
+test("only mine: a link to a person or team shows them, for members too", () => {
+  assert.equal(parse("person=8", MEMBER).mine, false);
+  assert.equal(parse("person=needs-owner", MEMBER).mine, false);
+  assert.equal(parse("team=3", MEMBER).mine, false);
+  assert.equal(parse("team=none", MEMBER).mine, false);
+  assert.equal(parse("team=3&mine=1", MEMBER).mine, true);
+  // List has no person or team filter, so they don't change its default.
+  assert.equal(parse("view=list&person=8", MEMBER).mine, true);
+  // A junk person is no person.
+  assert.equal(parse("person=abc", MEMBER).mine, true);
+  assert.equal(defaultMine(MEMBER, BOARD), true);
+  assert.equal(defaultMine(MEMBER, { ...BOARD, ownerId: 8 }), false);
+  assert.equal(defaultMine(SUPER_ADMIN, BOARD), false);
+});
+
+test("the URL writes only what differs from this person's default", () => {
+  // Each person's default writes nothing, so /tasks stays /tasks.
+  assert.equal(filtersToQuery({ ...BOARD, mine: true }, MEMBER), "");
+  assert.equal(filtersToQuery(BOARD, SUPER_ADMIN), "");
+  // Turned off by a member, or on by a super admin.
+  assert.equal(filtersToQuery(BOARD, MEMBER), "?mine=0");
+  assert.equal(
+    filtersToQuery({ ...BOARD, mine: true }, SUPER_ADMIN),
+    "?mine=1",
+  );
+  // A person or team: off is the default, on is written.
+  assert.equal(filtersToQuery({ ...BOARD, ownerId: 8 }, MEMBER), "?person=8");
+  assert.equal(
+    filtersToQuery({ ...BOARD, teamId: 3, mine: true }, MEMBER),
+    "?team=3&mine=1",
+  );
+  // List ignores the board's person filter, and its default is the role's.
+  const list: BoardSettings = { ...BOARD, view: "list", ownerId: 8 };
+  assert.equal(filtersToQuery(list, MEMBER), "?view=list&mine=0");
+  assert.equal(filtersToQuery({ ...list, mine: true }, MEMBER), "?view=list");
+  assert.equal(
+    filtersToQuery({ ...list, groupBy: "team", showDone: true }, SUPER_ADMIN),
+    "?view=list&group=team&done=1",
+  );
+});
+
+test("settings survive a round trip through the URL, for both roles", () => {
+  const cases: BoardSettings[] = [];
+  for (const mine of [true, false]) {
+    for (const ownerId of [null, 8, "needsOwner"] as const) {
+      for (const teamId of [null, 3, "none"] as const) {
+        cases.push({ ...BOARD, mine, ownerId, teamId });
+      }
+    }
+    for (const groupBy of ["owner", "team"] as const) {
+      for (const showDone of [true, false]) {
+        cases.push({ ...BOARD, view: "list", mine, groupBy, showDone });
+      }
+    }
+  }
+  for (const who of [MEMBER, SUPER_ADMIN]) {
+    for (const settings of cases) {
+      const query = filtersToQuery(settings, who);
+      assert.deepEqual(parse(query.slice(1), who), settings, query);
+    }
+  }
+});
+
+test("the old ?mine=1 links still mean on", () => {
+  assert.equal(parse("mine=1", MEMBER).mine, true);
+  assert.equal(parse("mine=1", SUPER_ADMIN).mine, true);
+});
+
+test("a link to one person's tasks opens on them, Only mine off, for anyone", () => {
+  const query = personBoardQuery(8);
+  assert.equal(query, "?person=8");
+  for (const who of [MEMBER, SUPER_ADMIN]) {
+    const settings = parse(query.slice(1), who);
+    assert.equal(settings.view, "board");
+    assert.equal(settings.ownerId, 8);
+    assert.equal(settings.mine, false);
+    // And it's the URL the board itself writes for that view.
+    assert.equal(filtersToQuery(settings, who), query);
   }
 });
