@@ -335,3 +335,85 @@ function positiveInt(raw: string | undefined): number | null {
   const n = Number(raw);
   return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
+
+// ---------------------------------------------------------------------------
+// The URL
+
+/**
+ * Whether "Only mine" is on when the URL doesn't say.
+ *
+ * Regular e-board members start on their own tasks, super admins (the
+ * president, VP and website lead) on everyone's. A Board link that already
+ * picks a person or a team starts with it off for everyone, so it shows what
+ * it points at. This only decides what the board shows first: every e-board
+ * member can still read every task.
+ */
+export function defaultMine(
+  superAdmin: boolean,
+  f: Pick<BoardSettings, "view" | "ownerId" | "teamId">,
+): boolean {
+  if (superAdmin) return false;
+  const picksSomeone =
+    f.view === "board" && (f.ownerId !== null || f.teamId !== null);
+  return !picksSomeone;
+}
+
+/** Reads one URL query value, the first if there are several. */
+export type BoardQuery = (key: string) => string | undefined;
+
+/**
+ * The board's settings from the URL. `mine=1` is on, `mine=0` is off, and no
+ * `mine` (or anything else) is this person's default, from defaultMine.
+ */
+export function parseBoardSettings(
+  get: BoardQuery,
+  superAdmin: boolean,
+): BoardSettings {
+  const view: BoardView = get("view") === "list" ? "list" : "board";
+  const ownerId = parseOwnerFilter(get("person"));
+  const teamId = parseTeamFilter(get("team"));
+  const mine = get("mine");
+  return {
+    view,
+    groupBy: get("group") === "team" ? "team" : "owner",
+    mine:
+      mine === "1"
+        ? true
+        : mine === "0"
+          ? false
+          : defaultMine(superAdmin, { view, ownerId, teamId }),
+    showDone: get("done") === "1",
+    ownerId,
+    teamId,
+  };
+}
+
+/**
+ * The URL query for the board's settings, so a reload or a shared link keeps
+ * them. Only what differs from the defaults is written: Board is the default
+ * view, the person and team filters belong to it, and the grouping and "Show
+ * done" to List. "Only mine" is written (`mine=1` or `mine=0`) only when it
+ * differs from this person's default, so parseBoardSettings reads the same
+ * settings back.
+ */
+export function filtersToQuery(f: BoardSettings, superAdmin: boolean): string {
+  const q = new URLSearchParams();
+  let ownerId: KanbanFilters["ownerId"] = null;
+  let teamId: KanbanFilters["teamId"] = null;
+  if (f.view === "list") {
+    q.set("view", "list");
+    if (f.groupBy === "team") q.set("group", "team");
+    if (f.showDone) q.set("done", "1");
+  } else {
+    const person = ownerFilterParam(f.ownerId);
+    if (person) q.set("person", person);
+    if (f.teamId !== null) q.set("team", String(f.teamId));
+    ownerId = f.ownerId;
+    teamId = f.teamId;
+  }
+  if (f.mine !== defaultMine(superAdmin, { view: f.view, ownerId, teamId })) {
+    q.set("mine", f.mine ? "1" : "0");
+  }
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}

@@ -18,6 +18,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { TaskStatusValue } from "@/lib/enums";
 import {
+  filtersToQuery,
   groupTasks,
   isKanbanFiltered,
   ownerFilterParam,
@@ -41,27 +42,6 @@ import {
   type BoardTeam,
 } from "./types";
 
-/**
- * The board's view settings, kept in the URL so a reload or a shared link
- * keeps them. Board is the default view; the person and team filters belong
- * to it, and the grouping and "Show done" to List.
- */
-export function filtersToQuery(f: BoardSettings): string {
-  const q = new URLSearchParams();
-  if (f.view === "list") {
-    q.set("view", "list");
-    if (f.groupBy === "team") q.set("group", "team");
-    if (f.showDone) q.set("done", "1");
-  } else {
-    const person = ownerFilterParam(f.ownerId);
-    if (person) q.set("person", person);
-    if (f.teamId !== null) q.set("team", String(f.teamId));
-  }
-  if (f.mine) q.set("mine", "1");
-  const s = q.toString();
-  return s ? `?${s}` : "";
-}
-
 type PanelState = { kind: "new" } | { kind: "task"; id: number } | null;
 
 /**
@@ -72,6 +52,10 @@ type PanelState = { kind: "new" } | { kind: "task"; id: number } | null;
  * then router.refresh(), so the board is always the server's answer. A
  * status change shows at once (useOptimistic) and settles when the refresh
  * lands.
+ *
+ * The view settings live in the URL (filtersToQuery in lib/tasks/board.ts).
+ * "Only mine" starts on for regular members and off for super admins; picking
+ * a person or a team on the Board turns it off, so it shows who you picked.
  */
 export function TaskBoard({
   tasks,
@@ -81,6 +65,7 @@ export function TaskBoard({
   today,
   viewerId,
   canManageSlack,
+  viewerIsSuperAdmin,
   initialFilters,
 }: {
   tasks: BoardTask[];
@@ -91,6 +76,8 @@ export function TaskBoard({
   viewerId: number;
   /** A super admin, who gets the link to Slack setup. Decided on the server. */
   canManageSlack: boolean;
+  /** Decides "Only mine"'s default, and so what the URL leaves out. */
+  viewerIsSuperAdmin: boolean;
   initialFilters: BoardSettings;
 }) {
   const router = useRouter();
@@ -118,7 +105,7 @@ export function TaskBoard({
     window.history.replaceState(
       null,
       "",
-      `${window.location.pathname}${filtersToQuery(merged)}`,
+      `${window.location.pathname}${filtersToQuery(merged, viewerIsSuperAdmin)}`,
     );
   };
 
@@ -217,22 +204,24 @@ export function TaskBoard({
             <FilterSelect
               label="Person"
               active={filters.mine || filters.ownerId !== null}
-              disabled={filters.mine}
               value={
                 filters.mine
                   ? "mine"
                   : (ownerFilterParam(filters.ownerId) ?? "")
               }
-              onChange={(value) =>
+              // Picking anyone, Everyone included, turns "Only mine" off.
+              onChange={(value) => {
+                if (value === "mine") return;
                 updateFilters({
+                  mine: false,
                   ownerId:
                     value === ""
                       ? null
                       : value === "needs-owner"
                         ? "needsOwner"
                         : Number(value),
-                })
-              }
+                });
+              }}
             >
               <NativeSelectOption value="">Everyone</NativeSelectOption>
               {filters.mine && (
@@ -252,15 +241,17 @@ export function TaskBoard({
               label="Team"
               active={filters.teamId !== null}
               value={filters.teamId === null ? "" : String(filters.teamId)}
+              // Picking a team shows everyone's tasks in it. "Only mine" can
+              // be turned back on after, for just yours.
               onChange={(value) =>
-                updateFilters({
-                  teamId:
-                    value === ""
-                      ? null
-                      : value === "none"
-                        ? "none"
-                        : Number(value),
-                })
+                updateFilters(
+                  value === ""
+                    ? { teamId: null }
+                    : {
+                        mine: false,
+                        teamId: value === "none" ? "none" : Number(value),
+                      },
+                )
               }
             >
               <NativeSelectOption value="">All teams</NativeSelectOption>
