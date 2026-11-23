@@ -78,12 +78,16 @@ export async function listSlackSetup(viewer: Viewer): Promise<SlackSetupRow[]> {
  * - One Slack account per person: an ID already linked to someone else is a
  *   CONFLICT that names them, so a mix-up can't send one person's reminders
  *   to another.
+ *
+ * Also returns the member ID they had before (null if they weren't linked),
+ * so the route can tell a new link from a re-save of the same ID and send
+ * the welcome DM only for the first (lib/tasks/slack-welcome.ts).
  */
 export async function setSlackLink(
   viewer: Viewer,
   userId: number,
   rawSlackUserId: string,
-): Promise<SlackSetupRow> {
+): Promise<SlackSetupRow & { previousSlackUserId: string | null }> {
   await assertSlackAdmin(viewer);
 
   const slackUserId = normalizeSlackMemberId(rawSlackUserId);
@@ -111,6 +115,11 @@ export async function setSlackLink(
     );
   }
 
+  const before = await prisma.slackLink.findUnique({
+    where: { userId },
+    select: { slackUserId: true },
+  });
+
   const link = await prisma.slackLink.upsert({
     where: { userId },
     create: { userId, slackUserId, linkedById: viewer.id },
@@ -128,6 +137,7 @@ export async function setSlackLink(
     preferredName: link.user.preferredName,
     email: link.user.email,
     slackUserId: link.slackUserId,
+    previousSlackUserId: before?.slackUserId ?? null,
   };
 }
 
@@ -150,9 +160,10 @@ export async function removeSlackLink(
  * The member ID to DM, or null when there's no one to send to: not linked,
  * or no longer an approved e-board member.
  *
- * For the reminder jobs (#138, #139), which run with no signed-in viewer.
- * Never call it from a route or page, and never send what it returns to a
- * browser.
+ * For the reminder jobs (#138, #139), which run with no signed-in viewer, and
+ * the welcome DM (server/tasks/slack-welcome.ts), which the link route sends
+ * after its response. Never call it to answer a request, and never send what
+ * it returns to a browser.
  */
 export async function slackMemberIdForDm(
   userId: number,

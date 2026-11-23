@@ -23,6 +23,7 @@ import {
   SLACK_MEMBER_ID_ERROR,
   normalizeSlackMemberId,
 } from "@/lib/tasks/slack-member-id";
+import { linkedDescription, type WelcomeDm } from "@/lib/tasks/slack-welcome";
 import { cn } from "@/lib/utils";
 
 /** What the page passes in: one approved e-board member. */
@@ -35,7 +36,11 @@ export type SlackLinkRow = {
 
 const HINT = "In Slack: open their profile, click ⋮, then Copy member ID.";
 
-async function send(userId: number, method: "PUT" | "DELETE", body?: unknown) {
+async function send(
+  userId: number,
+  method: "PUT" | "DELETE",
+  body?: unknown,
+): Promise<Response> {
   const res = await fetch(withBasePath(`/api/tasks/slack/${userId}`), {
     method,
     headers: body ? { "Content-Type": "application/json" } : undefined,
@@ -45,6 +50,20 @@ async function send(userId: number, method: "PUT" | "DELETE", body?: unknown) {
     const data = await res.json().catch(() => null);
     throw new Error(data?.error ?? "That didn't save. Try again.");
   }
+  return res;
+}
+
+const WELCOME_DM: readonly WelcomeDm[] = [
+  "sending",
+  "no_bot_token",
+  "not_needed",
+];
+
+/** The PUT's `welcomeDm`, or null if the answer didn't say. */
+async function welcomeDmOf(res: Response): Promise<WelcomeDm | null> {
+  const data = await res.json().catch(() => null);
+  const value = data?.welcomeDm;
+  return WELCOME_DM.includes(value) ? value : null;
 }
 
 const firstName = (name: string) => name.split(/\s+/)[0] || name;
@@ -94,10 +113,14 @@ export function SlackLinksTable({ rows }: { rows: SlackLinkRow[] }) {
     }
     setPending(true);
     try {
-      await send(row.userId, "PUT", { slackUserId: id });
+      const welcome = await welcomeDmOf(
+        await send(row.userId, "PUT", { slackUserId: id }),
+      );
       stopEditing();
       toast.success(`Linked ${row.name}`, {
-        description: `${firstName(row.name)} gets reminders from the next one on.`,
+        description: welcome
+          ? linkedDescription(row.name, welcome)
+          : `${firstName(row.name)} gets reminders from the next one on.`,
       });
       router.refresh();
     } catch (err) {

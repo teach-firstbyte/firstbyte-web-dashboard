@@ -282,10 +282,10 @@ For now it lives only in the **FirstByte Slack Dev Sandbox** (`firstbyteslac-gtj
 
 - `slack-tasks-app/manifest.json`: the app's settings. It asks for two bot scopes, `chat:write` (send a message) and `im:write` (open a DM with someone). Nothing else. Its DM window is read-only (`features.app_home`: `messages_tab_enabled: true`, `messages_tab_read_only_enabled: true`): members can read the bot's DMs but can't type back, and the app has no scopes or endpoints for reading messages.
 - `src/lib/tasks/slack.ts`: `sendSlackDm(memberId, message)`, server-only. It opens a DM with `conversations.open`, then posts with `chat.postMessage`. It never throws. It resolves to `{ ok: true }` or `{ ok: false, error, retryable }`, so a caller can retry or mark a reminder "not delivered". Without a token it logs a line and sends nothing.
-- `src/lib/tasks/slack-messages.ts`: the DM texts from the mockup's Slack DMs screen (assigned, 2 days before, due today, overdue to the owner and to the creator, due date changed, reassigned away).
+- `src/lib/tasks/slack-messages.ts`: the DM texts from the mockup's Slack DMs screen (assigned, 2 days before, due today, overdue to the owner and to the creator, due date changed, reassigned away). The welcome DM is in `src/lib/tasks/slack-welcome.ts`.
 - `src/lib/tasks/slack-member-id.ts`: checks a member ID (`U` or `W`, then 8 to 11 letters or digits).
 - `slack_links` table (`SlackLink` in the schema): one row per linked person, with their member ID and which super admin set it. It's a separate table, not a column on `users`, so the ID can't ride along with the many reads of whole user rows. The database refuses a badly formed ID (a CHECK constraint) and the same ID on two people (unique). RLS is on, like every table.
-- `src/server/tasks/slack-links.ts`: the only code that reads member IDs. Listing, linking and unlinking are for super admins only. `slackMemberIdForDm(userId)` is for the reminder jobs: it returns null for anyone unlinked or no longer on the e-board.
+- `src/server/tasks/slack-links.ts`: the only code that reads member IDs. Listing, linking and unlinking are for super admins only. `slackMemberIdForDm(userId)` is for the reminder jobs and the welcome DM: it returns null for anyone unlinked or no longer on the e-board.
 - Everyone else gets a boolean instead: each task's `owner.slackConnected`, and `slackConnected` on `/api/tasks/owners`. False means "Not connected to Slack".
 
 ### Install it in the sandbox
@@ -320,6 +320,8 @@ Open **Tasks → Slack setup** (`/dashboard/tasks/slack`). Only super admins (th
 The page lists every approved E-Board team member. Use **Link** to paste a member ID, **Change** to replace it and **Unlink** to remove it. A bad ID is refused with a message saying where to find the real one. An ID already linked to someone else is refused too, naming that person. Someone who isn't on the E-Board team can't be linked. Deleting an account removes its link.
 
 Unlinked people show "Not connected to Slack" on the board and get no reminders. Their next reminder after linking goes out as usual.
+
+**Welcome DM.** Linking someone, or changing their member ID (say, for a new workspace), sends that person one hello DM from the bot. Saving the same ID again sends nothing. It says who the bot is, which DMs they'll get (assigned or due date changed, 2 days before, on the due date at 9am, overdue), and, for super admins only, when the weekly summary comes (the club's setting). It ends with an **Open your tasks** link and a note that they can't reply and should ask the president if anything's wrong. It goes out right after the response (Next's `after()`), so linking stays fast. A failed send is logged and dropped: the link is saved either way, and nothing about the welcome is recorded in the database. The success message on Slack setup says whether a welcome DM is on its way, or that none went out because `TASKS_SLACK_BOT_TOKEN` isn't set. Code: the text and the rule are pure functions in `src/lib/tasks/slack-welcome.ts` (tested in `slack-welcome.test.ts`), and the send is `src/server/tasks/slack-welcome.ts`.
 
 ### Reminders
 

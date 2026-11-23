@@ -56,7 +56,8 @@ export default async function SlackSetupPage() {
             Linked by hand. Nothing is matched by email. The IDs are for the
             workspace the bot is installed in, the FirstByte Slack Dev Sandbox
             for now. People who aren&apos;t linked show &ldquo;Not connected to
-            Slack&rdquo; on the board and get no reminders.
+            Slack&rdquo; on the board and get no reminders. Linking someone, or
+            changing their ID, sends them one welcome DM from the bot.
           </p>
           <SlackLinksTable rows={rows} />
         </Section>
