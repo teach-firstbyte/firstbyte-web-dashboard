@@ -339,6 +339,7 @@ Every reminder is a DM, and every time is Boston time.
 - Nobody gets a DM about a change they made themselves, except "Assigned" (a task you make for yourself says "You have a new task").
 - Nothing goes out once a task is Done, or while it needs a new owner. A reminder already waiting is cancelled when it no longer fits (the task was reassigned, or its date moved).
 - A new owner or a new due date restarts the schedule from that moment (`tasks.reminders_from`). A task created, handed over or moved to a date that's today or already past gets only its event DM. A reminder day with no run at all is dropped, not sent late.
+- "Open in dashboard" goes to plain `/tasks`, where the owner starts on their own tasks. The overdue note to the creator is about someone else's task, so it opens on the owner's tasks instead (`/tasks?person=<ownerId>`, which has "Only mine" off).
 - Code: the rules are pure functions in `src/lib/tasks/reminders.ts` (tested in `reminders.test.ts`). Recording and sending are in `src/server/tasks/reminders.ts`.
 
 **Sent once.** Every DM is a row in `task_reminders` before it's sent. Its unique key is task, kind, recipient, due date and, for event DMs, the time of the change, so a job that runs twice records it once. A row is sent only by whoever moves it from `PENDING` to `SENDING`, so two runs at once can't both send it. A row stuck in `SENDING` for 15 minutes (the function died mid-send) is marked `FAILED`, not resent, because Slack may already have it.

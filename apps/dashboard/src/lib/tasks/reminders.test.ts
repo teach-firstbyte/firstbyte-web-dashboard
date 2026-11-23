@@ -8,12 +8,15 @@ import {
   dueDateWindow,
   eventRemindersFor,
   isReminderUndelivered,
+  reminderLinkQuery,
   reminderStillWanted,
   scheduledRemindersDue,
   type CurrentTask,
+  type ReminderKind,
   type ReminderTask,
   type TaskSnapshot,
 } from "./reminders.ts";
+import { parseBoardSettings } from "./board.ts";
 
 // 2026: daylight saving starts Sunday March 8 and ends Sunday November 1.
 // 9am Boston is 13:00 UTC in summer (EDT) and 14:00 UTC in winter (EST).
@@ -625,5 +628,39 @@ describe("isReminderUndelivered", () => {
       isReminderUndelivered({ ...open, status: "DONE" }, [r("FAILED", OWNER)]),
       false,
     );
+  });
+});
+
+describe("reminderLinkQuery", () => {
+  const OWNER_ID = 13;
+
+  test("the creator's overdue note opens on the owner's tasks, Only mine off", () => {
+    const query = reminderLinkQuery("OVERDUE_CREATOR", OWNER_ID);
+    assert.equal(query, "?person=13");
+    // What /tasks makes of it for a regular member (as the creator may be)
+    // and for a super admin: the owner's tasks, with "Only mine" off.
+    const params = new URLSearchParams(query);
+    for (const superAdmin of [false, true]) {
+      const settings = parseBoardSettings(
+        (k) => params.get(k) ?? undefined,
+        superAdmin,
+      );
+      assert.equal(settings.ownerId, OWNER_ID);
+      assert.equal(settings.mine, false);
+    }
+  });
+
+  test("every DM to the owner links to plain /tasks", () => {
+    const ownerKinds: ReminderKind[] = [
+      "ASSIGNED",
+      "DUE_DATE_CHANGED",
+      "REASSIGNED_AWAY",
+      "DUE_SOON",
+      "DUE_TODAY",
+      "OVERDUE_OWNER",
+    ];
+    for (const kind of ownerKinds) {
+      assert.equal(reminderLinkQuery(kind, OWNER_ID), "", kind);
+    }
   });
 });

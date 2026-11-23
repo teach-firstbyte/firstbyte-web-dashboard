@@ -13,6 +13,7 @@ import {
   taskOverdueOwnerMessage,
   taskReassignedAwayMessage,
 } from "./slack-messages.ts";
+import { personBoardQuery } from "./board.ts";
 
 const DASHBOARD_URL = "https://teachfirstbyte.com/dashboard/tasks";
 const LINK = `<${DASHBOARD_URL}|Open in dashboard>`;
@@ -138,6 +139,20 @@ test("overdue, to the creator", () => {
       "Heads up: *Count robotics kits after the STEM workshop*, owned by Alex Kim, was due yesterday.",
       LINK,
     ].join("\n"),
+  );
+});
+
+test("overdue, to the creator, links to the owner's tasks on the board", () => {
+  // The reminder job passes tasksUrl(personBoardQuery(ownerId)), so a
+  // creator who starts on "Only mine" still lands on the task.
+  const { text } = taskOverdueCreatorMessage({
+    title: "Count robotics kits after the STEM workshop",
+    ownerName: "Alex Kim",
+    url: `${DASHBOARD_URL}${personBoardQuery(13)}`,
+  });
+  assert.equal(
+    text.split("\n")[1],
+    `<${DASHBOARD_URL}?person=13|Open in dashboard>`,
   );
 });
 

@@ -417,3 +417,13 @@ export function filtersToQuery(f: BoardSettings, superAdmin: boolean): string {
   const s = q.toString();
   return s ? `?${s}` : "";
 }
+
+/**
+ * The query for a link to one person's tasks on the Board: "?person=8". It
+ * opens with "Only mine" off for anyone (defaultMine), so a DM to someone
+ * about a task they don't own, like the overdue note to its creator, lands
+ * where they can see it.
+ */
+export function personBoardQuery(ownerId: number): string {
+  return `?person=${encodeURIComponent(String(ownerId))}`;
+}

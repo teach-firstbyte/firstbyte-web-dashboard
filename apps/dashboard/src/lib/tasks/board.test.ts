@@ -16,6 +16,7 @@ import {
   parseBoardSettings,
   parseOwnerFilter,
   parseTeamFilter,
+  personBoardQuery,
   summarize,
   type BoardFilters,
   type BoardSettings,
@@ -369,4 +370,17 @@ test("settings survive a round trip through the URL, for both roles", () => {
 test("the old ?mine=1 links still mean on", () => {
   assert.equal(parse("mine=1", MEMBER).mine, true);
   assert.equal(parse("mine=1", SUPER_ADMIN).mine, true);
+});
+
+test("a link to one person's tasks opens on them, Only mine off, for anyone", () => {
+  const query = personBoardQuery(8);
+  assert.equal(query, "?person=8");
+  for (const who of [MEMBER, SUPER_ADMIN]) {
+    const settings = parse(query.slice(1), who);
+    assert.equal(settings.view, "board");
+    assert.equal(settings.ownerId, 8);
+    assert.equal(settings.mine, false);
+    // And it's the URL the board itself writes for that view.
+    assert.equal(filtersToQuery(settings, who), query);
+  }
 });

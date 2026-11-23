@@ -4,8 +4,8 @@
  * caller passes `now`. server/tasks/reminders.ts records and sends what these
  * decide, and reminders.test.ts covers them.
  *
- * Imports nothing but lib/format.ts (itself import-free), so `node --test`
- * loads it as it is.
+ * Imports nothing but lib/format.ts and lib/tasks/board.ts (both
+ * import-free), so `node --test` loads it as it is.
  *
  * Dates are "YYYY-MM-DD" days with no time, as TaskView sends dueDate. Every
  * "today" and "9am" is Boston time (America/New_York), whatever the server's
@@ -13,6 +13,7 @@
  */
 
 import { CLUB_TIME_ZONE } from "../format.ts";
+import { personBoardQuery } from "./board.ts";
 
 /** Scheduled reminders go out from this hour, Boston time. */
 export const REMINDER_HOUR = 9;
@@ -362,4 +363,17 @@ export function isReminderUndelivered(
     if (r.status === "FAILED") return true;
   }
   return false;
+}
+
+/**
+ * The query on a reminder's "Open in dashboard" link, after tasksUrl().
+ *
+ * Every reminder but one goes to the task's owner, about their own task,
+ * which the board shows them from the start, so its link stays plain /tasks.
+ * The overdue note to the creator is about someone else's task, and a regular
+ * member starts on "Only mine", so it opens on the owner's tasks instead
+ * (personBoardQuery turns "Only mine" off). "No longer yours" has no link.
+ */
+export function reminderLinkQuery(kind: ReminderKind, ownerId: number): string {
+  return kind === "OVERDUE_CREATOR" ? personBoardQuery(ownerId) : "";
 }
